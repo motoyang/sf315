@@ -69,123 +69,53 @@ void MainWindow::initToolbar()
 
 void MainWindow::init(LuaPlot* customPlot)
 {
-/*    customPlot->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom);
-    QCPGraph *graph = customPlot->addGraph();
-    int n = 500;
-    double phase = 0;
-    double k = 3;
-    QVector<double> x(n), y(n);
-    for (int i=0; i<n; ++i)
+    // configure axis rect:
+    customPlot->setInteractions(QCP::iRangeDrag|QCP::iRangeZoom); // this will also allow rescaling the color scale by dragging/zooming
+    customPlot->axisRect()->setupFullAxesBox(true);
+    customPlot->xAxis->setLabel("x");
+    customPlot->yAxis->setLabel("y");
+
+    // set up the QCPColorMap:
+    QCPColorMap *colorMap = new QCPColorMap(customPlot->xAxis, customPlot->yAxis);
+    int nx = 200;
+    int ny = 200;
+    colorMap->data()->setSize(nx, ny); // we want the color map to have nx * ny data points
+    colorMap->data()->setRange(QCPRange(-4, 4), QCPRange(-4, 4)); // and span the coordinate range -4..4 in both key (x) and value (y) dimensions
+    // now we assign some data, by accessing the QCPColorMapData instance of the color map:
+    double x, y, z;
+    for (int xIndex=0; xIndex<nx; ++xIndex)
     {
-      x[i] = i/(double)(n-1)*34 - 17;
-      y[i] = qExp(-x[i]*x[i]/20.0)*qSin(k*x[i]+phase);
+      for (int yIndex=0; yIndex<ny; ++yIndex)
+      {
+        colorMap->data()->cellToCoord(xIndex, yIndex, &x, &y);
+        double r = 3*qSqrt(x*x+y*y)+1e-2;
+        z = 2*x*(qCos(r+2)/r-qSin(r+2)/r); // the B field strength of dipole radiation (modulo physical constants)
+        colorMap->data()->setCell(xIndex, yIndex, z);
+      }
     }
-    graph->setData(x, y);
-    graph->setPen(QPen(Qt::blue));
-    graph->rescaleKeyAxis();
-    customPlot->yAxis->setRange(-1.45, 1.65);
-    customPlot->xAxis->grid()->setZeroLinePen(Qt::NoPen);
 
-    // add the bracket at the top:
-    QCPItemBracket *bracket = new QCPItemBracket(customPlot);
-    bracket->left->setCoords(-8, 1.1);
-    bracket->right->setCoords(8, 1.1);
-    bracket->setLength(13);
+    // add a color scale:
+    QCPColorScale *colorScale = new QCPColorScale(customPlot);
+    customPlot->plotLayout()->addElement(0, 1, colorScale); // add it to the right of the main axis rect
+    colorScale->setType(QCPAxis::atRight); // scale shall be vertical bar with tick/axis labels right (actually atRight is already the default)
+    colorMap->setColorScale(colorScale); // associate the color map with the color scale
+    colorScale->axis()->setLabel("Magnetic Field Strength");
 
-    // add the text label at the top:
-    QCPItemText *wavePacketText = new QCPItemText(customPlot);
-    wavePacketText->position->setParentAnchor(bracket->center);
-    wavePacketText->position->setCoords(0, -10); // move 10 pixels to the top from bracket center anchor
-    wavePacketText->setPositionAlignment(Qt::AlignBottom|Qt::AlignHCenter);
-    wavePacketText->setText("Wavepacket");
-    wavePacketText->setFont(QFont(font().family(), 10));
-/////
+    // set the color gradient of the color map to one of the presets:
+    colorMap->setGradient(QCPColorGradient::gpPolar);
+    // we could have also created a QCPColorGradient instance and added own colors to
+    // the gradient, see the documentation of QCPColorGradient for what's possible.
 
-    // add the phase tracer (red circle) which sticks to the graph data (and gets updated in bracketDataSlot by timer event):
-    QCPItemTracer *phaseTracer = new QCPItemTracer(customPlot);
-    itemDemoPhaseTracer = phaseTracer; // so we can access it later in the bracketDataSlot for animation
-    phaseTracer->setGraph(graph);
-    phaseTracer->setGraphKey((M_PI*1.5-phase)/k);
-    phaseTracer->setInterpolating(true);
-    phaseTracer->setStyle(QCPItemTracer::tsCircle);
-    phaseTracer->setPen(QPen(Qt::red));
-    phaseTracer->setBrush(Qt::red);
-    phaseTracer->setSize(7);
+    // rescale the data dimension (color) such that all data points lie in the span visualized by the color gradient:
+    colorMap->rescaleDataRange();
 
-    // add label for phase tracer:
-    QCPItemText *phaseTracerText = new QCPItemText(customPlot);
-    phaseTracerText->position->setType(QCPItemPosition::ptAxisRectRatio);
-    phaseTracerText->setPositionAlignment(Qt::AlignRight|Qt::AlignBottom);
-    phaseTracerText->position->setCoords(1.0, 0.95); // lower right corner of axis rect
-    phaseTracerText->setText("Points of fixed\nphase define\nphase velocity vp");
-    phaseTracerText->setTextAlignment(Qt::AlignLeft);
-    phaseTracerText->setFont(QFont(font().family(), 9));
-    phaseTracerText->setPadding(QMargins(8, 0, 0, 0));
+    // make sure the axis rect and color scale synchronize their bottom and top margins (so they line up):
+    QCPMarginGroup *marginGroup = new QCPMarginGroup(customPlot);
+    customPlot->axisRect()->setMarginGroup(QCP::msBottom|QCP::msTop, marginGroup);
+    colorScale->setMarginGroup(QCP::msBottom|QCP::msTop, marginGroup);
 
-    // add arrow pointing at phase tracer, coming from label:
-    QCPItemCurve *phaseTracerArrow = new QCPItemCurve(customPlot);
-    phaseTracerArrow->start->setParentAnchor(phaseTracerText->left);
-    phaseTracerArrow->startDir->setParentAnchor(phaseTracerArrow->start);
-    phaseTracerArrow->startDir->setCoords(-40, 0); // direction 30 pixels to the left of parent anchor (tracerArrow->start)
-    phaseTracerArrow->end->setParentAnchor(phaseTracer->position);
-    qDebug() << "coords: " << phaseTracer->position->coords().x() << ", " << phaseTracer->position->coords().y();
-    qDebug() << "key, value: " << phaseTracer->position->key() << ", " << phaseTracer->position->value();
-
-    phaseTracerArrow->end->setCoords(10, 10);
-    phaseTracerArrow->endDir->setParentAnchor(phaseTracerArrow->end);
-    phaseTracerArrow->endDir->setCoords(30, 30);
-    phaseTracerArrow->setHead(QCPLineEnding::esSpikeArrow);
-    phaseTracerArrow->setTail(QCPLineEnding(QCPLineEnding::esBar, (phaseTracerText->bottom->pixelPosition().y()-phaseTracerText->top->pixelPosition().y())*0.85));
-
-    // add the group velocity tracer (green circle):
-    QCPItemTracer *groupTracer = new QCPItemTracer(customPlot);
-    groupTracer->setGraph(graph);
-    groupTracer->setGraphKey(5.5);
-    groupTracer->setInterpolating(true);
-    groupTracer->setStyle(QCPItemTracer::tsCircle);
-    groupTracer->setPen(QPen(Qt::green));
-    groupTracer->setBrush(Qt::green);
-    groupTracer->setSize(7);
-
-    // add label for group tracer:
-    QCPItemText *groupTracerText = new QCPItemText(customPlot);
-    groupTracerText->position->setType(QCPItemPosition::ptAxisRectRatio);
-    groupTracerText->setPositionAlignment(Qt::AlignRight|Qt::AlignTop);
-    groupTracerText->position->setCoords(1.0, 0.20); // lower right corner of axis rect
-    groupTracerText->setText("Fixed positions in\nwave packet define\ngroup velocity vg");
-    groupTracerText->setTextAlignment(Qt::AlignLeft);
-    groupTracerText->setFont(QFont(font().family(), 9));
-    groupTracerText->setPadding(QMargins(8, 0, 0, 0));
-
-    // add arrow pointing at group tracer, coming from label:
-    QCPItemCurve *groupTracerArrow = new QCPItemCurve(customPlot);
-    groupTracerArrow->start->setParentAnchor(groupTracerText->left);
-    groupTracerArrow->startDir->setParentAnchor(groupTracerArrow->start);
-    groupTracerArrow->startDir->setCoords(-40, 0); // direction 30 pixels to the left of parent anchor (tracerArrow->start)
-    groupTracerArrow->end->setCoords(5.5, 0.4);
-    groupTracerArrow->endDir->setParentAnchor(groupTracerArrow->end);
-    groupTracerArrow->endDir->setCoords(0, -40);
-    groupTracerArrow->setHead(QCPLineEnding::esSpikeArrow);
-    groupTracerArrow->setTail(QCPLineEnding(QCPLineEnding::esBar, (groupTracerText->bottom->pixelPosition().y()-groupTracerText->top->pixelPosition().y())*0.85));
-
-    // add dispersion arrow:
-    QCPItemCurve *arrow = new QCPItemCurve(customPlot);
-    arrow->start->setCoords(1, -1.1);
-    arrow->startDir->setCoords(-1, -1.3);
-    arrow->endDir->setCoords(-5, -0.3);
-    arrow->end->setCoords(-10, -0.2);
-    arrow->setHead(QCPLineEnding::esSpikeArrow);
-
-    // add the dispersion arrow label:
-    QCPItemText *dispersionText = new QCPItemText(customPlot);
-    dispersionText->position->setCoords(-6, -0.9);
-    dispersionText->setRotation(40);
-    dispersionText->setText("Dispersion with\nvp < vg");
-    dispersionText->setFont(QFont(font().family(), 10));
-*/
-    // setup a timer that repeatedly calls MainWindow::bracketDataSlot:
-//    connect(&dataTimer, SIGNAL(timeout()), this, SLOT(bracketDataSlot()));
-//    dataTimer.start(0); // Interval 0 means to refresh as fast as possible
+    // rescale the key (x) and value (y) axes so the whole color map is visible:
+    customPlot->rescaleAxes();
 }
 
 void MainWindow::bracketDataSlot()

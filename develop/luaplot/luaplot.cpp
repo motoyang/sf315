@@ -67,6 +67,16 @@ QCPCurve *LuaPlot::createCurve(QCPAxis *keyAxis, QCPAxis *valueAxis)
     return new QCPCurve(keyAxis, valueAxis);
 }
 
+QCPColorMap *LuaPlot::createColorMap(QCPAxis *keyAxis, QCPAxis *valueAxis)
+{
+    return new QCPColorMap(keyAxis, valueAxis);
+}
+
+QCPColorScale *LuaPlot::createColorScale(QCustomPlot *parentPlot)
+{
+    return new QCPColorScale(parentPlot);
+}
+
 QCPItemTracer *LuaPlot::createItemTracer(QCustomPlot *parentPlot)
 {
     return new QCPItemTracer(parentPlot);

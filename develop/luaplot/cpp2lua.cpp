@@ -204,7 +204,6 @@ static void QtWidget2Lua(lua_State* L, const char* ns)
         .endClass()
 
         .deriveClass<QWidget, QObject>("Widget")
-//          .addConstructor<void (*) (QWidget* parent)>()
           .addFunction("setWindowTitle", &QWidget::setWindowTitle)
           .addFunction("show", &QWidget::show)
           .addFunction("setAttribute", &QWidget::setAttribute)
@@ -214,7 +213,6 @@ static void QtWidget2Lua(lua_State* L, const char* ns)
         .endClass()
 
           .deriveClass<QCustomPlot, QWidget>("CustomPlot")
-//            .addConstructor<void (*) (QWidget*)>()
             .addData("legend", &QCustomPlot::legend)
             .addData("xAxis", &QCustomPlot::xAxis)
             .addData("yAxis", &QCustomPlot::yAxis)
@@ -232,10 +230,11 @@ static void QtWidget2Lua(lua_State* L, const char* ns)
 
             .deriveClass<LuaPlot, QCustomPlot>("LuaPlot")
               .addConstructor<void (*) (QWidget*)>()
-//              .addStaticFunction("createPlot", &LuaPlot::createPlot)
               .addCFunction("setLuaState", &LuaPlot::setLuaState)
-              .addFunction("setTimer", &LuaPlot::setTimer)
+
               .addFunction("createAxisRect", &LuaPlot::createAxisRect)
+              .addFunction("createColorMap", &LuaPlot::createColorMap)
+              .addFunction("createColorScale", &LuaPlot::createColorScale)
               .addFunction("createAxisTickerFixed", &LuaPlot::createAxisTickerFixed)
               .addFunction("createAxisTkckerDateTime", &LuaPlot::createAxisTickerDateTime)
               .addFunction("createBars", &LuaPlot::createBars)
@@ -248,6 +247,7 @@ static void QtWidget2Lua(lua_State* L, const char* ns)
               .addFunction("createItemCurve", &LuaPlot::createItemCurve)
               .addFunction("createItemText", &LuaPlot::createItemText)
               .addFunction("createItemBracket", &LuaPlot::createItemBracket)
+              .addFunction("setTimer", &LuaPlot::setTimer)
             .endClass()
 
           .deriveClass<QMainWindow, QWidget>("QMainWindow")
@@ -262,16 +262,46 @@ static void QtWidget2Lua(lua_State* L, const char* ns)
     ;
 }
 
+
+
+static int cellToCoord(lua_State* L)
+{
+    // from lua: key, value = celltoCoord(colorMapData, keyIndex, valueIndex)
+
+    int valueIndex = luabridge::Stack<int>::get(L, 3);
+    int keyIndex = luabridge::Stack<int>::get(L, 2);
+    QCPColorMapData* colorMapData = luabridge::Stack<QCPColorMapData*>::get(L, 1);
+    lua_settop(L, 0);
+
+    double key = 0.0, value = 0.0;
+    colorMapData->cellToCoord(keyIndex, valueIndex, &key, &value);
+
+    luabridge::Stack<double>::push(L, key);
+    luabridge::Stack<double>::push(L, value);
+
+    return 2;
+}
+
 static void QcpContainer2Lua(lua_State* L, const char* ns)
 {
     luabridge::getGlobalNamespace(L)
       .beginNamespace(ns)
 
-        .beginClass<QCPGraphDataContainer>("GraphDataContainer")
-          .addFunction("addContainer", static_cast<void(QCPGraphDataContainer::*)(const QCPGraphDataContainer&)>(&QCPGraphDataContainer::add))
-          .addFunction("addVector", static_cast<void(QCPGraphDataContainer::*)(const QVector<QCPGraphData>&, bool)>(&QCPGraphDataContainer::add))
-          .addFunction("addData", static_cast<void(QCPGraphDataContainer::*)(const QCPGraphData&)>(&QCPGraphDataContainer::add))
-          .addFunction("size", &QCPGraphDataContainer::size)
+        .beginClass<QCPColorMapData>("ColorMapData")
+          .addFunction("setCell", &QCPColorMapData::setCell)
+          .addFunction("setRange", &QCPColorMapData::setRange)
+          .addFunction("setSize", &QCPColorMapData::setSize)
+//            .addFunction("cellToCoord", &QCPColorMapData::cellToCoord)
+        .endClass()
+        .beginNamespace("ColorMapDataHelper")
+          .addCFunction("cellToCoord", cellToCoord)
+        .endNamespace()
+
+        .beginClass<QCPCurveDataContainer>("CurveDataContainer")
+          .addFunction("addContainer", static_cast<void(QCPCurveDataContainer::*)(const QCPCurveDataContainer&)>(&QCPCurveDataContainer::add))
+          .addFunction("addVector", static_cast<void(QCPCurveDataContainer::*)(const QVector<QCPCurveData>&, bool)>(&QCPCurveDataContainer::add))
+          .addFunction("addData", static_cast<void(QCPCurveDataContainer::*)(const QCPCurveData&)>(&QCPCurveDataContainer::add))
+          .addFunction("size", &QCPCurveDataContainer::size)
         .endClass()
 
         .beginClass<QCPFinancialDataContainer>("FinancialDataContainer")
@@ -281,11 +311,11 @@ static void QcpContainer2Lua(lua_State* L, const char* ns)
           .addFunction("size", &QCPFinancialDataContainer::size)
         .endClass()
 
-        .beginClass<QCPCurveDataContainer>("CurveDataContainer")
-          .addFunction("addContainer", static_cast<void(QCPCurveDataContainer::*)(const QCPCurveDataContainer&)>(&QCPCurveDataContainer::add))
-          .addFunction("addVector", static_cast<void(QCPCurveDataContainer::*)(const QVector<QCPCurveData>&, bool)>(&QCPCurveDataContainer::add))
-          .addFunction("addData", static_cast<void(QCPCurveDataContainer::*)(const QCPCurveData&)>(&QCPCurveDataContainer::add))
-          .addFunction("size", &QCPCurveDataContainer::size)
+        .beginClass<QCPGraphDataContainer>("GraphDataContainer")
+          .addFunction("addContainer", static_cast<void(QCPGraphDataContainer::*)(const QCPGraphDataContainer&)>(&QCPGraphDataContainer::add))
+          .addFunction("addVector", static_cast<void(QCPGraphDataContainer::*)(const QVector<QCPGraphData>&, bool)>(&QCPGraphDataContainer::add))
+          .addFunction("addData", static_cast<void(QCPGraphDataContainer::*)(const QCPGraphData&)>(&QCPGraphDataContainer::add))
+          .addFunction("size", &QCPGraphDataContainer::size)
         .endClass()
 
       .endNamespace()
@@ -328,6 +358,7 @@ static void QcpBasic2Lua(lua_State* L, const char* ns)
         .endClass()
 
         .beginClass<QCPColorGradient>("ColorGradient")
+          .addConstructor<void(*)(QCPColorGradient::GradientPreset)>()
         .endClass()
 
         .beginClass<QCPDataSelection>("DataSelection")
@@ -356,6 +387,7 @@ static void QcpBasic2Lua(lua_State* L, const char* ns)
         .endClass()
 
         .beginClass<QCPRange>("Range")
+          .addConstructor<void(*)(double, double)>()
           .addFunction("center", &QCPRange::center)
         .endClass()
 
@@ -394,18 +426,19 @@ static void QcpLayerable2Lua(lua_State* L, const char* ns)
         .endClass()
 
           .deriveClass<QCPAxis, QCPLayerable>("Axis")
+            .addFunction("grid", &QCPAxis::grid)
+            .addFunction("range", &QCPAxis::range)
+            .addFunction("scaleRange", static_cast<void(QCPAxis::*)(double, double)>(&QCPAxis::scaleRange))
+            .addFunction("setBasePen", &QCPAxis::setBasePen)
             .addFunction("setRange", static_cast<void(QCPAxis::*)(double, double)>(&QCPAxis::setRange))
+            .addFunction("setLabel", &QCPAxis::setLabel)
+            .addFunction("setSubTicks", &QCPAxis::setSubTicks)
+            .addFunction("setTicker", &QCPAxis::setTicker)
             .addFunction("setTickLabels", &QCPAxis::setTickLabels)
             .addFunction("setTickLabelColor", &QCPAxis::setTickLabelColor)
-            .addFunction("setTicker", &QCPAxis::setTicker)
-            .addFunction("setSubTicks", &QCPAxis::setSubTicks)
-            .addFunction("ticker", &QCPAxis::ticker)
-            .addFunction("grid", &QCPAxis::grid)
-            .addFunction("scaleRange", static_cast<void(QCPAxis::*)(double, double)>(&QCPAxis::scaleRange))
-            .addFunction("range", &QCPAxis::range)
-            .addFunction("setBasePen", &QCPAxis::setBasePen)
             .addFunction("setTickLabelRotation", &QCPAxis::setTickLabelRotation)
             .addFunction("setTicks", &QCPAxis::setTicks)
+            .addFunction("ticker", &QCPAxis::ticker)
           .endClass()
 
           .deriveClass<QCPGrid, QCPLayerable>("Grid")
@@ -503,6 +536,17 @@ static void QcpPlottable2Lua(lua_State* L, const char* ns)
           .addFunction("valueAxis", &QCPAbstractPlottable::valueAxis)
         .endClass()
 
+          .deriveClass<QCPColorMap, QCPAbstractPlottable>("ColorMap")
+            .addFunction("data", &QCPColorMap::data)
+            .addFunction("rescaleAxes", &QCPColorMap::rescaleAxes)
+            .addFunction("rescaleDataRange", &QCPColorMap::rescaleDataRange)
+            .addFunction("setGradient", &QCPColorMap::setGradient)
+            .addFunction("setColorScale", &QCPColorMap::setColorScale)
+          .endClass()
+
+          .deriveClass<QCPErrorBars, QCPAbstractPlottable>("QCPErrorBars")
+          .endClass()
+
           .deriveClass<QCPAbstractPlottable1D<QCPBarsData>, QCPAbstractPlottable>("AbstractPlottable1D_BarsData")
           .endClass()
             .deriveClass<QCPBars, QCPAbstractPlottable1D<QCPBarsData> >("Bars")
@@ -547,12 +591,6 @@ static void QcpPlottable2Lua(lua_State* L, const char* ns)
             .deriveClass<QCPStatisticalBox, QCPAbstractPlottable1D<QCPStatisticalBoxData>>("StatisticalBox")
             .endClass()
 
-          .deriveClass<QCPColorMap, QCPAbstractPlottable>("QCPColorMap")
-          .endClass()
-
-          .deriveClass<QCPErrorBars, QCPAbstractPlottable>("QCPErrorBars")
-          .endClass()
-
       .endNamespace()
     ;
 }
@@ -575,15 +613,17 @@ static void QcpElement2Lua(lua_State* L, const char* ns)
           .endClass()
 
           .deriveClass<QCPAxisRect, QCPLayoutElement>("AxisRect")
-            .addFunction("setupFullAxesBox", &QCPAxisRect::setupFullAxesBox)
             .addFunction("axis", &QCPAxisRect::axis)
-            .addFunction("addAxis", &QCPAxisRect::addAxis)
             .addFunction("addAxes", &QCPAxisRect::addAxes)
+            .addFunction("addAxis", &QCPAxisRect::addAxis)
             .addFunction("setMaximumSize", static_cast<void (QCPAxisRect::*)(int, int)>(&QCPAxisRect::setMaximumSize))
             .addFunction("setMinimumSize", static_cast<void (QCPAxisRect::*)(int, int)>(&QCPAxisRect::setMinimumSize))
+            .addFunction("setupFullAxesBox", &QCPAxisRect::setupFullAxesBox)
           .endClass()
 
           .deriveClass<QCPColorScale, QCPLayoutElement>("ColorScale")
+            .addFunction("axis", &QCPColorScale::axis)
+            .addFunction("setType", &QCPColorScale::setType)
           .endClass()
 
           .deriveClass<QCPLayout, QCPLayoutElement>("Layout")

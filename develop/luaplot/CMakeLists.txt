@@ -41,9 +41,9 @@ FILE(GLOB QRC_FILES "./*.qrc")
 FILE(GLOB VER_FILE "./ver.cc")
 
 #通过Ui文件生成对应的头文件，一定要添加
-qt5_wrap_cpp(MOC ${HEAD_FILES})
+#qt5_wrap_cpp(MOC ${HEAD_FILES})
 qt5_wrap_ui(WRAP_FILES ${UI_FILES})
-qt5_add_resources(RCC ${QRC_FILES})
+#qt5_add_resources(RCC ${QRC_FILES})
 
 include_directories(
 #    ${PROJECT_SOURCE_DIR}/pp

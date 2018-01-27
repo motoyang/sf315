@@ -22,18 +22,20 @@ public:
     int setLuaState(lua_State* L);
     void setTimer(const char* funName, int msec);
 
-    QCPAxisRect* createAxisRect(QCustomPlot *parentPlot, bool setupDefaultAxes=true);
-    QCPAxisTickerFixed* createAxisTickerFixed();
-    QCPAxisTickerDateTime *createAxisTickerDateTime();
-    QCPBars* createBars(QCPAxis *keyAxis, QCPAxis *valueAxis);
-    QCPLayoutGrid* createLayoutGrid();
-    QCPMarginGroup* createMarginGroup(QCustomPlot *parentPlot);
-    QCPFinancial* createFinancial(QCPAxis *keyAxis, QCPAxis *valueAxis);
-    QCPCurve* createCurve(QCPAxis *keyAxis, QCPAxis *valueAxis);
-    QCPItemTracer* createItemTracer(QCustomPlot *parentPlot);
-    QCPItemCurve* createItemCurve(QCustomPlot *parentPlot);
-    QCPItemText* createItemText(QCustomPlot *parentPlot);
-    QCPItemBracket* createItemBracket(QCustomPlot* parentPlot);
+    QCPAxisRect*            createAxisRect(QCustomPlot *parentPlot, bool setupDefaultAxes=true);
+    QCPAxisTickerFixed*     createAxisTickerFixed();
+    QCPAxisTickerDateTime*  createAxisTickerDateTime();
+    QCPBars*                createBars(QCPAxis *keyAxis, QCPAxis *valueAxis);
+    QCPCurve*               createCurve(QCPAxis *keyAxis, QCPAxis *valueAxis);
+    QCPColorMap*            createColorMap(QCPAxis *keyAxis, QCPAxis *valueAxis);
+    QCPColorScale*          createColorScale(QCustomPlot* parentPlot);
+    QCPFinancial*           createFinancial(QCPAxis *keyAxis, QCPAxis *valueAxis);
+    QCPItemBracket*         createItemBracket(QCustomPlot* parentPlot);
+    QCPItemCurve*           createItemCurve(QCustomPlot *parentPlot);
+    QCPItemText*            createItemText(QCustomPlot *parentPlot);
+    QCPItemTracer*          createItemTracer(QCustomPlot *parentPlot);
+    QCPLayoutGrid*          createLayoutGrid();
+    QCPMarginGroup*         createMarginGroup(QCustomPlot *parentPlot);
 
     template<typename T>
     QSharedPointer<T> createDataContainer() {
