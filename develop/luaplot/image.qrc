@@ -1,0 +1,9 @@
+<RCC>
+    <qresource prefix="/a">
+        <file>png/arrow494.png</file>
+        <file>png/floppy16.png</file>
+        <file>png/speech65.png</file>
+        <file>png/AppIcon.png</file>
+        <file>png/Plot.png</file>
+    </qresource>
+</RCC>

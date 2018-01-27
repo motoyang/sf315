@@ -1,0 +1,120 @@
+# --系统备份------------------
+
+# 首先到备份目录中
+cd backup_dir/
+
+# 备份系统的命令，需要sudo执行
+
+# 完整备份整个系统，但不包括/home等目录
+sudo tar -g sysinfo -cJvPf sys_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz / --exclude=/proc --exclude=/lost+found --exclude=/mnt  --exclude=/sys --exclude=/tmp --exclude=/media --exclude=/home
+
+# 在前面完整备份的基础上，增量备份整个系统，但不包括/home等目录
+sudo tar -g sysinfo -cJvPf sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz / --exclude=/proc --exclude=/lost+found --exclude=/mnt  --exclude=/sys --exclude=/tmp --exclude=/media --exclude=/home
+
+# 完整备份home目录
+sudo tar -g homeinfo -cJvPf home_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz /home
+
+# 在前面完整备份的基础上，增量备份home目录
+sudo tar -g homeinfo -cJvPf home_diff_`date +%Y%m%d-%H%M%S`.tar.xz /home
+
+# --数据还原---------
+
+# 首先还原系统的完整备份
+sudo tar -g sysinfo -xJvPf sys_snapshot_20180125-235658.tar.xz -C /
+
+# 建立不需要备份的系统目录
+# 还要设置这些目录的权限
+
+sudo su
+mkdir /proc && chownd root:root /proc && chmod 555 /proc
+mkdir /lost+found && chownd root:root /proc && chmod 700 /lost+found
+mkdir /mnt && chownd root:root /proc && chmod 755 /mnt
+mkdir /sys && chownd root:root /proc && chmod 555 /sys
+mkdir /tmp && chownd root:root /proc && chmod 777 /tmp
+mkdir /media && chownd root:root /proc && chmod 755 /mnt
+mkdir /home && chownd root:root /proc && chmod 755 /home
+exit
+
+# 再还原增量备份的系统文件，-g参数可以使得在完整备份后删除的文件被删除
+sudo tar -g sysinfo -xJvPf sys_diff_20180203-213638.tar.xz -C /
+
+# 还原home目录
+sudo tar -g homeinfo -xJvPf home_snapshot_20180125-235658.tar.xz -C /home/xt
+
+# 再还原增量备份的home目录
+sudo tar -g homeinfo -xJvPf home_diff_20180203-222618.tar.xz -C /home/xt
+
+
+# --批量还原备份的文件---------------------------
+
+ls sys_diff_*.tar.xz | sort | xargs -n 1 -t tar -g sysinfo -xJvPf -C /
+ls home_diff_*.tar.xz | sort | xargs -n 1 -t tar -g homeinfo -xJvPf -C /home
+
+
+# --备份win10分区------------------------
+
+sudo tar -g win10info -cJvPf win10_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz /media/xt/Win10 --exclude /media/xt/Win10/hiberfil.sys
+
+sudo tar -g win10info -cJvPf win10_diff_`date +%Y%m%d-%H%M%S`.tar.xz /media/xt/Win10
+
+
+# --备份macOS分区------------------------
+
+sudo tar -g macOSinfo -cJvPf macOS_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz /mnt/macos
+
+sudo tar -g macOSinfo -cJvPf macOS_diff_`date +%Y%m%d-%H%M%S`.tar.xz /mnt/macos
+
+sudo tar -g macOSinfo -cvPf - /mnt/macos 2>err.txt | parallel --pipe --block 20M -k -j4 xz -zc > macOS_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
+
+# --hfs分区的操作------------------------
+
+# 无法挂载或者只读挂载,需要装hfsprogs来支持hfs, 用fdisk  -l 命令查看磁盘
+sudo apt-get install hfsprogssudo   
+sudo fsck.hfsplus -f /dev/sda2
+
+# 挂载hfs+分区
+sudo mkdir /media/mac
+sudo mount -t hfsplus -o force,rw /dev/sda2 /media/mac/
+sudo mount -t hfsplus -o force,ro /dev/nvme0n1p2 /mnt/macos
+
+# --parallel----------------------
+
+# 第一种模式是利用 parallel传参数。管道前面进来的作为参数传给后面的命令，并行执行
+# 其中{}是占位符，用来占位传入参数的位置。
+seq 5 | parallel echo pre_placehoder_{}
+pre_placehoder_1
+pre_placehoder_2
+pre_placehoder_3
+pre_placehoder_4
+pre_placehoder_5
+
+# 另一种模式就是 parallel --pipe
+# 这时管道前面的不是作为参数，而是标准输入传给后面的命令
+cat my_large_log | parallel --pipe grep pattern 
+
+
+sudo tar -g sysinfo -cJvPf - /media/xt/win10 | parallel --pipe -k xz -zc > win10.tar.xz
+sudo tar -g sysinfo -cJvPf - /usr | parallel --pipe -j4 -k xz -zc > usr.tar.xz
+
+sudo tar -g sysinfo -cJvPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt  --exclude=/sys --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe -k xz -zc > sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz
+
+
+
+
+
+# --输出重定向--------------------
+
+# 将显示的结果输出到 list.txt 文件中，若该文件以存在则予以取代！
+ls -al > list.txt
+
+# 将显示的结果累加到 list.txt 文件中，该文件为累加的，旧数据保留！
+ls -al >> list.txt
+
+# 将显示的数据，正确的输出到 list.txt 错误的数据输出到 list.err
+ls -al  1> list.txt   2> list.err
+
+# 将显示的数据，不论正确或错误均输出到 list.txt 当中！错误与正确文件输出到同一个文件中，则必须以上面的方法来写！不能写成其它格式！
+ls -al 1> list.txt 2> &1
+
+# 将显示的数据，正确的输出到 list.txt 错误的数据则予以丢弃！ /dev/null ，可以说成是黑洞装置。为空，即不保存。
+ls -al 1> list.txt 2> /dev/null
