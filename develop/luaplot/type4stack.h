@@ -36,12 +36,18 @@ template <> struct Stack <Y const&> { \
 };
 
 
-STACK_AS_INT(Qt::GlobalColor)
-STACK_AS_INT(Qt::ConnectionType)
 STACK_AS_INT(Qt::BrushStyle)
+STACK_AS_INT(Qt::ConnectionType)
+STACK_AS_INT(Qt::GlobalColor)
+STACK_AS_INT(Qt::PenCapStyle)
+STACK_AS_INT(Qt::PenJoinStyle)
 STACK_AS_INT(Qt::PenStyle)
 STACK_AS_INT(Qt::TimeSpec)
 STACK_AS_INT(Qt::WidgetAttribute)
+
+STACK_AS_INT(QLocale::Country)
+STACK_AS_INT(QLocale::Language)
+STACK_AS_INT(QLocale::Script)
 
 STACK_AS_INT(QCPAxis::AxisType)
 STACK_AS_INT(QCPAxisTickerFixed::ScaleStrategy)

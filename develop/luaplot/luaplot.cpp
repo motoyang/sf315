@@ -42,6 +42,11 @@ QCPAxisTickerDateTime* LuaPlot::createAxisTickerDateTime()
     return new QCPAxisTickerDateTime();
 }
 
+QCPAxisTickerText *LuaPlot::createAxisTickerText()
+{
+    return new QCPAxisTickerText();
+}
+
 QCPBars *LuaPlot::createBars(QCPAxis *keyAxis, QCPAxis *valueAxis)
 {
     return new QCPBars(keyAxis, valueAxis);
@@ -55,6 +60,11 @@ QCPLayoutGrid *LuaPlot::createLayoutGrid()
 QCPMarginGroup *LuaPlot::createMarginGroup(QCustomPlot *parentPlot)
 {
     return new QCPMarginGroup(parentPlot);
+}
+
+QCPStatisticalBox *LuaPlot::createStatisticalBox(QCPAxis *keyAxis, QCPAxis *valueAxis)
+{
+    return new QCPStatisticalBox(keyAxis, valueAxis);
 }
 
 QCPFinancial *LuaPlot::createFinancial(QCPAxis *keyAxis, QCPAxis *valueAxis)

@@ -69,53 +69,59 @@ void MainWindow::initToolbar()
 
 void MainWindow::init(LuaPlot* customPlot)
 {
-    // configure axis rect:
-    customPlot->setInteractions(QCP::iRangeDrag|QCP::iRangeZoom); // this will also allow rescaling the color scale by dragging/zooming
-    customPlot->axisRect()->setupFullAxesBox(true);
-    customPlot->xAxis->setLabel("x");
-    customPlot->yAxis->setLabel("y");
-
-    // set up the QCPColorMap:
-    QCPColorMap *colorMap = new QCPColorMap(customPlot->xAxis, customPlot->yAxis);
-    int nx = 200;
-    int ny = 200;
-    colorMap->data()->setSize(nx, ny); // we want the color map to have nx * ny data points
-    colorMap->data()->setRange(QCPRange(-4, 4), QCPRange(-4, 4)); // and span the coordinate range -4..4 in both key (x) and value (y) dimensions
-    // now we assign some data, by accessing the QCPColorMapData instance of the color map:
-    double x, y, z;
-    for (int xIndex=0; xIndex<nx; ++xIndex)
+    // set locale to english, so we get english month names:
+    customPlot->setLocale(QLocale(QLocale::English, QLocale::UnitedKingdom));
+    // seconds of current time, we'll use it as starting point in time for data:
+    double now = QDateTime::currentDateTime().toTime_t();
+    srand(8); // set the random seed, so we always get the same random data
+    // create multiple graphs:
+    for (int gi=0; gi<5; ++gi)
     {
-      for (int yIndex=0; yIndex<ny; ++yIndex)
+      customPlot->addGraph();
+      QColor color(20+200/4.0*gi,70*(1.6-gi/4.0), 150, 150);
+      customPlot->graph()->setLineStyle(QCPGraph::lsLine);
+      customPlot->graph()->setPen(QPen(color.lighter(200)));
+      customPlot->graph()->setBrush(QBrush(color));
+      // generate random walk data:
+      QVector<QCPGraphData> timeData(250);
+      for (int i=0; i<250; ++i)
       {
-        colorMap->data()->cellToCoord(xIndex, yIndex, &x, &y);
-        double r = 3*qSqrt(x*x+y*y)+1e-2;
-        z = 2*x*(qCos(r+2)/r-qSin(r+2)/r); // the B field strength of dipole radiation (modulo physical constants)
-        colorMap->data()->setCell(xIndex, yIndex, z);
+        timeData[i].key = now + 24*3600*i;
+        if (i == 0)
+          timeData[i].value = (i/50.0+1)*(rand()/(double)RAND_MAX-0.5);
+        else
+          timeData[i].value = qFabs(timeData[i-1].value)*(1+0.02/4.0*(4-gi)) + (i/50.0+1)*(rand()/(double)RAND_MAX-0.5);
       }
+      customPlot->graph()->data()->set(timeData);
     }
-
-    // add a color scale:
-    QCPColorScale *colorScale = new QCPColorScale(customPlot);
-    customPlot->plotLayout()->addElement(0, 1, colorScale); // add it to the right of the main axis rect
-    colorScale->setType(QCPAxis::atRight); // scale shall be vertical bar with tick/axis labels right (actually atRight is already the default)
-    colorMap->setColorScale(colorScale); // associate the color map with the color scale
-    colorScale->axis()->setLabel("Magnetic Field Strength");
-
-    // set the color gradient of the color map to one of the presets:
-    colorMap->setGradient(QCPColorGradient::gpPolar);
-    // we could have also created a QCPColorGradient instance and added own colors to
-    // the gradient, see the documentation of QCPColorGradient for what's possible.
-
-    // rescale the data dimension (color) such that all data points lie in the span visualized by the color gradient:
-    colorMap->rescaleDataRange();
-
-    // make sure the axis rect and color scale synchronize their bottom and top margins (so they line up):
-    QCPMarginGroup *marginGroup = new QCPMarginGroup(customPlot);
-    customPlot->axisRect()->setMarginGroup(QCP::msBottom|QCP::msTop, marginGroup);
-    colorScale->setMarginGroup(QCP::msBottom|QCP::msTop, marginGroup);
-
-    // rescale the key (x) and value (y) axes so the whole color map is visible:
-    customPlot->rescaleAxes();
+    // configure bottom axis to show date instead of number:
+    QSharedPointer<QCPAxisTickerDateTime> dateTicker(new QCPAxisTickerDateTime);
+    dateTicker->setDateTimeFormat("d. MMMM\nyyyy");
+    customPlot->xAxis->setTicker(dateTicker);
+    // configure left axis text labels:
+    QSharedPointer<QCPAxisTickerText> textTicker(new QCPAxisTickerText);
+    textTicker->addTick(10, "a bit\nlow");
+    textTicker->addTick(50, "quite\nhigh");
+    customPlot->yAxis->setTicker(textTicker);
+    // set a more compact font size for bottom and left axis tick labels:
+    customPlot->xAxis->setTickLabelFont(QFont(QFont().family(), 8));
+    customPlot->yAxis->setTickLabelFont(QFont(QFont().family(), 8));
+    // set axis labels:
+    customPlot->xAxis->setLabel("Date");
+    customPlot->yAxis->setLabel("Random wobbly lines value");
+    // make top and right axes visible but without ticks and labels:
+    customPlot->xAxis2->setVisible(true);
+    customPlot->yAxis2->setVisible(true);
+    customPlot->xAxis2->setTicks(false);
+    customPlot->yAxis2->setTicks(false);
+    customPlot->xAxis2->setTickLabels(false);
+    customPlot->yAxis2->setTickLabels(false);
+    // set axis ranges to show all data:
+    customPlot->xAxis->setRange(now, now+24*3600*249);
+    customPlot->yAxis->setRange(0, 60);
+    // show legend with slightly transparent background brush:
+    customPlot->legend->setVisible(true);
+    customPlot->legend->setBrush(QColor(255, 255, 255, 150));
 }
 
 void MainWindow::bracketDataSlot()

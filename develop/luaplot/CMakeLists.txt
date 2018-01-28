@@ -59,7 +59,7 @@ add_library(${VER_LIB} ${VER_FILE})
 #创建工程文件
 add_executable(${PROJECT_NAME}
     ${SRC_FILES}
-    ${HEAD_FILES}
+#    ${HEAD_FILES}
     ${QRC_FILES}
     ${WRAP_FILES}
     )

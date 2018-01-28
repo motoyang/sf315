@@ -25,6 +25,7 @@ public:
     QCPAxisRect*            createAxisRect(QCustomPlot *parentPlot, bool setupDefaultAxes=true);
     QCPAxisTickerFixed*     createAxisTickerFixed();
     QCPAxisTickerDateTime*  createAxisTickerDateTime();
+    QCPAxisTickerText*      createAxisTickerText();
     QCPBars*                createBars(QCPAxis *keyAxis, QCPAxis *valueAxis);
     QCPCurve*               createCurve(QCPAxis *keyAxis, QCPAxis *valueAxis);
     QCPColorMap*            createColorMap(QCPAxis *keyAxis, QCPAxis *valueAxis);
@@ -36,6 +37,7 @@ public:
     QCPItemTracer*          createItemTracer(QCustomPlot *parentPlot);
     QCPLayoutGrid*          createLayoutGrid();
     QCPMarginGroup*         createMarginGroup(QCustomPlot *parentPlot);
+    QCPStatisticalBox*      createStatisticalBox(QCPAxis *keyAxis, QCPAxis *valueAxis);
 
     template<typename T>
     QSharedPointer<T> createDataContainer() {

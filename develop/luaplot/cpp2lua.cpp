@@ -36,24 +36,21 @@ void connectProxy(const QObject *sender, const char *signal,
                   t);
 }
 
-//LuaPlot* getPlot()
-//{
-//    return LuaPlot::ms_plot;
-//}
+// --
 
-struct RadialGradientConstructor
+struct BrushConstructor
 {
-    static QRadialGradient fromXYRadius(qreal cx, qreal cy, qreal radius) {
-        return QRadialGradient(cx, cy, radius);
+    static QBrush fromStyle(Qt::BrushStyle style) {
+        return QBrush(style);
     }
-};
 
-struct ScatterStyleConstructor
-{
-    static QCPScatterStyle fromShape(QCPScatterStyle::ScatterShape shape,
-                                     const QPen &pen, const QBrush &brush,
-                                     double size) {
-        return QCPScatterStyle(shape, pen, brush, size);
+    static QBrush fromColor(const QColor &color,
+                            Qt::BrushStyle style = Qt::SolidPattern) {
+        return QBrush(color, style);
+    }
+
+    static QBrush fromGradient(const QGradient &gradient) {
+        return QBrush(gradient);
     }
 };
 
@@ -69,6 +66,43 @@ struct ColorConstructor
 
     static QColor fromGlobal(Qt::GlobalColor color) {
         return QColor(color);
+    }
+};
+
+struct FontConstructor
+{
+    static QFont fromFont(const QFont& f) {
+        return QFont(f);
+    }
+
+    static QFont fromFamily(const QString &family, int pointSize = -1, int weight = -1, bool italic = false) {
+        return QFont(family, pointSize, weight, italic);
+    }
+};
+
+struct LinearGradientConstructor
+{
+    static QLinearGradient fromXY(qreal xStart, qreal yStart, qreal xFinalStop, qreal yFinalStop) {
+        return QLinearGradient(xStart, yStart, xFinalStop, yFinalStop);
+    }
+};
+
+struct LocaleConstructor
+{
+    static QLocale fromString(const QString &name) {
+        return QLocale(name);
+    }
+
+    static QLocale fromLanguageAndCountry(QLocale::Language language, QLocale::Country country = QLocale::AnyCountry) {
+        return QLocale(language, country);
+    }
+
+    static QLocale fromLanguageScriptAndCountry(QLocale::Language language, QLocale::Script script, QLocale::Country country) {
+        return QLocale(language, script, country);
+    }
+
+    static QLocale fromLocale(const QLocale &other) {
+        return QLocale(other);
     }
 };
 
@@ -90,21 +124,23 @@ struct PenConstructor
     }
 };
 
-struct BrushConstructor
+struct RadialGradientConstructor
 {
-    static QBrush fromStyle(Qt::BrushStyle style) {
-        return QBrush(style);
-    }
-
-    static QBrush fromColor(const QColor &color,
-                            Qt::BrushStyle style = Qt::SolidPattern) {
-        return QBrush(color, style);
-    }
-
-    static QBrush fromGradient(const QGradient &gradient) {
-        return QBrush(gradient);
+    static QRadialGradient fromXYRadius(qreal cx, qreal cy, qreal radius) {
+        return QRadialGradient(cx, cy, radius);
     }
 };
+
+struct ScatterStyleConstructor
+{
+    static QCPScatterStyle fromShape(QCPScatterStyle::ScatterShape shape,
+                                     const QPen &pen, const QBrush &brush,
+                                     double size) {
+        return QCPScatterStyle(shape, pen, brush, size);
+    }
+};
+
+// --
 
 static void QtCore2Lua(lua_State* L, const char* ns)
 {
@@ -122,6 +158,16 @@ static void QtCore2Lua(lua_State* L, const char* ns)
           .addFunction("setTimeSpec", &QDateTime::setTimeSpec)
           .addFunction("toTime_t", &QDateTime::toTime_t)
           .addStaticFunction("currentDateTime", &QDateTime::currentDateTime)
+        .endClass()
+
+        .beginClass<QLocale>("QLocale")
+          .addConstructor<void(*)()>()
+        .endClass()
+        .beginClass<LocaleConstructor>("LocaleConstructor")
+          .addStaticFunction("fromString", &LocaleConstructor::fromString)
+          .addStaticFunction("fromLanguageAndCountry", &LocaleConstructor::fromLanguageAndCountry)
+          .addStaticFunction("fromLanguageScriptAndCountry", &LocaleConstructor::fromLanguageScriptAndCountry)
+          .addStaticFunction("fromLocale", &LocaleConstructor::fromLocale)
         .endClass()
 
         .beginClass<QMetaObject::Connection>("QMetaObject_Connection")
@@ -149,6 +195,7 @@ static void QtGui2Lua(lua_State* L, const char* ns)
         .endClass()
 
         .beginClass<QColor>("QColor")
+          .addFunction("lighter", &QColor::lighter)
         .endClass()
         .beginClass<ColorConstructor>("ColorConstructor")
           .addStaticFunction("fromString", &ColorConstructor::fromString)
@@ -166,6 +213,7 @@ static void QtGui2Lua(lua_State* L, const char* ns)
         .endClass()
 
         .beginClass<QBrush>("QBrush")
+          .addFunction("setStyle", &QBrush::setStyle)
         .endClass()
         .beginClass<BrushConstructor>("BrushConstructor")
           .addStaticFunction("fromStyle", &BrushConstructor::fromStyle)
@@ -174,8 +222,17 @@ static void QtGui2Lua(lua_State* L, const char* ns)
         .endClass()
 
         .beginClass<QFont>("QFont")
-          .addConstructor<void(*)(const QString &, int, int, bool)>()
+          .addConstructor<void(*)()>()
           .addFunction("family", &QFont::family)
+          .addFunction("pointSize", &QFont::pointSize)
+          .addFunction("setStyleName", &QFont::setStyleName)
+          .addFunction("setPointSize", &QFont::setPointSize)
+          .addFunction("setPointSizeF", &QFont::setPointSizeF)
+          .addFunction("styleName", &QFont::styleName)
+        .endClass()
+        .beginClass<FontConstructor>("FontConstructor")
+          .addStaticFunction("fromFont", &FontConstructor::fromFont)
+          .addStaticFunction("fromFamily", &FontConstructor::fromFamily)
         .endClass()
 
         .beginClass<QGradient>("QGradient")
@@ -186,6 +243,12 @@ static void QtGui2Lua(lua_State* L, const char* ns)
           .endClass()
           .beginClass<RadialGradientConstructor>("RadialGradientConstructor")
             .addStaticFunction("fromXYRadius", &RadialGradientConstructor::fromXYRadius)
+          .endClass()
+
+          .deriveClass<QLinearGradient, QGradient>("QLinearGradient")
+          .endClass()
+          .beginClass<LinearGradientConstructor>("LinearGradientConstructor")
+            .addStaticFunction("fromXY", &LinearGradientConstructor::fromXY)
           .endClass()
 
       .endNamespace()
@@ -215,17 +278,20 @@ static void QtWidget2Lua(lua_State* L, const char* ns)
           .deriveClass<QCustomPlot, QWidget>("CustomPlot")
             .addData("legend", &QCustomPlot::legend)
             .addData("xAxis", &QCustomPlot::xAxis)
-            .addData("yAxis", &QCustomPlot::yAxis)
             .addData("xAxis2", &QCustomPlot::xAxis2)
+            .addData("yAxis", &QCustomPlot::yAxis)
             .addData("yAxis2", &QCustomPlot::yAxis2)
-            .addFunction("plotLayout", &QCustomPlot::plotLayout)
             .addFunction("addGraph", &QCustomPlot::addGraph)
-            .addFunction("graph", static_cast<QCPGraph*(QCustomPlot::*)(int) const>(&QCustomPlot::graph))
-            .addFunction("setAutoAddPlottableToLegend", &QCustomPlot::setAutoAddPlottableToLegend)
-            .addFunction("rescaleAxes", &QCustomPlot::rescaleAxes)
             .addFunction("axisRect", &QCustomPlot::axisRect)
-            .addFunction("setInteractions", &QCustomPlot::setInteractions)
+            .addFunction("graph", static_cast<QCPGraph*(QCustomPlot::*)(int) const>(&QCustomPlot::graph))
+            .addFunction("lastGraph", static_cast<QCPGraph*(QCustomPlot::*)() const>(&QCustomPlot::graph))
+            .addFunction("plotLayout", &QCustomPlot::plotLayout)
             .addFunction("replot", &QCustomPlot::replot)
+            .addFunction("rescaleAxes", &QCustomPlot::rescaleAxes)
+            .addFunction("setAutoAddPlottableToLegend", &QCustomPlot::setAutoAddPlottableToLegend)
+            .addFunction("setBackground", static_cast<void(QCustomPlot::*)(const QBrush&)>(&QCustomPlot::setBackground))
+            .addFunction("setInteractions", &QCustomPlot::setInteractions)
+            .addFunction("setLocale", &QCustomPlot::setLocale)
           .endClass()
 
             .deriveClass<LuaPlot, QCustomPlot>("LuaPlot")
@@ -236,7 +302,8 @@ static void QtWidget2Lua(lua_State* L, const char* ns)
               .addFunction("createColorMap", &LuaPlot::createColorMap)
               .addFunction("createColorScale", &LuaPlot::createColorScale)
               .addFunction("createAxisTickerFixed", &LuaPlot::createAxisTickerFixed)
-              .addFunction("createAxisTkckerDateTime", &LuaPlot::createAxisTickerDateTime)
+              .addFunction("createAxisTickerDateTime", &LuaPlot::createAxisTickerDateTime)
+              .addFunction("createAxisTickerText", &LuaPlot::createAxisTickerText)
               .addFunction("createBars", &LuaPlot::createBars)
               .addFunction("createLayoutGrid", &LuaPlot::createLayoutGrid)
               .addFunction("createMarginGroup", &LuaPlot::createMarginGroup)
@@ -247,6 +314,7 @@ static void QtWidget2Lua(lua_State* L, const char* ns)
               .addFunction("createItemCurve", &LuaPlot::createItemCurve)
               .addFunction("createItemText", &LuaPlot::createItemText)
               .addFunction("createItemBracket", &LuaPlot::createItemBracket)
+              .addFunction("createStatisticalBox", &LuaPlot::createStatisticalBox)
               .addFunction("setTimer", &LuaPlot::setTimer)
             .endClass()
 
@@ -261,8 +329,6 @@ static void QtWidget2Lua(lua_State* L, const char* ns)
       .endNamespace()
     ;
 }
-
-
 
 static int cellToCoord(lua_State* L)
 {
@@ -316,6 +382,8 @@ static void QcpContainer2Lua(lua_State* L, const char* ns)
           .addFunction("addVector", static_cast<void(QCPGraphDataContainer::*)(const QVector<QCPGraphData>&, bool)>(&QCPGraphDataContainer::add))
           .addFunction("addData", static_cast<void(QCPGraphDataContainer::*)(const QCPGraphData&)>(&QCPGraphDataContainer::add))
           .addFunction("size", &QCPGraphDataContainer::size)
+          .addFunction("setVector", static_cast<void(QCPGraphDataContainer::*)(const QVector<QCPGraphData>&, bool)>(&QCPGraphDataContainer::set))
+          .addFunction("setContainer", static_cast<void(QCPGraphDataContainer::*)(const QCPGraphDataContainer&)>(&QCPGraphDataContainer::set))
         .endClass()
 
       .endNamespace()
@@ -349,6 +417,8 @@ static void QcpBasic2Lua(lua_State* L, const char* ns)
           .endClass()
 
           .deriveClass<QCPAxisTickerText, QCPAxisTicker>("AxisTickerText")
+            .addFunction("addTick", &QCPAxisTickerText::addTick)
+            .addFunction("addTicks", static_cast<void(QCPAxisTickerText::*)(const QVector<double>&, const QVector<QString>&)>(&QCPAxisTickerText::addTicks))
           .endClass()
 
           .deriveClass<QCPAxisTickerTime, QCPAxisTicker>("AxisTickerTime")
@@ -430,18 +500,27 @@ static void QcpLayerable2Lua(lua_State* L, const char* ns)
             .addFunction("range", &QCPAxis::range)
             .addFunction("scaleRange", static_cast<void(QCPAxis::*)(double, double)>(&QCPAxis::scaleRange))
             .addFunction("setBasePen", &QCPAxis::setBasePen)
+            .addFunction("setPadding", &QCPAxis::setPadding)
             .addFunction("setRange", static_cast<void(QCPAxis::*)(double, double)>(&QCPAxis::setRange))
             .addFunction("setLabel", &QCPAxis::setLabel)
+            .addFunction("setLabelColor", &QCPAxis::setLabelColor)
+            .addFunction("setSubTickPen", &QCPAxis::setSubTickPen)
             .addFunction("setSubTicks", &QCPAxis::setSubTicks)
             .addFunction("setTicker", &QCPAxis::setTicker)
             .addFunction("setTickLabels", &QCPAxis::setTickLabels)
             .addFunction("setTickLabelColor", &QCPAxis::setTickLabelColor)
+            .addFunction("setTickLabelFont", &QCPAxis::setTickLabelFont)
             .addFunction("setTickLabelRotation", &QCPAxis::setTickLabelRotation)
+            .addFunction("setTickLength", &QCPAxis::setTickLength)
+            .addFunction("setTickPen", &QCPAxis::setTickPen)
             .addFunction("setTicks", &QCPAxis::setTicks)
             .addFunction("ticker", &QCPAxis::ticker)
           .endClass()
 
           .deriveClass<QCPGrid, QCPLayerable>("Grid")
+            .addFunction("setPen", &QCPGrid::setPen)
+            .addFunction("setSubGridPen", &QCPGrid::setSubGridPen)
+            .addFunction("setSubGridVisible", &QCPGrid::setSubGridVisible)
             .addFunction("setVisible", &QCPGrid::setVisible)
             .addFunction("setZeroLinePen", &QCPGrid::setZeroLinePen)
           .endClass()
@@ -550,9 +629,11 @@ static void QcpPlottable2Lua(lua_State* L, const char* ns)
           .deriveClass<QCPAbstractPlottable1D<QCPBarsData>, QCPAbstractPlottable>("AbstractPlottable1D_BarsData")
           .endClass()
             .deriveClass<QCPBars, QCPAbstractPlottable1D<QCPBarsData> >("Bars")
-              .addFunction("setWidth", &QCPBars::setWidth)
-              .addFunction("setData", static_cast<void(QCPBars::*)(const QVector<double>&, const QVector<double>&, bool)>(&QCPBars::setData))
               .addFunction("addData", static_cast<void(QCPBars::*)(double, double)>(&QCPBars::addData))
+              .addFunction("moveAbove", &QCPBars::moveAbove)
+              .addFunction("setData", static_cast<void(QCPBars::*)(const QVector<double>&, const QVector<double>&, bool)>(&QCPBars::setData))
+              .addFunction("setStackingGap", &QCPBars::setStackingGap)
+              .addFunction("setWidth", &QCPBars::setWidth)
             .endClass()
 
           .deriveClass<QCPAbstractPlottable1D<QCPCurveData>, QCPAbstractPlottable>("QCPAbstractPlottable1D_QCPCurveData")
@@ -589,6 +670,9 @@ static void QcpPlottable2Lua(lua_State* L, const char* ns)
           .deriveClass<QCPAbstractPlottable1D<QCPStatisticalBoxData>, QCPAbstractPlottable>("QCPAbstractPlottable1D_QCPStatisticalBoxData")
           .endClass()
             .deriveClass<QCPStatisticalBox, QCPAbstractPlottable1D<QCPStatisticalBoxData>>("StatisticalBox")
+              .addFunction("addData", static_cast<void(QCPStatisticalBox::*)(double, double, double, double, double, double, const QVector<double>&)>(&QCPStatisticalBox::addData))
+              .addFunction("addVector", static_cast<void(QCPStatisticalBox::*)(const QVector<double>&, const QVector<double>&, const QVector<double>&, const QVector<double>&, const QVector<double>&, const QVector<double>&, bool)>(&QCPStatisticalBox::addData))
+              .addFunction("setBrush", &QCPStatisticalBox::setBrush)
             .endClass()
 
       .endNamespace()
@@ -616,6 +700,7 @@ static void QcpElement2Lua(lua_State* L, const char* ns)
             .addFunction("axis", &QCPAxisRect::axis)
             .addFunction("addAxes", &QCPAxisRect::addAxes)
             .addFunction("addAxis", &QCPAxisRect::addAxis)
+            .addFunction("insetLayout", &QCPAxisRect::insetLayout)
             .addFunction("setMaximumSize", static_cast<void (QCPAxisRect::*)(int, int)>(&QCPAxisRect::setMaximumSize))
             .addFunction("setMinimumSize", static_cast<void (QCPAxisRect::*)(int, int)>(&QCPAxisRect::setMinimumSize))
             .addFunction("setupFullAxesBox", &QCPAxisRect::setupFullAxesBox)
@@ -639,9 +724,13 @@ static void QcpElement2Lua(lua_State* L, const char* ns)
             .endClass()
 
               .deriveClass<QCPLegend, QCPLayoutGrid>("Legend")
+                .addFunction("setBorderPen", &QCPLegend::setBorderPen)
+                .addFunction("setBrush", &QCPLegend::setBrush)
+                .addFunction("setFont", &QCPLegend::setFont)
               .endClass()
 
             .deriveClass<QCPLayoutInset, QCPLayout>("LayoutInset")
+              .addFunction("setInsetAlignment", &QCPLayoutInset::setInsetAlignment)
             .endClass()
 
           .deriveClass<QCPTextElement, QCPLayoutElement>("TextElement")
