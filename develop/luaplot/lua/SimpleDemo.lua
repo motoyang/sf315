@@ -35,8 +35,8 @@ function fp(plot)
 --pa.print_any(y1)
 
   -- and add these data to these graph
-  plot:graph(0):setData(x, y0, true)
-  plot:graph(1):setData(x, y1, true)
+  plot:graph(0):setVector(x, y0, true)
+  plot:graph(1):setVector(x, y1, true)
 
   -- adjust the plots
   plot.xAxis2:setVisible(true)

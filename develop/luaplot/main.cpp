@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
     for (int i = 1; i < argc; ++i) {
         QString error;
         if (!DoLuaFile(L, argv[i], &error)) {
-            std::cerr << error.toUtf8().constData();
+            std::cerr << error.toUtf8().constData() << std::endl;
         }
     }
 

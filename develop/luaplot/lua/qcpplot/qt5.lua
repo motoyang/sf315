@@ -1080,9 +1080,18 @@ M.Locale = {
 --  };
   }
 
+
 M.xxx = {
 
   }
+
+function M.SIGNAL(s)
+  return "2"..s
+end
+
+function M.SLOT(s)
+  return "1"..s
+end
 
 -- return modname的功能
 _G[modname]=M

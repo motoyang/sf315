@@ -73,14 +73,14 @@ local mainGraphCos=plot:addGraph(wideAxisRect:axis(qcp.Axis.atBottom, 0), wideAx
 mainGraphCos:data():addVector(dataCos, true)
 mainGraphCos:valueAxis():setRange(-1, 1)
 mainGraphCos:rescaleKeyAxis()
-local st1 = luaplot.ScatterStyleConstructor.fromShape(qcp.ScatterStyle.ssCircle, luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.black)), luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.white), qt.SolidPattern), 6.0)
+local st1 = luaplot.ScatterStyleConstructor.fromShapePenBrushAndSize(qcp.ScatterStyle.ssCircle, luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.black)), luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.white), qt.SolidPattern), 6.0)
 mainGraphCos:setScatterStyle(st1)
 local p1 = luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromRGB(120, 120, 120, 255))
 p1:setWidthF(2.0)
 mainGraphCos:setPen(p1)
 
 local mainGraphGauss=plot:addGraph(wideAxisRect:axis(qcp.Axis.atBottom, 0), wideAxisRect:axis(qcp.Axis.atLeft, 1))
-mainGraphGauss:addData(dataGaussKey, dataGaussValue, true)
+mainGraphGauss:setVector(dataGaussKey, dataGaussValue, true)
 p1 = luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromString("#8070B8"))
 p1:setWidthF(2.0)
 mainGraphGauss:setPen(p1)
@@ -102,7 +102,7 @@ for i = 1, 100 do
 end
 
 local subGraphRandom = plot:addGraph(subRectLeft:axis(qcp.Axis.atBottom, 0), subRectLeft:axis(qcp.Axis.atLeft, 0))
-subGraphRandom:addData(dataRandomKey, dataRandomValue, true)
+subGraphRandom:setVector(dataRandomKey, dataRandomValue, true)
 subGraphRandom:setLineStyle(qcp.Graph.lsImpulse)
 local p1 = luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromString("#FFA100"))
 p1:setWidthF(1.5)
@@ -114,7 +114,7 @@ local y3 = {2, 2.5, 4, 1.5}
 
 local subBars = plot:createBars(subRectRight:axis(qcp.Axis.atBottom, 0), subRectRight:axis(qcp.Axis.atRight, 0))
 subBars:setWidth(3/#x3)
-subBars:setData(x3, y3)
+subBars:setVector(x3, y3)
 local c1 = luaplot.ColorConstructor.fromGlobal(qt.black)
 subBars:setPen(luaplot.PenConstructor.fromColor(c1))
 subBars:setAntialiased(false)

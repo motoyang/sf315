@@ -12,8 +12,6 @@ local qt=require("qcpplot.qt5")
 
 
 function fun4MW(mainWidget)
-  print("start MainWindow from lua")
-  
   local p = mainWidget:getPlot()
   fun4Plot(p)
 end
@@ -38,7 +36,7 @@ end
 --pa.print_any(x)
 --pa.print_any(y)
 
-graph:setData(x, y)
+graph:setVector(x, y)
 graph:setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.blue)))
 graph:rescaleKeyAxis()
 plot.yAxis:setRange(-1.45, 1.65)
@@ -153,7 +151,7 @@ function f1()
   end
 
   local g0 = plot:graph(0)
-  g0:setData(x, y)
+  g0:setVector(x, y)
   phaseTracer:setGraphKey((8*math.pi+math.fmod(math.pi*1.5-phase, 6*math.pi))/k)
   plot:replot(qcp.CustomPlot.rpRefreshHint)
 

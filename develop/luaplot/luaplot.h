@@ -25,11 +25,13 @@ public:
     QCPAxisRect*            createAxisRect(QCustomPlot *parentPlot, bool setupDefaultAxes=true);
     QCPAxisTickerFixed*     createAxisTickerFixed();
     QCPAxisTickerDateTime*  createAxisTickerDateTime();
+    QCPAxisTickerLog*       createAxisTickerLog();
     QCPAxisTickerText*      createAxisTickerText();
     QCPBars*                createBars(QCPAxis *keyAxis, QCPAxis *valueAxis);
     QCPCurve*               createCurve(QCPAxis *keyAxis, QCPAxis *valueAxis);
     QCPColorMap*            createColorMap(QCPAxis *keyAxis, QCPAxis *valueAxis);
     QCPColorScale*          createColorScale(QCustomPlot* parentPlot);
+    QCPErrorBars*           createErrorBars(QCPAxis *keyAxis, QCPAxis *valueAxis);
     QCPFinancial*           createFinancial(QCPAxis *keyAxis, QCPAxis *valueAxis);
     QCPItemBracket*         createItemBracket(QCustomPlot* parentPlot);
     QCPItemCurve*           createItemCurve(QCustomPlot *parentPlot);

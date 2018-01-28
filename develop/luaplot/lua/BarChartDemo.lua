@@ -82,9 +82,9 @@ function fp(plot)
   local fossilData = {0.86*10.5, 0.83*5.5, 0.84*5.5, 0.52*5.8, 0.89*5.2, 0.90*4.2, 0.67*11.2}
   local nuclearData = {0.08*10.5, 0.12*5.5, 0.12*5.5, 0.40*5.8, 0.09*5.2, 0.00*4.2, 0.07*11.2}
   local regenData   = {0.06*10.5, 0.05*5.5, 0.04*5.5, 0.06*5.8, 0.02*5.2, 0.07*4.2, 0.25*11.2}
-  fossil:setData(ticks, fossilData)
-  nuclear:setData(ticks, nuclearData)
-  regen:setData(ticks, regenData)
+  fossil:setVector(ticks, fossilData)
+  nuclear:setVector(ticks, nuclearData)
+  regen:setVector(ticks, regenData)
  
   -- setup legend:
   plot.legend:setVisible(true)

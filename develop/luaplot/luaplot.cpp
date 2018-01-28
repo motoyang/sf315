@@ -42,6 +42,11 @@ QCPAxisTickerDateTime* LuaPlot::createAxisTickerDateTime()
     return new QCPAxisTickerDateTime();
 }
 
+QCPAxisTickerLog *LuaPlot::createAxisTickerLog()
+{
+    return new QCPAxisTickerLog();
+}
+
 QCPAxisTickerText *LuaPlot::createAxisTickerText()
 {
     return new QCPAxisTickerText();
@@ -85,6 +90,11 @@ QCPColorMap *LuaPlot::createColorMap(QCPAxis *keyAxis, QCPAxis *valueAxis)
 QCPColorScale *LuaPlot::createColorScale(QCustomPlot *parentPlot)
 {
     return new QCPColorScale(parentPlot);
+}
+
+QCPErrorBars *LuaPlot::createErrorBars(QCPAxis *keyAxis, QCPAxis *valueAxis)
+{
+    return new QCPErrorBars(keyAxis, valueAxis);
 }
 
 QCPItemTracer *LuaPlot::createItemTracer(QCustomPlot *parentPlot)

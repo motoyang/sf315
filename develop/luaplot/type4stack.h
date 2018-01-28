@@ -50,6 +50,7 @@ STACK_AS_INT(QLocale::Language)
 STACK_AS_INT(QLocale::Script)
 
 STACK_AS_INT(QCPAxis::AxisType)
+STACK_AS_INT(QCPAxis::ScaleType)
 STACK_AS_INT(QCPAxisTickerFixed::ScaleStrategy)
 STACK_AS_INT(QCPColorGradient::GradientPreset)
 STACK_AS_INT(QCPFinancial::ChartStyle)
