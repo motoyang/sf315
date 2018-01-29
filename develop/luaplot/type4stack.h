@@ -59,6 +59,7 @@ STACK_AS_INT(QCPLineEnding::EndingStyle)
 STACK_AS_INT(QCPItemPosition::PositionType)
 STACK_AS_INT(QCPItemTracer::TracerStyle)
 STACK_AS_INT(QCPScatterStyle::ScatterShape)
+STACK_AS_INT(QCustomPlot::LayerInsertMode)
 STACK_AS_INT(QCustomPlot::RefreshPriority)
 
 STACK_AS_INT_FROM(Qt::Alignment, Qt::AlignmentFlag)

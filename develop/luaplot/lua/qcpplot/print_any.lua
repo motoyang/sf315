@@ -44,9 +44,30 @@ local function print_t(o, t)
 end
 
 -- 本模块对外提供的函数
+--[[
 function M.print_any(value)
   print_t(value)
   output("\n")
+end
+--]]
+function M.pprint(...)
+  for i = 1, select("#", ...) do
+    local v = select(i, ...)
+    if type(v) == "string" then
+      output(v)
+    else 
+      print_t(v)
+    end
+  end
+  output("\n")
+end
+
+function M.getTableIndexByValue(t, value)
+  local r = {}
+  for k, v in pairs(t) do
+    r[v] = k
+  end
+  return r[value]
 end
 
 -- 返回本模块的table

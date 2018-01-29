@@ -142,6 +142,10 @@ struct ScatterStyleConstructor
                                      double size) {
         return QCPScatterStyle(shape, pen, brush, size);
     }
+
+    static QCPScatterStyle fromPainterPath(const QPainterPath &customPath, const QPen &pen, const QBrush &brush=Qt::NoBrush, double size=6) {
+        return QCPScatterStyle(customPath, pen, brush, size);
+    }
 };
 
 // --
@@ -256,10 +260,19 @@ static void QtGui2Lua(lua_State* L, const char* ns)
           .endClass()
 
           .deriveClass<QLinearGradient, QGradient>("QLinearGradient")
+            .addConstructor<void(*)()>()
+            .addFunction("setColorAt", &QLinearGradient::setColorAt)
+            .addFunction("setFinalStopXY", static_cast<void(QLinearGradient::*)(qreal, qreal)>(&QLinearGradient::setFinalStop))
+            .addFunction("setStartXY", static_cast<void(QLinearGradient::*)(qreal, qreal)>(&QLinearGradient::setStart))
           .endClass()
           .beginClass<LinearGradientConstructor>("LinearGradientConstructor")
             .addStaticFunction("fromXY", &LinearGradientConstructor::fromXY)
           .endClass()
+
+        .beginClass<QPainterPath>("QPainterPath")
+          .addConstructor<void(*)()>()
+          .addFunction("cubicToXY", static_cast<void(QPainterPath::*)(qreal, qreal, qreal, qreal, qreal, qreal)>(&QPainterPath::cubicTo))
+        .endClass()
 
       .endNamespace()
     ;
@@ -269,8 +282,6 @@ static void QtWidget2Lua(lua_State* L, const char* ns)
 {
     luabridge::getGlobalNamespace(L)
       .beginNamespace(ns)
-
-//        .addFunction("getPlot", getPlot)
 
         .deriveClass<QApplication, QObject>("App")
           .addStaticFunction("exec", &QApplication::exec)
@@ -292,9 +303,12 @@ static void QtWidget2Lua(lua_State* L, const char* ns)
             .addData("yAxis", &QCustomPlot::yAxis)
             .addData("yAxis2", &QCustomPlot::yAxis2)
             .addFunction("addGraph", &QCustomPlot::addGraph)
+            .addFunction("addLayer", &QCustomPlot::addLayer)
             .addFunction("axisRect", &QCustomPlot::axisRect)
             .addFunction("graph", static_cast<QCPGraph*(QCustomPlot::*)(int) const>(&QCustomPlot::graph))
             .addFunction("lastGraph", static_cast<QCPGraph*(QCustomPlot::*)() const>(&QCustomPlot::graph))
+            .addFunction("layerByName", static_cast<QCPLayer*(QCustomPlot::*)(const QString&)const>(&QCustomPlot::layer))
+            .addFunction("layerByIndex", static_cast<QCPLayer*(QCustomPlot::*)(int)const>(&QCustomPlot::layer))
             .addFunction("plotLayout", &QCustomPlot::plotLayout)
             .addFunction("replot", &QCustomPlot::replot)
             .addFunction("rescaleAxes", &QCustomPlot::rescaleAxes)
@@ -479,6 +493,7 @@ static void QcpBasic2Lua(lua_State* L, const char* ns)
         .beginClass<ScatterStyleConstructor>("ScatterStyleConstructor")
           .addStaticFunction("fromShapeAndSize", &ScatterStyleConstructor::fromShapeAndSize)
           .addStaticFunction("fromShapePenBrushAndSize", &ScatterStyleConstructor::fromShapePenBrushAndSize)
+          .addStaticFunction("fromPainterPath", &ScatterStyleConstructor::fromPainterPath)
         .endClass()
 
         .beginClass<QCPSelectionDecorator>("QCPSelectionDecorator")
@@ -531,6 +546,7 @@ static void QcpLayerable2Lua(lua_State* L, const char* ns)
             .addFunction("setTickLength", &QCPAxis::setTickLength)
             .addFunction("setTickPen", &QCPAxis::setTickPen)
             .addFunction("setTicks", &QCPAxis::setTicks)
+            .addFunction("setUpperEnding", &QCPAxis::setUpperEnding)
             .addFunction("ticker", &QCPAxis::ticker)
           .endClass()
 
@@ -719,10 +735,11 @@ static void QcpElement2Lua(lua_State* L, const char* ns)
           .endClass()
 
           .deriveClass<QCPAxisRect, QCPLayoutElement>("AxisRect")
-            .addFunction("axis", &QCPAxisRect::axis)
             .addFunction("addAxes", &QCPAxisRect::addAxes)
             .addFunction("addAxis", &QCPAxisRect::addAxis)
+            .addFunction("axis", &QCPAxisRect::axis)
             .addFunction("insetLayout", &QCPAxisRect::insetLayout)
+            .addFunction("setBackgroundByBrush", static_cast<void(QCPAxisRect::*)(const QBrush&)>(&QCPAxisRect::setBackground))
             .addFunction("setMaximumSize", static_cast<void (QCPAxisRect::*)(int, int)>(&QCPAxisRect::setMaximumSize))
             .addFunction("setMinimumSize", static_cast<void (QCPAxisRect::*)(int, int)>(&QCPAxisRect::setMinimumSize))
             .addFunction("setupFullAxesBox", &QCPAxisRect::setupFullAxesBox)
