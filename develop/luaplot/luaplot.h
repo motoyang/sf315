@@ -27,6 +27,7 @@ public:
     QCPAxisTickerDateTime*  createAxisTickerDateTime();
     QCPAxisTickerLog*       createAxisTickerLog();
     QCPAxisTickerText*      createAxisTickerText();
+    QCPAxisTickerTime*      createAxisTickerTime();
     QCPBars*                createBars(QCPAxis *keyAxis, QCPAxis *valueAxis);
     QCPCurve*               createCurve(QCPAxis *keyAxis, QCPAxis *valueAxis);
     QCPColorMap*            createColorMap(QCPAxis *keyAxis, QCPAxis *valueAxis);
@@ -40,6 +41,7 @@ public:
     QCPLayoutGrid*          createLayoutGrid();
     QCPMarginGroup*         createMarginGroup(QCustomPlot *parentPlot);
     QCPStatisticalBox*      createStatisticalBox(QCPAxis *keyAxis, QCPAxis *valueAxis);
+    QCPTextElement*         createTextElement(QCustomPlot *parentPlot, const QString &text, const QFont &font);
 
     template<typename T>
     QSharedPointer<T> createDataContainer() {

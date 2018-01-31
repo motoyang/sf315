@@ -36,6 +36,8 @@ template <> struct Stack <Y const&> { \
 };
 
 
+STACK_AS_INT(Qt::AlignmentFlag)
+STACK_AS_INT(Qt::AspectRatioMode)
 STACK_AS_INT(Qt::BrushStyle)
 STACK_AS_INT(Qt::ConnectionType)
 STACK_AS_INT(Qt::GlobalColor)
@@ -43,8 +45,8 @@ STACK_AS_INT(Qt::PenCapStyle)
 STACK_AS_INT(Qt::PenJoinStyle)
 STACK_AS_INT(Qt::PenStyle)
 STACK_AS_INT(Qt::TimeSpec)
+STACK_AS_INT(Qt::TransformationMode)
 STACK_AS_INT(Qt::WidgetAttribute)
-
 STACK_AS_INT(QLocale::Country)
 STACK_AS_INT(QLocale::Language)
 STACK_AS_INT(QLocale::Script)
@@ -63,9 +65,11 @@ STACK_AS_INT(QCustomPlot::LayerInsertMode)
 STACK_AS_INT(QCustomPlot::RefreshPriority)
 
 STACK_AS_INT_FROM(Qt::Alignment, Qt::AlignmentFlag)
+STACK_AS_INT_FROM(Qt::ImageConversionFlags, Qt::ImageConversionFlag)
 
 STACK_AS_INT_FROM(QCP::MarginSides, QCP::MarginSide)
 STACK_AS_INT_FROM(QCPAxis::AxisTypes, QCPAxis::AxisType)
+
 STACK_AS_INT_CONST_FROM(QCP::Interactions, QCP::Interaction)
 
 #undef STACK_AS_INT

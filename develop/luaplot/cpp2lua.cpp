@@ -124,6 +124,13 @@ struct PenConstructor
     }
 };
 
+struct PixmapConstructor
+{
+    static QPixmap fromFile(const QString &fileName, const char *format = Q_NULLPTR, Qt::ImageConversionFlags flags = Qt::AutoColor) {
+        return QPixmap(fileName, format, flags);
+    }
+};
+
 struct RadialGradientConstructor
 {
     static QRadialGradient fromXYRadius(qreal cx, qreal cy, qreal radius) {
@@ -145,6 +152,10 @@ struct ScatterStyleConstructor
 
     static QCPScatterStyle fromPainterPath(const QPainterPath &customPath, const QPen &pen, const QBrush &brush=Qt::NoBrush, double size=6) {
         return QCPScatterStyle(customPath, pen, brush, size);
+    }
+
+    static QCPScatterStyle fromPixmap(const QPixmap &pixmap) {
+        return QCPScatterStyle(pixmap);
     }
 };
 
@@ -182,6 +193,12 @@ static void QtCore2Lua(lua_State* L, const char* ns)
         .endClass()
         .beginClass<QObject>("QObject")
           .addStaticFunction("connect", static_cast<QMetaObject::Connection(*)(const QObject*, const char*, const QObject*, const char*, Qt::ConnectionType)>(QObject::connect))
+        .endClass()
+
+        .beginClass<QTime>("QTime")
+          .addConstructor<void(*)()>()
+          .addStaticFunction("currentTime", &QTime::currentTime)
+          .addFunction("elapsed", &QTime::elapsed)
         .endClass()
 
       .endNamespace()
@@ -274,6 +291,14 @@ static void QtGui2Lua(lua_State* L, const char* ns)
           .addFunction("cubicToXY", static_cast<void(QPainterPath::*)(qreal, qreal, qreal, qreal, qreal, qreal)>(&QPainterPath::cubicTo))
         .endClass()
 
+        .beginClass<QPixmap>("QPixmap")
+          .addConstructor<void(*)()>()
+          .addFunction("scaledXY", static_cast<QPixmap(QPixmap::*)(int, int, Qt::AspectRatioMode, Qt::TransformationMode)const>(&QPixmap::scaled))
+        .endClass()
+        .beginClass<PixmapConstructor>("PixmapConstructor")
+          .addStaticFunction("fromFile", &PixmapConstructor::fromFile)
+        .endClass()
+
       .endNamespace()
     ;
 }
@@ -330,6 +355,7 @@ static void QtWidget2Lua(lua_State* L, const char* ns)
               .addFunction("createAxisTickerDateTime", &LuaPlot::createAxisTickerDateTime)
               .addFunction("createAxisTickerLog", &LuaPlot::createAxisTickerLog)
               .addFunction("createAxisTickerText", &LuaPlot::createAxisTickerText)
+              .addFunction("createAxisTickerTime", &LuaPlot::createAxisTickerTime)
               .addFunction("createBars", &LuaPlot::createBars)
               .addFunction("createErrorBars", &LuaPlot::createErrorBars)
               .addFunction("createLayoutGrid", &LuaPlot::createLayoutGrid)
@@ -342,6 +368,7 @@ static void QtWidget2Lua(lua_State* L, const char* ns)
               .addFunction("createItemText", &LuaPlot::createItemText)
               .addFunction("createItemBracket", &LuaPlot::createItemBracket)
               .addFunction("createStatisticalBox", &LuaPlot::createStatisticalBox)
+              .addFunction("createTextElement", &LuaPlot::createTextElement)
               .addFunction("setTimer", &LuaPlot::setTimer)
             .endClass()
 
@@ -449,6 +476,7 @@ static void QcpBasic2Lua(lua_State* L, const char* ns)
           .endClass()
 
           .deriveClass<QCPAxisTickerTime, QCPAxisTicker>("AxisTickerTime")
+            .addFunction("setTimeFormat", &QCPAxisTickerTime::setTimeFormat)
           .endClass()
 
         .deriveClass<QCPBarsGroup, QObject>("BarsGroup")
@@ -494,6 +522,7 @@ static void QcpBasic2Lua(lua_State* L, const char* ns)
           .addStaticFunction("fromShapeAndSize", &ScatterStyleConstructor::fromShapeAndSize)
           .addStaticFunction("fromShapePenBrushAndSize", &ScatterStyleConstructor::fromShapePenBrushAndSize)
           .addStaticFunction("fromPainterPath", &ScatterStyleConstructor::fromPainterPath)
+          .addStaticFunction("fromPixmap", &ScatterStyleConstructor::fromPixmap)
         .endClass()
 
         .beginClass<QCPSelectionDecorator>("QCPSelectionDecorator")
@@ -531,6 +560,7 @@ static void QcpLayerable2Lua(lua_State* L, const char* ns)
             .addFunction("setBasePen", &QCPAxis::setBasePen)
             .addFunction("setPadding", &QCPAxis::setPadding)
             .addFunction("setRange", static_cast<void(QCPAxis::*)(double, double)>(&QCPAxis::setRange))
+            .addFunction("setRangeWithSize", static_cast<void(QCPAxis::*)(double, double, Qt::AlignmentFlag)>(&QCPAxis::setRange))
             .addFunction("setLabel", &QCPAxis::setLabel)
             .addFunction("setLabelColor", &QCPAxis::setLabelColor)
             .addFunction("setNumberFormat", &QCPAxis::setNumberFormat)
@@ -699,6 +729,7 @@ static void QcpPlottable2Lua(lua_State* L, const char* ns)
             .deriveClass<QCPGraph, QCPAbstractPlottable1D<QCPGraphData> >("Graph")
               .addFunction("data", &QCPGraph::data)
               .addFunction("setVector", static_cast<void(QCPGraph::*)(const QVector<double>&, const QVector<double>&, bool)>(&QCPGraph::setData))
+              .addFunction("addData", static_cast<void(QCPGraph::*)(double, double)>(&QCPGraph::addData))
               .addFunction("addVector", static_cast<void(QCPGraph::*)(const QVector<double>&, const QVector<double>&, bool)>(&QCPGraph::addData))
               .addFunction("setLineStyle", &QCPGraph::setLineStyle)
               .addFunction("setScatterStyle", &QCPGraph::setScatterStyle)
@@ -739,6 +770,7 @@ static void QcpElement2Lua(lua_State* L, const char* ns)
             .addFunction("addAxis", &QCPAxisRect::addAxis)
             .addFunction("axis", &QCPAxisRect::axis)
             .addFunction("insetLayout", &QCPAxisRect::insetLayout)
+            .addFunction("setBackgroundByPixmap", static_cast<void(QCPAxisRect::*)(const QPixmap&)>(&QCPAxisRect::setBackground))
             .addFunction("setBackgroundByBrush", static_cast<void(QCPAxisRect::*)(const QBrush&)>(&QCPAxisRect::setBackground))
             .addFunction("setMaximumSize", static_cast<void (QCPAxisRect::*)(int, int)>(&QCPAxisRect::setMaximumSize))
             .addFunction("setMinimumSize", static_cast<void (QCPAxisRect::*)(int, int)>(&QCPAxisRect::setMinimumSize))
@@ -769,6 +801,7 @@ static void QcpElement2Lua(lua_State* L, const char* ns)
                 .addFunction("setBorderPen", &QCPLegend::setBorderPen)
                 .addFunction("setBrush", &QCPLegend::setBrush)
                 .addFunction("setFont", &QCPLegend::setFont)
+                .addFunction("setIconSizeXY", static_cast<void(QCPLegend::*)(int, int)>(&QCPLegend::setIconSize))
               .endClass()
 
             .deriveClass<QCPLayoutInset, QCPLayout>("LayoutInset")

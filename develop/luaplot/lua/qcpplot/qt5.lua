@@ -262,8 +262,53 @@ local M = {
 --  };
 --  Q_DECLARE_FLAGS(Alignment, AlignmentFlag)
 
+    -- enum AspectRatioMode {
+    IgnoreAspectRatio=0,
+    KeepAspectRatio=1,
+    KeepAspectRatioByExpanding=3
+    ,
+--  };
 
-  }
+    -- enum TransformationMode {
+    FastTransformation=0,
+    SmoothTransformation=1
+    ,
+--  };
+
+
+    -- Image conversion flags.  The unusual ordering is caused by
+    -- compatibility and default requirements.
+    -- enum ImageConversionFlag {
+    ColorMode_Mask          = 0x00000003,
+    AutoColor               = 0x00000000,
+    ColorOnly               = 0x00000003,
+    MonoOnly                = 0x00000002,
+    -- Reserved             = 0x00000001,
+
+    AlphaDither_Mask        = 0x0000000c,
+    ThresholdAlphaDither    = 0x00000000,
+    OrderedAlphaDither      = 0x00000004,
+    DiffuseAlphaDither      = 0x00000008,
+    NoAlpha                 = 0x0000000c, -- Not supported
+
+    Dither_Mask             = 0x00000030,
+    DiffuseDither           = 0x00000000,
+    OrderedDither           = 0x00000010,
+    ThresholdDither         = 0x00000020,
+    -- ReservedDither       = 0x00000030,
+
+    DitherMode_Mask         = 0x000000c0,
+    AutoDither              = 0x00000000,
+    PreferDither            = 0x00000040,
+    AvoidDither             = 0x00000080,
+
+    NoOpaqueDetection       = 0x00000100,
+    NoFormatConversion      = 0x00000200
+    ,
+--  };
+--  Q_DECLARE_FLAGS(ImageConversionFlags, ImageConversionFlag)
+
+  } -- end of M
 
 -- enum AlignmentFlag {
 M.AlignHorizontal_Mask = M.AlignLeft + M.AlignRight + M.AlignHCenter + M.AlignJustify + M.AlignAbsolute
@@ -1078,8 +1123,26 @@ M.Locale = {
     LastCountry = OutlyingOceania
     ,
 --  };
-  }
+  }   -- end of M.Locale
 
+
+M.QFont = {
+
+  -- Mapping OpenType weight value.
+  -- enum Weight {
+    Thin     = 0,    -- 100
+    ExtraLight = 12, -- 200
+    Light    = 25,   -- 300
+    Normal   = 50,   -- 400
+    Medium   = 57,   -- 500
+    DemiBold = 63,   -- 600
+    Bold     = 75,   -- 700
+    ExtraBold = 81,  -- 800
+    Black    = 87    -- 900
+    ,
+--  };
+
+  }
 
 M.xxx = {
 

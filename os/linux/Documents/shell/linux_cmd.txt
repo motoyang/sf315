@@ -6,10 +6,10 @@ cd backup_dir/
 # 备份系统的命令，需要sudo执行
 
 # 完整备份整个系统，但不包括/home等目录
-sudo tar -g sysinfo -cJvPf sys_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz / --exclude=/proc --exclude=/lost+found --exclude=/mnt  --exclude=/sys --exclude=/tmp --exclude=/media --exclude=/home
+sudo tar -g sysinfo -cJvPf sys_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz / --exclude=/proc --exclude=/lost+found --exclude=/mnt --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home
 
 # 在前面完整备份的基础上，增量备份整个系统，但不包括/home等目录
-sudo tar -g sysinfo -cJvPf sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz / --exclude=/proc --exclude=/lost+found --exclude=/mnt  --exclude=/sys --exclude=/tmp --exclude=/media --exclude=/home
+sudo tar -g sysinfo -cJvPf sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz / --exclude=/proc --exclude=/lost+found --exclude=/mnt --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home
 
 # 完整备份home目录
 sudo tar -g homeinfo -cJvPf home_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz /home
@@ -20,7 +20,7 @@ sudo tar -g homeinfo -cJvPf home_diff_`date +%Y%m%d-%H%M%S`.tar.xz /home
 # --数据还原---------
 
 # 首先还原系统的完整备份
-sudo tar -g sysinfo -xJvPf sys_snapshot_20180125-235658.tar.xz -C /
+sudo tar -g sysinfo --exclude=/run --exclude=/boot/efi -xJvPf sys_snapshot_20180125-235658.tar.xz -C /
 
 # 建立不需要备份的系统目录
 # 还要设置这些目录的权限
@@ -33,6 +33,7 @@ mkdir /sys && chownd root:root /proc && chmod 555 /sys
 mkdir /tmp && chownd root:root /proc && chmod 777 /tmp
 mkdir /media && chownd root:root /proc && chmod 755 /mnt
 mkdir /home && chownd root:root /proc && chmod 755 /home
+mkdir /boot/efi && chownd root:root /boot/efi && chmod 700 /boot/efi
 exit
 
 # 再还原增量备份的系统文件，-g参数可以使得在完整备份后删除的文件被删除
@@ -92,14 +93,12 @@ pre_placehoder_5
 # 这时管道前面的不是作为参数，而是标准输入传给后面的命令
 cat my_large_log | parallel --pipe grep pattern 
 
+sudo tar -g sysinfo -cvPf - /media/xt/win10 | parallel --pipe -k -j4 xz -zc > win10.tar.xz
+sudo tar -g sysinfo -cvPf - /usr | parallel --pipe -j4 -k -j4 xz -zc > usr.tar.xz
 
-sudo tar -g sysinfo -cJvPf - /media/xt/win10 | parallel --pipe -k xz -zc > win10.tar.xz
-sudo tar -g sysinfo -cJvPf - /usr | parallel --pipe -j4 -k xz -zc > usr.tar.xz
+sudo tar -g sysinfo -cvPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt  --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe -k -j4 xz -zc > sys_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
 
-sudo tar -g sysinfo -cJvPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt  --exclude=/sys --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe -k xz -zc > sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz
-
-
-
+sudo tar -g sysinfo -cvPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt  --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe -k -j4 xz -zc > sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz
 
 
 # --输出重定向--------------------
