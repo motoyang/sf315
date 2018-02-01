@@ -22,10 +22,13 @@ public:
     int setLuaState(lua_State* L);
     void setTimer(const char* funName, int msec);
 
+    QCPCurve* addExpression(double(*left)(double, double), double(*right)(double, double), const QCPRange& keyRange, const QCPRange& valueRange);
+
     QCPAxisRect*            createAxisRect(QCustomPlot *parentPlot, bool setupDefaultAxes=true);
     QCPAxisTickerFixed*     createAxisTickerFixed();
     QCPAxisTickerDateTime*  createAxisTickerDateTime();
     QCPAxisTickerLog*       createAxisTickerLog();
+    QCPAxisTickerPi*        createAxisTickerPi();
     QCPAxisTickerText*      createAxisTickerText();
     QCPAxisTickerTime*      createAxisTickerTime();
     QCPBars*                createBars(QCPAxis *keyAxis, QCPAxis *valueAxis);

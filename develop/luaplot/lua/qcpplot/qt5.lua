@@ -1126,7 +1126,7 @@ M.Locale = {
   }   -- end of M.Locale
 
 
-M.QFont = {
+M.Font = {
 
   -- Mapping OpenType weight value.
   -- enum Weight {
@@ -1160,6 +1160,4 @@ end
 _G[modname]=M
 package.loaded[modname] = M  
 
--- 返回本模块的table
-return M
 

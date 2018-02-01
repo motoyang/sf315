@@ -27,6 +27,67 @@ void LuaPlot::setTimer(const char *funName, int msec)
     m_t.start(msec); // Interval 0 means to refresh as fast as possible
 }
 
+bool compareLR(double (*left)(double, double), double (*right)(double, double),
+               double x, double y, double dx, double dy, double diff, int split)
+{
+//    double x0 = x;
+    double y0 = y;
+    dx /= split;
+    dy /= split;
+    for (int k = 0; k < split; ++k) {
+        for (int h = 0; h < split; ++h) {
+            double l = left(x, y);
+            double r = right(x, y);
+            if (qFabs(l - r) < diff) {
+//            if (l == r) {
+//                qDebug() << x << ", " << y;
+                return true;
+            }
+            y += dy;
+        }
+        x += dx;
+        y = y0;
+    }
+    return false;
+}
+
+QCPCurve *LuaPlot::addExpression(double (*left)(double, double), double (*right)(double, double), const QCPRange &keyRange, const QCPRange &valueRange)
+{
+    QVector<double> keys, values;
+
+    QRect r(0, 0, 1000, 1000);
+    double dx = keyRange.size() / r.width();
+    double dy = valueRange.size() / r.height();
+    double diff = qSqrt(dx * dx + dy * dy)/1;
+
+    for (int i = 0; i < r.width(); ++i) {
+        double x = keyRange.lower + i * dx;
+        for (int j = 0; j < r.height(); ++j) {
+            double y = valueRange.lower + j * dy;
+            if (compareLR(left, right, x, y, dx, dy, diff, 3)) {
+                keys << x;
+                values << y;
+            }
+        }
+    }
+
+    qDebug() << "dx= " << dx;
+    qDebug() << "dy= " << dy;
+    qDebug() << "diff= " << diff;
+    qDebug() << "data size:" << keys.size();
+//    qDebug() << keys;
+//    qDebug() << values;
+
+    xAxis->setRange(keyRange);
+    yAxis->setRange(valueRange);
+    QCPCurve* curve = new QCPCurve(xAxis, yAxis);
+    curve->setLineStyle(QCPCurve::lsNone);
+    curve->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssSquare, 1));
+    curve->addData(keys, values);
+
+    return curve;
+}
+
 QCPAxisRect *LuaPlot::createAxisRect(QCustomPlot *parentPlot, bool setupDefaultAxes)
 {
     return new QCPAxisRect(parentPlot, setupDefaultAxes);
@@ -45,6 +106,11 @@ QCPAxisTickerDateTime* LuaPlot::createAxisTickerDateTime()
 QCPAxisTickerLog *LuaPlot::createAxisTickerLog()
 {
     return new QCPAxisTickerLog();
+}
+
+QCPAxisTickerPi *LuaPlot::createAxisTickerPi()
+{
+    return new QCPAxisTickerPi();
 }
 
 QCPAxisTickerText *LuaPlot::createAxisTickerText()

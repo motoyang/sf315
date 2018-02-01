@@ -52,6 +52,10 @@ struct BrushConstructor
     static QBrush fromGradient(const QGradient &gradient) {
         return QBrush(gradient);
     }
+
+    static QBrush fromPixmap(const QPixmap &pixmap) {
+        return QBrush(pixmap);
+    }
 };
 
 struct ColorConstructor
@@ -250,6 +254,7 @@ static void QtGui2Lua(lua_State* L, const char* ns)
           .addStaticFunction("fromStyle", &BrushConstructor::fromStyle)
           .addStaticFunction("fromColor", &BrushConstructor::fromColor)
           .addStaticFunction("fromGradient", &BrushConstructor::fromGradient)
+          .addStaticFunction("fromPixmap", &BrushConstructor::fromPixmap)
         .endClass()
 
         .beginClass<QFont>("QFont")
@@ -354,6 +359,7 @@ static void QtWidget2Lua(lua_State* L, const char* ns)
               .addFunction("createAxisTickerFixed", &LuaPlot::createAxisTickerFixed)
               .addFunction("createAxisTickerDateTime", &LuaPlot::createAxisTickerDateTime)
               .addFunction("createAxisTickerLog", &LuaPlot::createAxisTickerLog)
+            .addFunction("createAxisTickerPi", &LuaPlot::createAxisTickerPi)
               .addFunction("createAxisTickerText", &LuaPlot::createAxisTickerText)
               .addFunction("createAxisTickerTime", &LuaPlot::createAxisTickerTime)
               .addFunction("createBars", &LuaPlot::createBars)
@@ -435,6 +441,8 @@ static void QcpContainer2Lua(lua_State* L, const char* ns)
           .addFunction("addContainer", static_cast<void(QCPGraphDataContainer::*)(const QCPGraphDataContainer&)>(&QCPGraphDataContainer::add))
           .addFunction("addVector", static_cast<void(QCPGraphDataContainer::*)(const QVector<QCPGraphData>&, bool)>(&QCPGraphDataContainer::add))
           .addFunction("addData", static_cast<void(QCPGraphDataContainer::*)(const QCPGraphData&)>(&QCPGraphDataContainer::add))
+          .addFunction("removeAfter", &QCPGraphDataContainer::removeAfter)
+          .addFunction("removeBefore", &QCPGraphDataContainer::removeBefore)
           .addFunction("size", &QCPGraphDataContainer::size)
           .addFunction("setVector", static_cast<void(QCPGraphDataContainer::*)(const QVector<QCPGraphData>&, bool)>(&QCPGraphDataContainer::set))
           .addFunction("setContainer", static_cast<void(QCPGraphDataContainer::*)(const QCPGraphDataContainer&)>(&QCPGraphDataContainer::set))
@@ -513,6 +521,8 @@ static void QcpBasic2Lua(lua_State* L, const char* ns)
 
         .beginClass<QCPRange>("Range")
           .addConstructor<void(*)(double, double)>()
+          .addData("upper", &QCPRange::upper)
+          .addData("lower", &QCPRange::lower)
           .addFunction("center", &QCPRange::center)
         .endClass()
 
@@ -566,6 +576,7 @@ static void QcpLayerable2Lua(lua_State* L, const char* ns)
             .addFunction("setNumberFormat", &QCPAxis::setNumberFormat)
             .addFunction("setNumberPrecision", &QCPAxis::setNumberPrecision)
             .addFunction("setScaleType", &QCPAxis::setScaleType)
+            .addFunction("setSubTickLength", &QCPAxis::setSubTickLength)
             .addFunction("setSubTickPen", &QCPAxis::setSubTickPen)
             .addFunction("setSubTicks", &QCPAxis::setSubTicks)
             .addFunction("setTicker", &QCPAxis::setTicker)
@@ -847,7 +858,4 @@ void Cpp2Lua(lua_State* L, const char* ns)
     QcpElement2Lua(L, ns);
 
     Tester2Lua(L, ns);
-
-//    lua_settop(L, 0);
-//    lua_getglobal(L, ns);
 }

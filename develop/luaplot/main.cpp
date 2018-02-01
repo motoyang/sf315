@@ -44,12 +44,11 @@ int main(int argc, char *argv[])
 
     // QApp start
     QApplication a(argc, argv);
-//    MainWindow w;
 
     // Open Lua and register cpp functions and class to Lua
     lua_State* L = openLua();
     Cpp2Lua(L, a.applicationName().toUtf8().constData());
-
+/*
     // Do these lua files
     for (int i = 1; i < argc; ++i) {
         QString error;
@@ -57,9 +56,10 @@ int main(int argc, char *argv[])
             std::cerr << error.toUtf8().constData() << std::endl;
         }
     }
-
-//    w.show();
-//    int r = a.exec();
+*/
+    MainWindow w;
+    w.show();
+    int r = a.exec();
 
     lua_close(L);
     return 0;

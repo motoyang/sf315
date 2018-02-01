@@ -32,7 +32,7 @@ function fp(plot)
 
   -- set title of plot:
   plot:plotLayout():insertRow(0);
-  local textElement = plot:createTextElement(plot, "Regenerative Energies", luaplot.FontConstructor.fromFamily("sans", 12, qt.QFont.Bold, falsee));
+  local textElement = plot:createTextElement(plot, "Regenerative Energies", luaplot.FontConstructor.fromFamily("sans", 12, qt.Font.Bold, falsee));
   plot:plotLayout():addElement(0, 0, textElement);
   -- axis configurations:
   plot.xAxis:setLabel("Year");

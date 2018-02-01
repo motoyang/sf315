@@ -444,6 +444,3 @@ end
 _G[modname]=M
 package.loaded[modname] = M  
 
--- 返回本模块的table
-return M
-

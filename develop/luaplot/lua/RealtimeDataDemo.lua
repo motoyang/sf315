@@ -2,7 +2,7 @@
 
 --[[
 
-Pixmap scatter points and a multi-lined axis label, as well as a plot title at the top
+Real time generated data and time bottom axis
 
 --]]
 
@@ -58,6 +58,10 @@ function timerSlot()
     plot:graph(1):addData(key, math.cos(key)+math.random()*0.5*math.sin(key/0.4364));
 
     lastPointKey = key;
+
+    local r = plot.xAxis:range()
+    plot:graph(0):data():removeBefore(r.lower)
+    plot:graph(1):data():removeBefore(r.lower)
   end
 
   -- make key axis range scroll with the data (at a constant range size of 8):

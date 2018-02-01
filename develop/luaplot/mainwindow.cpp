@@ -16,9 +16,10 @@ MainWindow::MainWindow(QWidget *parent)
     layout->addWidget(m_plot);
     central->setLayout(layout);
 
+    resize(800, 600);
     initToolbar();
     statusBar();
-//    init(m_plot);
+    init(m_plot);
 }
 
 MainWindow::~MainWindow()
@@ -68,26 +69,21 @@ void MainWindow::initToolbar()
     }
 }
 
+
+double l1(double x, double y)
+{
+    return qCos(x*y);
+}
+
+double r1(double x, double y)
+{
+    return qSin(x*x+y*y) ;
+}
+
 void MainWindow::init(LuaPlot* customPlot)
 {
-    customPlot->addGraph(); // blue line
-    customPlot->graph(0)->setPen(QPen(QColor(40, 110, 255)));
-    customPlot->addGraph(); // red line
-    customPlot->graph(1)->setPen(QPen(QColor(255, 110, 40)));
+    QCPCurve* c = customPlot->addExpression(l1, r1, QCPRange(-10.0, 10.0), QCPRange(-10, 10));
 
-    QSharedPointer<QCPAxisTickerTime> timeTicker(new QCPAxisTickerTime);
-    timeTicker->setTimeFormat("%h:%m:%s");
-    customPlot->xAxis->setTicker(timeTicker);
-    customPlot->axisRect()->setupFullAxesBox();
-    customPlot->yAxis->setRange(-1.2, 1.2);
-
-    // make left and bottom axes transfer their ranges to right and top axes:
-    connect(customPlot->xAxis, SIGNAL(rangeChanged(QCPRange)), customPlot->xAxis2, SLOT(setRange(QCPRange)));
-    connect(customPlot->yAxis, SIGNAL(rangeChanged(QCPRange)), customPlot->yAxis2, SLOT(setRange(QCPRange)));
-
-    // setup a timer that repeatedly calls MainWindow::realtimeDataSlot:
-//    connect(&dataTimer, SIGNAL(timeout()), this, SLOT(realtimeDataSlot()));
-//    dataTimer.start(0); // Interval 0 means to refresh as fast as possible
 }
 
 void MainWindow::bracketDataSlot()
