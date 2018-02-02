@@ -12,14 +12,14 @@ MainWindow::MainWindow(QWidget *parent)
     setCentralWidget(central);
     m_plot = new LuaPlot(central);
 
-    QHBoxLayout *layout = new QHBoxLayout;
+    QHBoxLayout *layout = new QHBoxLayout(central);
     layout->addWidget(m_plot);
-    central->setLayout(layout);
+//    central->setLayout(layout);
 
     resize(800, 600);
     initToolbar();
     statusBar();
-    init(m_plot);
+//    init(m_plot);
 }
 
 MainWindow::~MainWindow()
@@ -72,12 +72,16 @@ void MainWindow::initToolbar()
 
 double l1(double x, double y)
 {
-    return qCos(x*y);
+    return 51;
+//    return y;
+//    return qCos(qSin(x*y)+qCos(x));
 }
 
 double r1(double x, double y)
 {
-    return qSin(x*x+y*y) ;
+    return x*x/13*13 + y*y/2*2;
+//    return x*x + 2*x - 6;
+//    return qSin(qSin(x)+qCos(y)) ;
 }
 
 void MainWindow::init(LuaPlot* customPlot)

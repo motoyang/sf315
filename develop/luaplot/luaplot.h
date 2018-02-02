@@ -1,12 +1,26 @@
 #ifndef LUAPLOT_H
 #define LUAPLOT_H
 
+// --
+
 #include <lua.hpp>
 #include "qcp/qcustomplot.h"
 
 // ---
 
 #define ICON_FOR_PLOT ":/a/png/Plot.png"
+
+// --
+
+struct LuaExpression {
+    QString name;
+    QString expression;
+    double xLower, xUpper;
+    double yLower, yUpper;
+    int pointsOfWidth, pointsOfHeight, splitInPoint;
+};
+
+// --
 
 class LuaPlot : public QCustomPlot
 {
@@ -16,12 +30,15 @@ class LuaPlot : public QCustomPlot
     QTimer m_t;
     QString m_fn;
 
+    bool expressionCalc(const QString& express, double x, double y, double dx, double dy, int split);
+
 public:
     LuaPlot(QWidget* parent);
 
     int setLuaState(lua_State* L);
     void setTimer(const char* funName, int msec);
 
+    QCPCurve* addLuaExpression(const LuaExpression& e);
     QCPCurve* addExpression(double(*left)(double, double), double(*right)(double, double), const QCPRange& keyRange, const QCPRange& valueRange);
 
     QCPAxisRect*            createAxisRect(QCustomPlot *parentPlot, bool setupDefaultAxes=true);
@@ -51,11 +68,15 @@ public:
             return QSharedPointer<T>(new T());
     }
 
+
 public slots:
     void timerSlot();
     void rescaleAll();
     void savePlot();
     void aboutPlot();
+
+protected:
+    void showEvent(QShowEvent *event) Q_DECL_OVERRIDE;
 };
 
 #endif // LUAPLOT_H

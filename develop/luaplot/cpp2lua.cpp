@@ -3,9 +3,9 @@
 #include "LuaBridge/LuaBridge.h"
 #include "qcp/qcustomplot.h"
 #include "utilities.h"
-#include "type4stack.h"
 #include "luaplot.h"
 #include "mainwindow.h"
+#include "type4stack.h"
 #include "cpp2lua.h"
 
 // --
@@ -353,13 +353,15 @@ static void QtWidget2Lua(lua_State* L, const char* ns)
               .addConstructor<void (*) (QWidget*)>()
               .addCFunction("setLuaState", &LuaPlot::setLuaState)
 
+              .addFunction("addLuaExpression", &LuaPlot::addLuaExpression)
+
               .addFunction("createAxisRect", &LuaPlot::createAxisRect)
               .addFunction("createColorMap", &LuaPlot::createColorMap)
               .addFunction("createColorScale", &LuaPlot::createColorScale)
               .addFunction("createAxisTickerFixed", &LuaPlot::createAxisTickerFixed)
               .addFunction("createAxisTickerDateTime", &LuaPlot::createAxisTickerDateTime)
               .addFunction("createAxisTickerLog", &LuaPlot::createAxisTickerLog)
-            .addFunction("createAxisTickerPi", &LuaPlot::createAxisTickerPi)
+              .addFunction("createAxisTickerPi", &LuaPlot::createAxisTickerPi)
               .addFunction("createAxisTickerText", &LuaPlot::createAxisTickerText)
               .addFunction("createAxisTickerTime", &LuaPlot::createAxisTickerTime)
               .addFunction("createBars", &LuaPlot::createBars)

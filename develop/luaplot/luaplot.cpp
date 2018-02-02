@@ -51,14 +51,65 @@ bool compareLR(double (*left)(double, double), double (*right)(double, double),
     return false;
 }
 
+bool LuaPlot::expressionCalc(const QString& express, double x, double y, double dx, double dy, int split)
+{
+    double y0 = y;
+    dx /= split;
+    dy /= split;
+    luabridge::LuaRef f = luabridge::getGlobal(m_L, express.toUtf8().constData());
+
+    for (int i = 0; i < split; ++i) {
+        for (int j = 0; j < split; ++j) {
+            if (f(x, y)) {
+                return true;
+            }
+            y += dy;
+        }
+        x += dx;
+        y = y0;
+    }
+
+    return false;
+}
+
+QCPCurve *LuaPlot::addLuaExpression(const LuaExpression &e)
+{
+    double dx = (e.xUpper - e.xLower) / e.pointsOfWidth;
+    double dy = (e.yUpper - e.yLower) / e.pointsOfHeight;
+
+    QVector<double> keys, values;
+    for (int i = 0; i < e.pointsOfWidth; ++i) {
+        double x = e.xLower + i * dx;
+        for (int j = 0; j < e.pointsOfHeight; ++j) {
+            double y = e.yLower + j * dy;
+            if (expressionCalc(e.expression, x, y, dx, dy, e.splitInPoint)) {
+                keys.append(x);
+                values.append(y);
+            }
+        }
+    }
+
+    qDebug() << "data size:" << keys.size();
+
+    xAxis->setRange(e.xLower, e.xUpper);
+    yAxis->setRange(e.yLower, e.yUpper);
+    QCPCurve* curve = new QCPCurve(xAxis, yAxis);
+    curve->setLineStyle(QCPCurve::lsNone);
+    curve->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssSquare, 1));
+    curve->addData(keys, values);
+
+    return curve;
+}
+
 QCPCurve *LuaPlot::addExpression(double (*left)(double, double), double (*right)(double, double), const QCPRange &keyRange, const QCPRange &valueRange)
 {
     QVector<double> keys, values;
 
-    QRect r(0, 0, 1000, 1000);
+//    QRect r(0, 0, 1000, 1000);
+    QRect r = axisRect()->rect();
     double dx = keyRange.size() / r.width();
     double dy = valueRange.size() / r.height();
-    double diff = qSqrt(dx * dx + dy * dy)/1;
+    double diff = qSqrt(dx * dx + dy * dy);
 
     for (int i = 0; i < r.width(); ++i) {
         double x = keyRange.lower + i * dx;
@@ -279,4 +330,24 @@ void LuaPlot::aboutPlot()
                 this,
                 tr("About luaplot"),
                 ver);
+}
+
+
+static double l1(double x, double y)
+{
+//    return 51;
+//    return y;
+    return qCos(qSin(x*y)+qCos(x));
+}
+
+static double r1(double x, double y)
+{
+//    return x*x/13*13 + y*y/2*2;
+//    return x*x + 2*x - 6;
+    return qSin(qSin(x)+qCos(y)) ;
+}
+
+void LuaPlot::showEvent(QShowEvent *event)
+{
+//    addExpression(l1, r1, QCPRange(-10, 10), QCPRange(-10, 10));
 }

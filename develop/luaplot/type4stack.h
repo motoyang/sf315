@@ -78,18 +78,58 @@ STACK_AS_INT_CONST_FROM(QCP::Interactions, QCP::Interaction)
 
 // --
 
-template <>
-struct Stack <QString>
+struct TablePushAndGet
 {
-    static void push (lua_State* L, QString s)
+    static QString getStringByName(lua_State* L, int index, const char* name)
     {
-        lua_pushstring (L, s.toUtf8().constData());
+        lua_pushstring(L, name);
+        lua_rawget(L, index);
+        QString r = QString::fromUtf8(luaL_checkstring(L, -1));
+        lua_pop(L, 1);
+        return r;
     }
-    static QString get (lua_State* L, int index)
+
+    static void pushStringByName(lua_State* L, int index, const char* name, const QString& value)
     {
-        return QString::fromUtf8(luaL_checkstring (L, index));
+        lua_pushstring(L, name);
+        lua_pushstring(L, value.toUtf8().constData());
+        lua_rawset(L, index);
+    }
+
+    static double getNumberByName(lua_State* L, int index, const char* name)
+    {
+        lua_pushstring(L, name);
+        lua_rawget(L, index);
+        double r = lua_tonumber(L, -1);
+        lua_pop(L, 1);
+        return r;
+    }
+
+    static void pushNumberByName(lua_State* L, int index, const char* name, double value)
+    {
+        lua_pushstring(L, name);
+        lua_pushnumber(L, value);
+        lua_rawset(L, index);
+    }
+
+    static int getIntegerByName(lua_State* L, int index, const char* name)
+    {
+        lua_pushstring(L, name);
+        lua_rawget(L, index);
+        int r = lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        return r;
+    }
+
+    static void pushIntegerByName(lua_State* L, int index, const char* name, int value)
+    {
+        lua_pushstring(L, name);
+        lua_pushinteger(L, value);
+        lua_rawset(L, index);
     }
 };
+
+// --
 
 template <>
 struct Stack <QString const&>
@@ -102,6 +142,19 @@ struct Stack <QString const&>
     static QString get (lua_State* L, int index)
     {
         return QString::fromUtf8(luaL_checkstring (L, index));
+    }
+};
+
+template <>
+struct Stack <QString>
+{
+    static void push (lua_State* L, QString s)
+    {
+        Stack<QString const&>::push(L, s);
+    }
+    static QString get (lua_State* L, int index)
+    {
+        return Stack<QString const&>::get(L, index);
     }
 };
 
@@ -134,11 +187,11 @@ struct Stack <QList<T*> >
     {
         Q_ASSERT(lua_istable(L, index));
 
-        int size = lua_rawlen(L, index);
         QList<T*> v;
+        int size = lua_rawlen(L, index);
         for (int i = 0; i < size; ++i) {
             lua_rawgeti(L, index, i + 1);
-            v.append(Stack<T*>::get(L, -1));
+            v.append(Stack<T*>::get(L, lua_absindex(L, -1)));
             lua_pop(L, 1);
         }
 
@@ -151,8 +204,6 @@ struct Stack <QVector<T> const&>
 {
     static void push (lua_State* L, QVector<T> const& v)
     {
-//        dumpStack(Q_FUNC_INFO, L);
-
         lua_newtable(L);
         int i = 1;
         for(T value: v)
@@ -160,23 +211,20 @@ struct Stack <QVector<T> const&>
             Stack<T>::push(L, value);
             lua_rawseti(L, -2, i++);       //push key,value
         }
-//        dumpStack(nullptr, L);
     }
 
     static QVector<T> get (lua_State* L, int index)
     {
-//        dumpStack(Q_FUNC_INFO, L);
         Q_ASSERT(lua_istable(L, index));
 
         int size = lua_rawlen(L, index);
         QVector<T> v(size);
         for (int i = 0; i < size; ++i) {
             lua_rawgeti(L, index, i + 1);
-            v[i] = Stack<T>::get(L, -1);
+            v[i] = Stack<T>::get(L, lua_absindex(L, -1));
             lua_pop(L, 1);
         }
 
-//        dumpStack(nullptr, L);
         return v;
     }
 };
@@ -196,41 +244,25 @@ struct Stack <QVector<T> >
 };
 
 template <>
-struct Stack <QCPGraphData const&>
+struct Stack <QCPGraphData const&> : public TablePushAndGet
 {
     static const char* key;
     static const char* value;
     static void push (lua_State* L, QCPGraphData const& v)
     {
-//        dumpStack(Q_FUNC_INFO, L);
-
         lua_newtable(L);
-        lua_pushstring(L, key);
-        lua_pushnumber(L, v.key);
-        lua_rawset(L, -2);       //push key,value
-        lua_pushstring(L, value);
-        lua_pushnumber(L, v.value);
-        lua_rawset(L, -2);       //push key,value
-
-//        dumpStack(nullptr, L);
+        pushNumberByName(L, -2, key, v.key);
+        pushNumberByName(L, -1, value, v.value);
     }
 
     static QCPGraphData get (lua_State* L, int index)
     {
-//        dumpStack(Q_FUNC_INFO, L);
         Q_ASSERT(lua_istable(L, index));
 
         QCPGraphData d;
-        lua_pushstring(L, key);
-        lua_rawget(L, index-1);
-        d.key = lua_tonumber(L, -1);
-        lua_pop(L, 1);
-        lua_pushstring(L, value);
-        lua_rawget(L, index-1);
-        d.value = lua_tonumber(L, -1);
-        lua_pop(L, 1);
+        d.key = getNumberByName(L, index, key);
+        d.value = getNumberByName(L, index, value);
 
-//        dumpStack(nullptr, L);
         return d;
     }
 };
@@ -252,51 +284,31 @@ struct Stack <QCPGraphData>
 };
 
 template <>
-struct Stack <QCPCurveData const&>
+struct Stack <QCPCurveData const&> : public TablePushAndGet
 {
     static const char* t;
     static const char* key;
     static const char* value;
     static void push (lua_State* L, QCPCurveData const& v)
     {
-//        dumpStack(Q_FUNC_INFO, L);
-
         lua_newtable(L);
-        lua_pushstring(L, t);
-        lua_pushnumber(L, v.t);
-        lua_rawset(L, -2);       //push key,value
-        lua_pushstring(L, key);
-        lua_pushnumber(L, v.key);
-        lua_rawset(L, -2);       //push key,value
-        lua_pushstring(L, value);
-        lua_pushnumber(L, v.value);
-        lua_rawset(L, -2);       //push key,value
-
-//        dumpStack(nullptr, L);
+        pushNumberByName(L, -2, t, v.t);
+        pushNumberByName(L, -2, key, v.key);
+        pushNumberByName(L, -2, value, v.value);
     }
 
     static QCPCurveData get (lua_State* L, int index)
     {
-//        dumpStack(Q_FUNC_INFO, L);
         Q_ASSERT(lua_istable(L, index));
 
         QCPCurveData d;
-        lua_pushstring(L, t);
-        lua_rawget(L, index-1);
-        d.t = lua_tonumber(L, -1);
-        lua_pop(L, 1);
-        lua_pushstring(L, key);
-        lua_rawget(L, index-1);
-        d.key = lua_tonumber(L, -1);
-        lua_pop(L, 1);
-        lua_pushstring(L, value);
-        lua_rawget(L, index-1);
-        d.value = lua_tonumber(L, -1);
-        lua_pop(L, 1);
+        d.t = getNumberByName(L, index, t);
+        d.key = getNumberByName(L, index, key);
+        d.value = getNumberByName(L, index, value);
 
-//        dumpStack(nullptr, L);
         return d;
     }
+
 };
 const char* Stack <QCPCurveData const&>::t = "t";
 const char* Stack <QCPCurveData const&>::key = "key";
@@ -315,6 +327,54 @@ struct Stack <QCPCurveData>
         return Stack<QCPCurveData const&>::get(L, index);
     }
 };
+
+template <>
+struct Stack <LuaExpression const&> : public TablePushAndGet
+{
+    static const char* name;
+    static const char* expression;
+    static const char* xLower;
+    static const char* xUpper;
+    static const char* yLower;
+    static const char* yUpper;
+    static const char* pointsOfWidth;
+    static const char* pointsOfHeight;
+    static const char* splitInPoint;
+
+/*
+    static void push (lua_State* L, LuaExpression const& v)
+    {
+    }
+*/
+    static LuaExpression get (lua_State* L, int index)
+    {
+//        dumpStack(Q_FUNC_INFO, L);
+        Q_ASSERT(lua_istable(L, index));
+
+        LuaExpression le;
+        le.name = getStringByName(L, index, name);
+        le.expression = getStringByName(L, index, expression);
+        le.xLower = getNumberByName(L, index, xLower);
+        le.xUpper = getNumberByName(L, index, xUpper);
+        le.yLower = getNumberByName(L, index, yLower);
+        le.yUpper = getNumberByName(L, index, yUpper);
+        le.pointsOfWidth = getIntegerByName(L, index, pointsOfWidth);
+        le.pointsOfHeight = getIntegerByName(L, index, pointsOfHeight);
+        le.splitInPoint = getIntegerByName(L, index, splitInPoint);
+
+//        dumpStack(nullptr, L);
+        return le;
+    }
+};
+const char* Stack <LuaExpression const&>::name = "name";
+const char* Stack <LuaExpression const&>::expression = "expression";
+const char* Stack <LuaExpression const&>::xLower = "xLower";
+const char* Stack <LuaExpression const&>::xUpper = "xUpper";
+const char* Stack <LuaExpression const&>::yLower = "yLower";
+const char* Stack <LuaExpression const&>::yUpper = "yUpper";
+const char* Stack <LuaExpression const&>::pointsOfWidth = "pointsOfWidth";
+const char* Stack <LuaExpression const&>::pointsOfHeight = "pointsOfHeight";
+const char* Stack <LuaExpression const&>::splitInPoint = "splitInPoint";
 
 }   // namespace luabridge end.
 
