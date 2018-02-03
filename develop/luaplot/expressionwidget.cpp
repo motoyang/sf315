@@ -4,6 +4,9 @@
 #include <QVBoxLayout>
 #include <QGridLayout>
 #include <QGroupBox>
+#include <lua.hpp>
+#include "LuaBridge/LuaBridge.h"
+#include "luaplot.h"
 #include "expressionwidget.h"
 
 ExpressionWidget::ExpressionWidget(QWidget *parent) : QWidget(parent)

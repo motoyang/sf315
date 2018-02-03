@@ -4,6 +4,7 @@
 // --
 
 #include <lua.hpp>
+#include "LuaBridge/LuaBridge.h"
 #include "qcp/qcustomplot.h"
 
 // ---
@@ -30,7 +31,7 @@ class LuaPlot : public QCustomPlot
     QTimer m_t;
     QString m_fn;
 
-    bool expressionCalc(const QString& express, double x, double y, double dx, double dy, int split);
+    bool expressionCalc(const luabridge::LuaRef& f, double x, double y, double dx, double dy, int split);
 
 public:
     LuaPlot(QWidget* parent);

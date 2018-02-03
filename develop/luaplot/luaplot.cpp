@@ -51,12 +51,12 @@ bool compareLR(double (*left)(double, double), double (*right)(double, double),
     return false;
 }
 
-bool LuaPlot::expressionCalc(const QString& express, double x, double y, double dx, double dy, int split)
+bool LuaPlot::expressionCalc(const luabridge::LuaRef& f, double x, double y, double dx, double dy, int split)
 {
     double y0 = y;
     dx /= split;
     dy /= split;
-    luabridge::LuaRef f = luabridge::getGlobal(m_L, express.toUtf8().constData());
+//    luabridge::LuaRef f = luabridge::getGlobal(m_L, express.toUtf8().constData());
 
     for (int i = 0; i < split; ++i) {
         for (int j = 0; j < split; ++j) {
@@ -74,6 +74,8 @@ bool LuaPlot::expressionCalc(const QString& express, double x, double y, double 
 
 QCPCurve *LuaPlot::addLuaExpression(const LuaExpression &e)
 {
+    luabridge::LuaRef ref = luabridge::getGlobal(m_L, e.expression.toUtf8().constData());
+
     double dx = (e.xUpper - e.xLower) / e.pointsOfWidth;
     double dy = (e.yUpper - e.yLower) / e.pointsOfHeight;
 
@@ -82,7 +84,7 @@ QCPCurve *LuaPlot::addLuaExpression(const LuaExpression &e)
         double x = e.xLower + i * dx;
         for (int j = 0; j < e.pointsOfHeight; ++j) {
             double y = e.yLower + j * dy;
-            if (expressionCalc(e.expression, x, y, dx, dy, e.splitInPoint)) {
+            if (expressionCalc(ref, x, y, dx, dy, e.splitInPoint)) {
                 keys.append(x);
                 values.append(y);
             }

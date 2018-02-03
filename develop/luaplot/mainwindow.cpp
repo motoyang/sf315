@@ -1,5 +1,6 @@
 #include <QtWidgets>
 #include <lua.hpp>
+#include "LuaBridge/LuaBridge.h"
 #include "luaplot.h"
 #include "mainwindow.h"
 

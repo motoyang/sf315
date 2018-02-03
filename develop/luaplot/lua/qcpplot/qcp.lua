@@ -396,28 +396,28 @@ M.ItemBracket = {
 --  };
   } 
 
-local function initPlot(p, tfName, t)
+local function initPlot(p, tfName, t, interaction)
   if tfName then 
     if t == nil then t = 0 end
     p:setTimer(tfName, t)
   end
 
   local e = p:plotLayout():elementCount()
-  if (e == 1) then
-    p:setInteractions(M.iRangeDrag + M.iRangeZoom + M.iSelectPlottables)
+  if (interaction and (e == 1)) then
+    p:setInteractions(M.iRangeDrag + M.iRangeZoom)
   end
 end
 
 function M.startPlot(f, tfName, t)
   local p = luaplot.LuaPlot(nil)
+  p:resize(800, 600)
+  p:setWindowTitle("luaplot from 深圳中民")
   p:setLuaState()
 
   -- 执行用户提供的plot函数
   f(p)
 
   initPlot(p, tfName, t)
-  p:resize(800, 600)
-  p:setWindowTitle("luaplot from 深圳中民")
 
   p:show()
   luaplot.App.exec()
@@ -425,20 +425,29 @@ end
 
 function M.startMainWindow(f, tfName, t)
   local w = luaplot.MainWindow(nil)
-  local p = w:getPlot()
+  w:resize(800, 600)
+  w:setWindowTitle("luaplot from 深圳中民")
 
+  local p = w:getPlot()
   p:setLuaState()
   -- 执行用户提供的mainWindow函数
   f(w)
-
-  initPlot(p, tfName, t)
-  w:resize(800, 600)
-  w:setWindowTitle("luaplot from 深圳中民")
+  initPlot(p, tfName, t, true)
 
   w:show()
   luaplot.App.exec()
 end
 
+function M.startExpression(e)
+  local function fp(p)
+    local curve = p:addLuaExpression(e)
+    -- curve:setPen
+    p:resize(e.pointsOfWidth, e.pointsOfHeight)
+    p:setWindowTitle(e.name)
+  end
+
+  M.startPlot(fp)
+end
 
 -- return modname的功能
 _G[modname]=M

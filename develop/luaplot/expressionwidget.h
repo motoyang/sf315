@@ -3,7 +3,9 @@
 
 #include <QWidget>
 #include <QLineEdit>
-#include "luaplot.h"
+//#include "luaplot.h"
+
+class LuaPlot;
 
 class ExpressionWidget : public QWidget
 {
