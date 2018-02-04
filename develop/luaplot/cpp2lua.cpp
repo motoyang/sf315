@@ -318,6 +318,7 @@ static void QtWidget2Lua(lua_State* L, const char* ns)
         .endClass()
 
         .deriveClass<QWidget, QObject>("Widget")
+          .addFunction("hide", &QWidget::hide)
           .addFunction("setWindowTitle", &QWidget::setWindowTitle)
           .addFunction("show", &QWidget::show)
           .addFunction("setAttribute", &QWidget::setAttribute)

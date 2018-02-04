@@ -33,6 +33,7 @@ class LuaPlot : public QCustomPlot
     QString m_fn;
 
     bool expressionCalc(const luabridge::LuaRef& f, double x, double y, double dx, double dy, int split);
+    QCPCurve* byPixel(const LuaExpression &e);
 
 public:
     LuaPlot(QWidget* parent);
@@ -74,9 +75,6 @@ public slots:
     void rescaleAll();
     void savePlot();
     void aboutPlot();
-
-protected:
-    void showEvent(QShowEvent *event) Q_DECL_OVERRIDE;
 };
 
 #endif // LUAPLOT_H

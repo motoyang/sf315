@@ -450,7 +450,7 @@ M.Expression = {
   expression = "mathematic expression",
   xLower = -10, xUpper = 10,
   yLower = -10, yUpper = 10,
-  pointsOfWidth = 800, pointsOfHeight = 600,
+  pointsOfWidth = 0, pointsOfHeight = 0,
   splitInPoint = 3,
 };
   
@@ -466,8 +466,12 @@ function M.Expression:new(e)
 end
 
 function M.Expression:calcDefaultDiff()
-  local dx = (self.xUpper - self.xLower) / self.pointsOfWidth;
-  local dy = (self.yUpper - self.yLower) / self.pointsOfHeight;
+  local w, h = 800, 600
+  if (self.pointsOfWidth ~= 0) then w = self.pointsOfWidth end
+  if (self.pointsOfHeight ~= 0) then h = self.pointsOfHeight end
+
+  local dx = (self.xUpper - self.xLower) / w
+  local dy = (self.yUpper - self.yLower) / h
 
   return math.sqrt(dx*dx + dy*dy)
 end
@@ -476,6 +480,7 @@ function M.addExpression(p, e)
   local function f(x, y)
     return e:f(x, y)
   end
+
   -- 临时生成一个字符串，作为从c/c++调用lua function的名字，
   -- 调用完成后，马上删除该全局变量。
   local ef_name = {}

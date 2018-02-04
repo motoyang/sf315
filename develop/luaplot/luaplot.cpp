@@ -47,23 +47,60 @@ bool LuaPlot::expressionCalc(const luabridge::LuaRef& f, double x, double y, dou
     return false;
 }
 
-QCPCurve *LuaPlot::addLuaExpression(const LuaExpression &e)
+QCPCurve *LuaPlot::byPixel(const LuaExpression &e)
 {
+    replot();
+    QRect r = axisRect()->rect();
+
     luabridge::LuaRef ref = luabridge::getGlobal(m_L, e.luaFunctionName.toUtf8().constData());
+    double dx = (e.xUpper - e.xLower) / r.width();
+    double dy = (e.yUpper - e.yLower) / r.height();
 
-    double dx = (e.xUpper - e.xLower) / e.pointsOfWidth;
-    double dy = (e.yUpper - e.yLower) / e.pointsOfHeight;
-
+    xAxis->setRange(e.xLower, e.xUpper);
+    yAxis->setRange(e.yLower, e.yUpper);
     QVector<double> keys, values;
-    for (int i = 0; i < e.pointsOfWidth; ++i) {
-        double x = e.xLower + i * dx;
-        for (int j = 0; j < e.pointsOfHeight; ++j) {
-            double y = e.yLower + j * dy;
+    for (int i = r.left()+1; i < r.right(); ++i) {
+        double x = xAxis->pixelToCoord(i);
+        for (int j = r.top()+1; j < r.bottom(); ++j) {
+            double y = yAxis->pixelToCoord(j);
             if (expressionCalc(ref, x, y, dx, dy, e.splitInPoint)) {
                 keys.append(x);
                 values.append(y);
             }
         }
+    }
+
+    QCPCurve* curve = new QCPCurve(xAxis, yAxis);
+    curve->addData(keys, values);
+    curve->setLineStyle(QCPCurve::lsNone);
+    rescaleAll();
+
+    return curve;
+}
+
+QCPCurve *LuaPlot::addLuaExpression(const LuaExpression &e)
+{
+    if (!e.pointsOfHeight || !e.pointsOfWidth) {
+        return byPixel(e);
+    }
+
+    luabridge::LuaRef ref = luabridge::getGlobal(m_L, e.luaFunctionName.toUtf8().constData());
+    double dx = (e.xUpper - e.xLower) / e.pointsOfWidth;
+    double dy = (e.yUpper - e.yLower) / e.pointsOfHeight;
+
+    double x = e.xLower;
+    double y = e.yLower;
+    QVector<double> keys, values;
+    for (int i = 0; i < e.pointsOfWidth; ++i) {
+        for (int j = 0; j < e.pointsOfHeight; ++j) {
+            if (expressionCalc(ref, x, y, dx, dy, e.splitInPoint)) {
+                keys.append(x);
+                values.append(y);
+            }
+            y += dy;
+        }
+        x += dx;
+        y = e.yLower;
     }
 
     QCPCurve* curve = new QCPCurve(xAxis, yAxis);
@@ -201,8 +238,6 @@ void LuaPlot::timerSlot()
 
 void LuaPlot::rescaleAll()
 {
-//    qDebug() << "rescaleAll";
-
     for (int i = 0; i < plottableCount(); ++i) {
         QCPAbstractPlottable* p = plottable(i);
         p->rescaleAxes(i);
@@ -267,22 +302,3 @@ void LuaPlot::aboutPlot()
                 ver);
 }
 
-
-static double l1(double x, double y)
-{
-//    return 51;
-//    return y;
-    return qCos(qSin(x*y)+qCos(x));
-}
-
-static double r1(double x, double y)
-{
-//    return x*x/13*13 + y*y/2*2;
-//    return x*x + 2*x - 6;
-    return qSin(qSin(x)+qCos(y)) ;
-}
-
-void LuaPlot::showEvent(QShowEvent *event)
-{
-//    addExpression(l1, r1, QCPRange(-10, 10), QCPRange(-10, 10));
-}
