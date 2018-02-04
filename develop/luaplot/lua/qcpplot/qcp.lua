@@ -462,6 +462,7 @@ function M.Expression:new(e)
   for k, v in pairs(e) do
     r[k] = v
   end
+  r.diff = r:calcDefaultDiff() / 6
   return r
 end
 
