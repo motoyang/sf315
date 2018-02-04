@@ -8,35 +8,75 @@ local pa=require("qcpplot.print_any")
 local qcp=require("qcpplot.qcp")
 local qt=require("qcpplot.qt5")
 
-Expression = {
-  name = "name of the expression",
-  expression = "fun_e1",
-  xLower = -10, xUpper = 10,
-  yLower = -10, yUpper = 10,
-  pointsOfWidth = 800, pointsOfHeight = 600,
-  splitInPoint = 3,
-};
-  
-function Expression:new(e)
-  local r = {}
-  for k, v in pairs(self) do
-    r[k] = v
+-----------------
+
+local a0 = qcp.Expression:new {yLower=-1.5, yUpper = 1.5, name="正弦曲线", expression = "y=sin(x)", splitInPoint = 3}
+function a0:f(x, y)
+  if (self.diff == nil) then
+    self.diff = self:calcDefaultDiff() / 10
   end
-  for k, v in pairs(e) do
-    r[k] = v
-  end
-  return r
+
+  local left1 = math.sin(x)
+  local right1 = y
+  local l2 = -x/4+0.51
+  local r2 = y
+  local l3 = math.cos(x)
+  local r3 = y
+
+  if (math.abs(left1 - right1) < self.diff) 
+    or (math.abs(l2-r2) < self.diff) 
+    or (math.abs(l3-r3) < self.diff)
+  then return true end
+  return false
 end
 
-function Expression:diff()
-  local dx = (self.xUpper - self.xLower) / self.pointsOfWidth;
-  local dy = (self.yUpper - self.yLower) / self.pointsOfHeight;
-
-  return math.sqrt(dx*dx + dy*dy)
-end
+qcp.startExpression(a0)
 
 -----------------
 
+local a1 = qcp.Expression:new {yLower=-1.5, yUpper = 1.5, name="余弦曲线", expression = "y=cos(x)", splitInPoint = 3}
+function a1:f(x, y)
+  if (self.diff == nil) then
+    self.diff = self:calcDefaultDiff() / 10
+  end
+
+  local left1 = math.cos(x)
+  local right1 = y
+
+  if (math.abs(left1 - right1) < self.diff) 
+  then return true end
+
+  return false
+end
+
+local a2 = qcp.Expression:new {yLower=-3.5, yUpper = 3.5, name="k线", expression = "y=cos(x)", splitInPoint = 3}
+function a2:f(x, y)
+  if (self.diff == nil) then
+    self.diff = self:calcDefaultDiff() / 10
+  end
+
+  local left1 = -x+1.1
+  local right1 = y
+
+  if (math.abs(left1 - right1) < self.diff) 
+  then return true end
+
+  return false
+end
+
+function fp(p)
+  local c1 = qcp.addExpression(p, a1)
+  c1:setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.green)))
+
+  local c2 = qcp.addExpression(p, a2)
+  c2:setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.red)))
+
+end
+
+qcp.startPlot(fp)
+
+-----------------
+--[[
 local e0 = Expression:new {yLower=-1.5, yUpper = 1.5, name = "sin(x)=y", splitInPoint = 3, expression="f_e0"}
 local diff = e0:diff()/10
 function f_e0(x, y)
@@ -50,7 +90,7 @@ end
 qcp.startExpression(e0)
 
 -----------------
---[[
+
 local e1 = Expression:new {name = "sin(x^2+y^2)=cos(xy)", splitInPoint = 3, expression="f_e1"}
 local diff = e1:diff()
 function f_e1(x, y)

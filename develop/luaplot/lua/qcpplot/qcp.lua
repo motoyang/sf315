@@ -396,6 +396,8 @@ M.ItemBracket = {
 --  };
   } 
 
+--------------------
+
 local function initPlot(p, tfName, t, interaction)
   if tfName then 
     if t == nil then t = 0 end
@@ -408,25 +410,28 @@ local function initPlot(p, tfName, t, interaction)
   end
 end
 
+--------------------
+
 function M.startPlot(f, tfName, t)
   local p = luaplot.LuaPlot(nil)
   p:resize(800, 600)
-  p:setWindowTitle("luaplot from 深圳中民")
+  p:setWindowTitle("luaplot")
   p:setLuaState()
 
   -- 执行用户提供的plot函数
   f(p)
-
   initPlot(p, tfName, t)
 
   p:show()
   luaplot.App.exec()
 end
 
+--------------------
+
 function M.startMainWindow(f, tfName, t)
   local w = luaplot.MainWindow(nil)
   w:resize(800, 600)
-  w:setWindowTitle("luaplot from 深圳中民")
+  w:setWindowTitle("luaplot")
 
   local p = w:getPlot()
   p:setLuaState()
@@ -438,16 +443,62 @@ function M.startMainWindow(f, tfName, t)
   luaplot.App.exec()
 end
 
+--------------------
+
+M.Expression = {
+  name = "name of the expression",
+  expression = "mathematic expression",
+  xLower = -10, xUpper = 10,
+  yLower = -10, yUpper = 10,
+  pointsOfWidth = 800, pointsOfHeight = 600,
+  splitInPoint = 3,
+};
+  
+function M.Expression:new(e)
+  local r = {}
+  for k, v in pairs(self) do
+    r[k] = v
+  end
+  for k, v in pairs(e) do
+    r[k] = v
+  end
+  return r
+end
+
+function M.Expression:calcDefaultDiff()
+  local dx = (self.xUpper - self.xLower) / self.pointsOfWidth;
+  local dy = (self.yUpper - self.yLower) / self.pointsOfHeight;
+
+  return math.sqrt(dx*dx + dy*dy)
+end
+
+function M.addExpression(p, e)
+  local function f(x, y)
+    return e:f(x, y)
+  end
+  -- 临时生成一个字符串，作为从c/c++调用lua function的名字，
+  -- 调用完成后，马上删除该全局变量。
+  local ef_name = {}
+  e.luaFunctionName = tostring(ef_name)
+
+  _G[e.luaFunctionName] = f
+  local curve = p:addLuaExpression(e)
+  _G[e.luaFunctionName] = nil
+
+  curve:setScatterStyle(luaplot.ScatterStyleConstructor.fromShapeAndSize(M.ScatterStyle.ssSquare, 1))
+  return curve
+end
+
 function M.startExpression(e)
   local function fp(p)
-    local curve = p:addLuaExpression(e)
-    -- curve:setPen
-    p:resize(e.pointsOfWidth, e.pointsOfHeight)
-    p:setWindowTitle(e.name)
+    local curve = M.addExpression(p, e)
+    p:setWindowTitle(e.name .. ", " .. e.expression)
   end
 
   M.startPlot(fp)
 end
+
+--------------------
 
 -- return modname的功能
 _G[modname]=M

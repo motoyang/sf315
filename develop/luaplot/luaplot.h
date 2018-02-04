@@ -16,6 +16,7 @@
 struct LuaExpression {
     QString name;
     QString expression;
+    QString luaFunctionName;
     double xLower, xUpper;
     double yLower, yUpper;
     int pointsOfWidth, pointsOfHeight, splitInPoint;
@@ -38,9 +39,7 @@ public:
 
     int setLuaState(lua_State* L);
     void setTimer(const char* funName, int msec);
-
     QCPCurve* addLuaExpression(const LuaExpression& e);
-    QCPCurve* addExpression(double(*left)(double, double), double(*right)(double, double), const QCPRange& keyRange, const QCPRange& valueRange);
 
     QCPAxisRect*            createAxisRect(QCustomPlot *parentPlot, bool setupDefaultAxes=true);
     QCPAxisTickerFixed*     createAxisTickerFixed();

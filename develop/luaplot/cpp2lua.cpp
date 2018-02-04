@@ -721,6 +721,7 @@ static void QcpPlottable2Lua(lua_State* L, const char* ns)
           .endClass()
             .deriveClass<QCPCurve, QCPAbstractPlottable1D<QCPCurveData>>("Curve")
               .addFunction("data", &QCPCurve::data)
+              .addFunction("setScatterStyle", &QCPCurve::setScatterStyle)
             .endClass()
 
           .deriveClass<QCPAbstractPlottable1D<QCPFinancialData>, QCPAbstractPlottable>("QCPAbstractPlottable1D_QCPFinancialData")

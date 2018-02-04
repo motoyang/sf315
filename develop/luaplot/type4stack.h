@@ -333,6 +333,7 @@ struct Stack <LuaExpression const&> : public TablePushAndGet
 {
     static const char* name;
     static const char* expression;
+    static const char* luaFunctionName;
     static const char* xLower;
     static const char* xUpper;
     static const char* yLower;
@@ -354,6 +355,7 @@ struct Stack <LuaExpression const&> : public TablePushAndGet
         LuaExpression le;
         le.name = getStringByName(L, index, name);
         le.expression = getStringByName(L, index, expression);
+        le.luaFunctionName = getStringByName(L, index, luaFunctionName);
         le.xLower = getNumberByName(L, index, xLower);
         le.xUpper = getNumberByName(L, index, xUpper);
         le.yLower = getNumberByName(L, index, yLower);
@@ -368,6 +370,7 @@ struct Stack <LuaExpression const&> : public TablePushAndGet
 };
 const char* Stack <LuaExpression const&>::name = "name";
 const char* Stack <LuaExpression const&>::expression = "expression";
+const char* Stack <LuaExpression const&>::luaFunctionName = "luaFunctionName";
 const char* Stack <LuaExpression const&>::xLower = "xLower";
 const char* Stack <LuaExpression const&>::xUpper = "xUpper";
 const char* Stack <LuaExpression const&>::yLower = "yLower";

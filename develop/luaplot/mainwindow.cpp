@@ -15,7 +15,6 @@ MainWindow::MainWindow(QWidget *parent)
 
     QHBoxLayout *layout = new QHBoxLayout(central);
     layout->addWidget(m_plot);
-//    central->setLayout(layout);
 
     resize(800, 600);
     initToolbar();
@@ -70,24 +69,8 @@ void MainWindow::initToolbar()
     }
 }
 
-
-double l1(double x, double y)
-{
-    return 51;
-//    return y;
-//    return qCos(qSin(x*y)+qCos(x));
-}
-
-double r1(double x, double y)
-{
-    return x*x/13*13 + y*y/2*2;
-//    return x*x + 2*x - 6;
-//    return qSin(qSin(x)+qCos(y)) ;
-}
-
 void MainWindow::init(LuaPlot* customPlot)
 {
-    QCPCurve* c = customPlot->addExpression(l1, r1, QCPRange(-10.0, 10.0), QCPRange(-10, 10));
 
 }
 
