@@ -51,7 +51,7 @@ function fp(plot)
   local ticks = {1, 2, 3, 4, 5, 6, 7}
   local labels = {"USA", "Japan", "Germany", "France", "UK", "Italy", "Canada"}
   local textTicker = plot:createAxisTickerText()
-  textTicker:addTicks(ticks, labels)
+  textTicker:addTicksByVector(ticks, labels)
 
   plot.xAxis:setTicker(textTicker)
   plot.xAxis:setTickLabelRotation(60)

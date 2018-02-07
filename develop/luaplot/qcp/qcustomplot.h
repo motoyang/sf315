@@ -1737,7 +1737,7 @@ public:
   
   // setters:
   void setTicks(const QMap<double, QString> &ticks);
-  void setTicks(const QVector<double> &positions, const QVector<QString> labels);
+  void setTicks(const QVector<double> &positions, const QVector<QString> &labels);
   void setSubTickCount(int subTicks);
   
   // non-virtual methods:

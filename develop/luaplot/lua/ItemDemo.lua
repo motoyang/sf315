@@ -43,14 +43,14 @@ plot.yAxis:setRange(-1.45, 1.65)
 plot.xAxis:grid():setZeroLinePen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.NoPen)))
 
 local bracket = plot:createItemBracket(plot)
-bracket.left:setCoords(-8, 1.1)
-bracket.right:setCoords(8, 1.1);
+bracket.left:setCoordsXY(-8, 1.1)
+bracket.right:setCoordsXY(8, 1.1);
 bracket:setLength(13);
 
 local font0 = luaplot.QFont(plot:font():family(), 10, -1, false)
 local wavePacketText = plot:createItemText(plot)
 wavePacketText.position:setParentAnchor(bracket.center, false)
-wavePacketText.position:setCoords(0, -10); --move 10 pixels to the top from bracket center anchor
+wavePacketText.position:setCoordsXY(0, -10); --move 10 pixels to the top from bracket center anchor
 wavePacketText:setPositionAlignment(qt.AlignBottom + qt.AlignHCenter)
 wavePacketText:setText("Wavepacket")
 wavePacketText:setFont(font0)
@@ -68,7 +68,7 @@ local font = luaplot.QFont(plot:font():family(), 9, -1, false)
 local phaseTracerText = plot:createItemText(plot)
 phaseTracerText.position:setType(qcp.ItemPosition.ptAxisRectRatio)
 phaseTracerText:setPositionAlignment(qt.AlignRight + qt.AlignBottom)
-phaseTracerText.position:setCoords(1.0, 0.95); -- lower right corner of axis rect
+phaseTracerText.position:setCoordsXY(1.0, 0.95); -- lower right corner of axis rect
 phaseTracerText:setText("Points of fixed\nphase define\nphase velocity vp")
 phaseTracerText:setTextAlignment(qt.AlignLeft)
 phaseTracerText:setFont(font)
@@ -78,11 +78,11 @@ phaseTracerText:setPadding(luaplot.QMargins(8, 0, 0, 0))
 local phaseTracerArrow = plot:createItemCurve(plot)
 phaseTracerArrow.start:setParentAnchor(phaseTracerText.left, false)
 phaseTracerArrow.startDir:setParentAnchor(phaseTracerArrow.start, false)
-phaseTracerArrow.startDir:setCoords(-40, 0)
+phaseTracerArrow.startDir:setCoordsXY(-40, 0)
 phaseTracerArrow.theEnd:setParentAnchor(phaseTracer.position, false)
-phaseTracerArrow.theEnd:setCoords(10, 10);
+phaseTracerArrow.theEnd:setCoordsXY(10, 10);
 phaseTracerArrow.endDir:setParentAnchor(phaseTracerArrow.theEnd, false)
-phaseTracerArrow.endDir:setCoords(30, 30)
+phaseTracerArrow.endDir:setCoordsXY(30, 30)
 phaseTracerArrow:setHead(luaplot.LineEnding(qcp.LineEnding.esSpikeArrow, 8, 10, false))
 phaseTracerArrow:setTail(luaplot.LineEnding(qcp.LineEnding.esBar, (phaseTracerText.bottom:pixelPosition():y()-phaseTracerText.top:pixelPosition():y())*0.85, 10, false))
 
@@ -99,7 +99,7 @@ groupTracer:setSize(7)
 local groupTracerText = plot:createItemText(plot)
 groupTracerText.position:setType(qcp.ItemPosition.ptAxisRectRatio)
 groupTracerText:setPositionAlignment(qt.AlignRight + qt.AlignTop)
-groupTracerText.position:setCoords(1.0, 0.20)
+groupTracerText.position:setCoordsXY(1.0, 0.20)
 groupTracerText:setText("Fixed positions in\nwave packet define\ngroup velocity vg")
 groupTracerText:setTextAlignment(qt.AlignLeft)
 groupTracerText:setFont(font)
@@ -108,26 +108,26 @@ groupTracerText:setPadding(luaplot.QMargins(8, 0, 0, 0))
 local groupTracerArrow = plot:createItemCurve(plot)
 groupTracerArrow.start:setParentAnchor(groupTracerText.left, false)
 groupTracerArrow.startDir:setParentAnchor(groupTracerArrow.start, false)
-groupTracerArrow.startDir:setCoords(-40, 0)
-groupTracerArrow.theEnd:setCoords(5.5, 0.4)
+groupTracerArrow.startDir:setCoordsXY(-40, 0)
+groupTracerArrow.theEnd:setCoordsXY(5.5, 0.4)
 groupTracerArrow.endDir:setParentAnchor(groupTracerArrow.theEnd, false)
-groupTracerArrow.endDir:setCoords(0, -40)
+groupTracerArrow.endDir:setCoordsXY(0, -40)
 groupTracerArrow:setHead(luaplot.LineEnding(qcp.LineEnding.esSpikeArrow, 8, 10, false))
 groupTracerArrow:setTail(luaplot.LineEnding(qcp.LineEnding.esBar, (phaseTracerText.bottom:pixelPosition():y()-phaseTracerText.top:pixelPosition():y())*0.85, 10, false))
 
 
 -- add dispersion arrow:
 local arrow = plot:createItemCurve(plot)
-arrow.start:setCoords(1, -1.1)
-arrow.startDir:setCoords(-1, -1.3)
-arrow.endDir:setCoords(-5, -0.3)
-arrow.theEnd:setCoords(-10, -0.2)
+arrow.start:setCoordsXY(1, -1.1)
+arrow.startDir:setCoordsXY(-1, -1.3)
+arrow.endDir:setCoordsXY(-5, -0.3)
+arrow.theEnd:setCoordsXY(-10, -0.2)
 arrow:setHead(luaplot.LineEnding(qcp.LineEnding.esSpikeArrow, 8, 10, false))
 
 
 -- add the dispersion arrow label:
 local dispersionText = plot:createItemText(plot)
-dispersionText.position:setCoords(-6, -0.9)
+dispersionText.position:setCoordsXY(-6, -0.9)
 dispersionText:setRotation(40)
 dispersionText:setText("Dispersion with\nvp < vg")
 dispersionText:setFont(font0)

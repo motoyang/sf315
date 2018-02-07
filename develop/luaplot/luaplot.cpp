@@ -27,7 +27,30 @@ void LuaPlot::setTimer(const char *funName, int msec)
     m_t.start(msec); // Interval 0 means to refresh as fast as possible
 }
 
-bool LuaPlot::expressionCalc(const luabridge::LuaRef& f, double x, double y, double dx, double dy, int split)
+bool LuaPlot::expressionCalcNumber(const luabridge::LuaRef& f, double x, double y, double dx, double dy, int split)
+{
+    double y0 = y;
+    dx /= split;
+    dy /= split;
+
+    for (int i = 0; i < split; ++i) {
+        for (int j = 0; j < split; ++j) {
+            double r = f(x, y);
+            if (r < 1) {
+                return true;
+            } else if (r > 10) {
+                split /= 2;
+            }
+            y += dy;
+        }
+        x += dx;
+        y = y0;
+    }
+
+    return false;
+}
+
+bool LuaPlot::expressionCalcBoolean(const luabridge::LuaRef& f, double x, double y, double dx, double dy, int split)
 {
     double y0 = y;
     dx /= split;
@@ -47,60 +70,56 @@ bool LuaPlot::expressionCalc(const luabridge::LuaRef& f, double x, double y, dou
     return false;
 }
 
-QCPCurve *LuaPlot::byPixel(const LuaExpression &e)
-{
-    replot();
-    QRect r = axisRect()->rect();
-
-    luabridge::LuaRef ref = luabridge::getGlobal(m_L, e.luaFunctionName.toUtf8().constData());
-    double dx = (e.xUpper - e.xLower) / r.width();
-    double dy = (e.yUpper - e.yLower) / r.height();
-
-    xAxis->setRange(e.xLower, e.xUpper);
-    yAxis->setRange(e.yLower, e.yUpper);
-    QVector<double> keys, values;
-    for (int i = r.left()+1; i < r.right(); ++i) {
-        double x = xAxis->pixelToCoord(i);
-        for (int j = r.top()+1; j < r.bottom(); ++j) {
-            double y = yAxis->pixelToCoord(j);
-            if (expressionCalc(ref, x, y, dx, dy, e.splitInPoint)) {
-                keys.append(x);
-                values.append(y);
-            }
-        }
-    }
-
-    QCPCurve* curve = new QCPCurve(xAxis, yAxis);
-    curve->addData(keys, values);
-    curve->setLineStyle(QCPCurve::lsNone);
-    rescaleAll();
-
-    return curve;
-}
-
 QCPCurve *LuaPlot::addLuaExpression(const LuaExpression &e)
 {
-    if (!e.pointsOfHeight || !e.pointsOfWidth) {
-        return byPixel(e);
+    luabridge::LuaRef ref = luabridge::getGlobal(m_L, e.luaFunctionName.toUtf8().constData());
+
+    bool (LuaPlot::*calc)(const luabridge::LuaRef&, double, double, double, double, int) = nullptr;
+    if (e.luaReturnType == "boolean") {
+        calc = &LuaPlot::expressionCalcBoolean;
+    } else if (e.luaReturnType == "number") {
+        calc = &LuaPlot::expressionCalcNumber;
+    } else {
+        Q_ASSERT(false);
     }
 
-    luabridge::LuaRef ref = luabridge::getGlobal(m_L, e.luaFunctionName.toUtf8().constData());
-    double dx = (e.xUpper - e.xLower) / e.pointsOfWidth;
-    double dy = (e.yUpper - e.yLower) / e.pointsOfHeight;
-
-    double x = e.xLower;
-    double y = e.yLower;
     QVector<double> keys, values;
-    for (int i = 0; i < e.pointsOfWidth; ++i) {
-        for (int j = 0; j < e.pointsOfHeight; ++j) {
-            if (expressionCalc(ref, x, y, dx, dy, e.splitInPoint)) {
-                keys.append(x);
-                values.append(y);
+    if (!e.pointsOfHeight || !e.pointsOfWidth) {
+        replot();
+        QRect r = axisRect()->rect();
+
+        double dx = (e.xUpper - e.xLower) / r.width();
+        double dy = (e.yUpper - e.yLower) / r.height();
+
+        xAxis->setRange(e.xLower, e.xUpper);
+        yAxis->setRange(e.yLower, e.yUpper);
+        for (int i = r.left()+1; i < r.right(); ++i) {
+            double x = xAxis->pixelToCoord(i);
+            for (int j = r.top()+1; j < r.bottom(); ++j) {
+                double y = yAxis->pixelToCoord(j);
+                if ((this->*calc)(ref, x, y, dx, dy, e.splitInPoint)) {
+                    keys.append(x);
+                    values.append(y);
+                }
             }
-            y += dy;
         }
-        x += dx;
-        y = e.yLower;
+    } else {
+        double dx = (e.xUpper - e.xLower) / e.pointsOfWidth;
+        double dy = (e.yUpper - e.yLower) / e.pointsOfHeight;
+
+        double x = e.xLower;
+        double y = e.yLower;
+        for (int i = 0; i < e.pointsOfWidth; ++i) {
+            for (int j = 0; j < e.pointsOfHeight; ++j) {
+                if ((this->*calc)(ref, x, y, dx, dy, e.splitInPoint)) {
+                    keys.append(x);
+                    values.append(y);
+                }
+                y += dy;
+            }
+            x += dx;
+            y = e.yLower;
+        }
     }
 
     QCPCurve* curve = new QCPCurve(xAxis, yAxis);

@@ -462,7 +462,7 @@ function M.Expression:new(e)
   for k, v in pairs(e) do
     r[k] = v
   end
-  r.diff = r:calcDefaultDiff() / 6
+  r.diff = r:calcDefaultDiff() / 10
   return r
 end
 
@@ -481,13 +481,18 @@ function M.addExpression(p, e)
   local function f(x, y)
     return e:f(x, y)
   end
+  local function f2(x, y)
+    return e:f2(x, y)
+  end
 
   -- 临时生成一个字符串，作为从c/c++调用lua function的名字，
   -- 调用完成后，马上删除该全局变量。
   local ef_name = {}
   e.luaFunctionName = tostring(ef_name)
-
-  _G[e.luaFunctionName] = f
+  -- 优先选用f2作为expression的计算函数，这是为了加快处理速度
+  if e.f2 == nil then e.luaReturnType = "boolean"; _G[e.luaFunctionName] = f;
+  else e.luaReturnType = "number"; _G[e.luaFunctionName] = f2;
+  end
   local curve = p:addLuaExpression(e)
   _G[e.luaFunctionName] = nil
 

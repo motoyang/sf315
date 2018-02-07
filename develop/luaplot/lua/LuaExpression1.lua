@@ -31,7 +31,7 @@ qcp.startExpression(a0)
 
 -----------------
 
-local a1 = qcp.Expression:new {yLower=-1.5, yUpper = 1.5, name="余弦曲线"}
+local a1 = qcp.Expression:new {splitInPoint=32, yLower=-1.5, yUpper = 1.5, name="余弦曲线"}
 function a1:f(x, y)
   local left1 = math.cos(x)
   local right1 = y
@@ -40,6 +40,12 @@ function a1:f(x, y)
   then return true end
 
   return false
+end
+function a1:f2(x, y)
+  local left1 = math.cos(x)
+  local right1 = y
+
+  return math.abs(left1 - right1) / self.diff 
 end
 
 local a2 = qcp.Expression:new {yLower=-3.5, yUpper = 3.5, name="直线", splitInPoint = 3}
@@ -84,16 +90,19 @@ end
 qcp.startPlot(fp)
 
 --------------------
-
-local b0 = qcp.Expression:new {name = "有趣的图", splitInPoint = 9}
+--[[
+local b0 = qcp.Expression:new {name = "有趣的图", splitInPoint = 19}
+b0.diff = b0.diff * 5
 function b0:f(x, y)
 
   local left1 = math.exp(math.sin(x)+math.cos(y))
   local right1 = math.sin(math.exp(x+y))
 
-  if (math.abs(left1 - right1) < self.diff/5) 
-  then return true end
-  return false
+  return math.abs(left1-right1)/self.diff
+
+--  if (math.abs(left1 - right1) < self.diff/5) 
+--  then return true end
+ -- return false
 end
 
 qcp.startExpression(b0)
@@ -124,10 +133,10 @@ function b2:f(x, y)
 end
 
 qcp.startExpression(b2)
-
+--]]
 -----------------
 
-local e0 = qcp.Expression:new {yLower=-1.5, yUpper = 1.5, name = "正弦曲线", expression="sin(x)=y"}
+local e0 = qcp.Expression:new {splitInPoint = 36, yLower=-1.5, yUpper = 1.5, name = "正弦曲线", expression="sin(x)=y"}
 function e0:f(x, y)
   local left = math.sin(x)
   local right = y
@@ -135,18 +144,23 @@ function e0:f(x, y)
   if (math.abs(left - right) < self.diff) then return true end
   return false
 end
+function e0:f2(x, y)
+  local left = math.sin(x)
+  local right = y
 
+  return math.abs(left-right)/self.diff
+end
 qcp.startExpression(e0)
 
 -----------------
-
-local e1 = qcp.Expression:new {name = "有趣的图1", splitInPoint = 5, expression="sin(x^2+y^2)=cos(xy)"}
+--[[
+local e1 = qcp.Expression:new {name = "有趣的图1", splitInPoint = 15, expression="sin(x^2+y^2)=cos(xy)"}
 function e1:f(x, y)
   local left = math.sin(x*x + y*y)
   local right = math.cos(x*y)
-
-  if (math.abs(left - right) < self.diff) then return true end
-  return false
+  return math.abs(left - right) / self.diff
+--  if (math.abs(left - right) < self.diff) then return true end
+--  return false
 end
 
 qcp.startExpression(e1)

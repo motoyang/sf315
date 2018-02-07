@@ -53,13 +53,18 @@ STACK_AS_INT(QLocale::Script)
 
 STACK_AS_INT(QCPAxis::AxisType)
 STACK_AS_INT(QCPAxis::ScaleType)
+STACK_AS_INT(QCPAxisTicker::TickStepStrategy)
 STACK_AS_INT(QCPAxisTickerFixed::ScaleStrategy)
+STACK_AS_INT(QCPAxisTickerPi::FractionStyle)
+STACK_AS_INT(QCPBarsGroup::SpacingType)
+STACK_AS_INT(QCPColorGradient::ColorInterpolation)
 STACK_AS_INT(QCPColorGradient::GradientPreset)
 STACK_AS_INT(QCPFinancial::ChartStyle)
 STACK_AS_INT(QCPGraph::LineStyle)
-STACK_AS_INT(QCPLineEnding::EndingStyle)
 STACK_AS_INT(QCPItemPosition::PositionType)
 STACK_AS_INT(QCPItemTracer::TracerStyle)
+STACK_AS_INT(QCPLayer::LayerMode)
+STACK_AS_INT(QCPLineEnding::EndingStyle)
 STACK_AS_INT(QCPScatterStyle::ScatterShape)
 STACK_AS_INT(QCustomPlot::LayerInsertMode)
 STACK_AS_INT(QCustomPlot::RefreshPriority)
@@ -178,7 +183,7 @@ struct Stack <QList<T*> >
     {
         int i = 1;
         lua_newtable(L);
-        for(QCPAxis* value: v) {
+        for(T* value: v) {
             Stack<T*>::push(L, value);
             lua_rawseti(L, -2, i++);
         }
@@ -334,6 +339,7 @@ struct Stack <LuaExpression const&> : public TablePushAndGet
     static const char* name;
     static const char* expression;
     static const char* luaFunctionName;
+    static const char* luaReturnType;
     static const char* xLower;
     static const char* xUpper;
     static const char* yLower;
@@ -356,6 +362,7 @@ struct Stack <LuaExpression const&> : public TablePushAndGet
         le.name = getStringByName(L, index, name);
         le.expression = getStringByName(L, index, expression);
         le.luaFunctionName = getStringByName(L, index, luaFunctionName);
+        le.luaReturnType = getStringByName(L, index, luaReturnType);
         le.xLower = getNumberByName(L, index, xLower);
         le.xUpper = getNumberByName(L, index, xUpper);
         le.yLower = getNumberByName(L, index, yLower);
@@ -371,6 +378,7 @@ struct Stack <LuaExpression const&> : public TablePushAndGet
 const char* Stack <LuaExpression const&>::name = "name";
 const char* Stack <LuaExpression const&>::expression = "expression";
 const char* Stack <LuaExpression const&>::luaFunctionName = "luaFunctionName";
+const char* Stack <LuaExpression const&>::luaReturnType = "luaReturnType";
 const char* Stack <LuaExpression const&>::xLower = "xLower";
 const char* Stack <LuaExpression const&>::xUpper = "xUpper";
 const char* Stack <LuaExpression const&>::yLower = "yLower";

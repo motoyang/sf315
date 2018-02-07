@@ -6562,7 +6562,7 @@ void QCPAxisTickerText::setTicks(const QMap<double, QString> &ticks)
   
   \see addTicks, addTick, clear
 */
-void QCPAxisTickerText::setTicks(const QVector<double> &positions, const QVector<QString> labels)
+void QCPAxisTickerText::setTicks(const QVector<double> &positions, const QVector<QString> &labels)
 {
   clear();
   addTicks(positions, labels);
