@@ -15,12 +15,11 @@
 
 struct LuaExpression {
     QString name;
-    QString expression;
     QString luaFunctionName;
-    QString luaReturnType;
     double xLower, xUpper;
     double yLower, yUpper;
-    int pointsOfWidth, pointsOfHeight, splitInPoint;
+    double diff;
+    int pointsOfWidth, pointsOfHeight;
 };
 
 // --
@@ -33,15 +32,13 @@ class LuaPlot : public QCustomPlot
     QTimer m_t;
     QString m_fn;
 
-    bool expressionCalcBoolean(const luabridge::LuaRef& f, double x, double y, double dx, double dy, int split);
-    bool expressionCalcNumber(const luabridge::LuaRef& f, double x, double y, double dx, double dy, int split);
-
 public:
     LuaPlot(QWidget* parent);
 
     int setLuaState(lua_State* L);
     void setTimer(const char* funName, int msec);
-    QCPCurve* addLuaExpression(const LuaExpression& e);
+    QCPCurve* addLuaEquation(const LuaExpression& e);
+    QCPGraph* addLuaFunction(const LuaExpression& e);
 
     QCPAxisRect*            createAxisRect(QCustomPlot *parentPlot, bool setupDefaultAxes=true);
     QCPAxisTickerFixed*     createAxisTickerFixed();

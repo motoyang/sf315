@@ -337,16 +337,14 @@ template <>
 struct Stack <LuaExpression const&> : public TablePushAndGet
 {
     static const char* name;
-    static const char* expression;
     static const char* luaFunctionName;
-    static const char* luaReturnType;
     static const char* xLower;
     static const char* xUpper;
     static const char* yLower;
     static const char* yUpper;
+    static const char* diff;
     static const char* pointsOfWidth;
     static const char* pointsOfHeight;
-    static const char* splitInPoint;
 
 /*
     static void push (lua_State* L, LuaExpression const& v)
@@ -360,32 +358,28 @@ struct Stack <LuaExpression const&> : public TablePushAndGet
 
         LuaExpression le;
         le.name = getStringByName(L, index, name);
-        le.expression = getStringByName(L, index, expression);
         le.luaFunctionName = getStringByName(L, index, luaFunctionName);
-        le.luaReturnType = getStringByName(L, index, luaReturnType);
         le.xLower = getNumberByName(L, index, xLower);
         le.xUpper = getNumberByName(L, index, xUpper);
         le.yLower = getNumberByName(L, index, yLower);
         le.yUpper = getNumberByName(L, index, yUpper);
+        le.diff = getNumberByName(L, index, diff);
         le.pointsOfWidth = getIntegerByName(L, index, pointsOfWidth);
         le.pointsOfHeight = getIntegerByName(L, index, pointsOfHeight);
-        le.splitInPoint = getIntegerByName(L, index, splitInPoint);
 
 //        dumpStack(nullptr, L);
         return le;
     }
 };
 const char* Stack <LuaExpression const&>::name = "name";
-const char* Stack <LuaExpression const&>::expression = "expression";
 const char* Stack <LuaExpression const&>::luaFunctionName = "luaFunctionName";
-const char* Stack <LuaExpression const&>::luaReturnType = "luaReturnType";
 const char* Stack <LuaExpression const&>::xLower = "xLower";
 const char* Stack <LuaExpression const&>::xUpper = "xUpper";
 const char* Stack <LuaExpression const&>::yLower = "yLower";
 const char* Stack <LuaExpression const&>::yUpper = "yUpper";
+const char* Stack <LuaExpression const&>::diff = "diff";
 const char* Stack <LuaExpression const&>::pointsOfWidth = "pointsOfWidth";
 const char* Stack <LuaExpression const&>::pointsOfHeight = "pointsOfHeight";
-const char* Stack <LuaExpression const&>::splitInPoint = "splitInPoint";
 
 }   // namespace luabridge end.
 

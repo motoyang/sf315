@@ -27,107 +27,120 @@ void LuaPlot::setTimer(const char *funName, int msec)
     m_t.start(msec); // Interval 0 means to refresh as fast as possible
 }
 
-bool LuaPlot::expressionCalcNumber(const luabridge::LuaRef& f, double x, double y, double dx, double dy, int split)
+class CalcGrid
 {
-    double y0 = y;
-    dx /= split;
-    dy /= split;
+    luabridge::LuaRef m_f;
+    double m_diff;
+    QRectF m_rect;
 
-    for (int i = 0; i < split; ++i) {
-        for (int j = 0; j < split; ++j) {
-            double r = f(x, y);
-            if (r < 1) {
-                return true;
-            } else if (r > 10) {
-                split /= 2;
-            }
-            y += dy;
-        }
-        x += dx;
-        y = y0;
-    }
+public:
+    CalcGrid(const luabridge::LuaRef& f, double diff)
+        : m_f(f), m_diff(diff)
+    {}
 
-    return false;
-}
+    bool loop(double l, double b, double r, double t)
+    {
+        const double min_dx = m_diff * 1e-3;
+        const double min_dy = m_diff * 1e-3;
 
-bool LuaPlot::expressionCalcBoolean(const luabridge::LuaRef& f, double x, double y, double dx, double dy, int split)
-{
-    double y0 = y;
-    dx /= split;
-    dy /= split;
-
-    for (int i = 0; i < split; ++i) {
-        for (int j = 0; j < split; ++j) {
-            if (f(x, y)) {
+        double x1 = l, y1 = b, x2 = r, y2 = t;
+        do {
+            double xc, yc, dx, dy;
+            if (calc(x1, y1, x2, y2, xc, yc, dx, dy)) {
                 return true;
             }
-            y += dy;
+
+            if (dx < min_dx || dy  < min_dy) {
+                return false;
+            }
+
+            x1 = qMax(xc - dx, l);
+            y1 = qMax(yc - dy, b);
+            x2 = qMin(xc + dx, r);
+            y2 = qMin(yc + dy, t);
+        } while (true);
+
+        return false;
+    }
+
+    bool calc(double l, double b, double r, double t, double& xc, double& yc, double& dx, double& dy)
+    {
+        const int split = 4;
+        double minV = std::numeric_limits<double>::max();
+
+        dx = (r - l) / split;
+        dy = (t - b) / split;
+        for (int i = 0; i <= split; ++i) {
+            double x = l + i * dx;
+            for (int j = 0; j < split; ++j) {
+                double y = b + j * dy;
+                double v = m_f(x, y);
+                if (v < m_diff) {
+                    return true;
+                }
+                if (v < minV) {
+                    minV = v;
+                    xc = x;
+                    yc = y;
+                }
+            }
         }
-        x += dx;
-        y = y0;
+
+        return false;
     }
+};
 
-    return false;
-}
-
-QCPCurve *LuaPlot::addLuaExpression(const LuaExpression &e)
+QCPCurve *LuaPlot::addLuaEquation(const LuaExpression &e)
 {
-    luabridge::LuaRef ref = luabridge::getGlobal(m_L, e.luaFunctionName.toUtf8().constData());
-
-    bool (LuaPlot::*calc)(const luabridge::LuaRef&, double, double, double, double, int) = nullptr;
-    if (e.luaReturnType == "boolean") {
-        calc = &LuaPlot::expressionCalcBoolean;
-    } else if (e.luaReturnType == "number") {
-        calc = &LuaPlot::expressionCalcNumber;
-    } else {
-        Q_ASSERT(false);
-    }
+    luabridge::LuaRef f = luabridge::getGlobal(m_L, e.luaFunctionName.toUtf8().constData());
+    CalcGrid cg(f, e.diff);
 
     QVector<double> keys, values;
-    if (!e.pointsOfHeight || !e.pointsOfWidth) {
-        replot();
-        QRect r = axisRect()->rect();
+    double dx = (e.xUpper - e.xLower) / e.pointsOfWidth;
+    double dy = (e.yUpper - e.yLower) / e.pointsOfHeight;
 
-        double dx = (e.xUpper - e.xLower) / r.width();
-        double dy = (e.yUpper - e.yLower) / r.height();
-
-        xAxis->setRange(e.xLower, e.xUpper);
-        yAxis->setRange(e.yLower, e.yUpper);
-        for (int i = r.left()+1; i < r.right(); ++i) {
-            double x = xAxis->pixelToCoord(i);
-            for (int j = r.top()+1; j < r.bottom(); ++j) {
-                double y = yAxis->pixelToCoord(j);
-                if ((this->*calc)(ref, x, y, dx, dy, e.splitInPoint)) {
-                    keys.append(x);
-                    values.append(y);
-                }
+    double x = e.xLower;
+    double y = e.yLower;
+    for (int i = 0; i <= e.pointsOfWidth; ++i) {
+        for (int j = 0; j <= e.pointsOfHeight; ++j) {
+            if (cg.loop(x, y, x + dx, y + dy)) {
+                keys.append(x);
+                values.append(y);
             }
+            y += dy;
         }
-    } else {
-        double dx = (e.xUpper - e.xLower) / e.pointsOfWidth;
-        double dy = (e.yUpper - e.yLower) / e.pointsOfHeight;
-
-        double x = e.xLower;
-        double y = e.yLower;
-        for (int i = 0; i < e.pointsOfWidth; ++i) {
-            for (int j = 0; j < e.pointsOfHeight; ++j) {
-                if ((this->*calc)(ref, x, y, dx, dy, e.splitInPoint)) {
-                    keys.append(x);
-                    values.append(y);
-                }
-                y += dy;
-            }
-            x += dx;
-            y = e.yLower;
-        }
+        x += dx;
+        y = e.yLower;
     }
 
     QCPCurve* curve = new QCPCurve(xAxis, yAxis);
     curve->addData(keys, values);
     curve->setLineStyle(QCPCurve::lsNone);
-    rescaleAll();
+//    rescaleAll();
 
     return curve;
+}
+
+QCPGraph *LuaPlot::addLuaFunction(const LuaExpression &e)
+{
+    luabridge::LuaRef f = luabridge::getGlobal(m_L, e.luaFunctionName.toUtf8().constData());
+
+    QVector<double> keys, values;
+    double dx = (e.xUpper - e.xLower) / e.pointsOfWidth;
+
+    double x = e.xLower;
+    for (int i = 0; i <= e.pointsOfWidth; ++i) {
+        double y = f(x + dx / 2);
+        keys.append(x);
+        values.append(y);
+        x += dx;
+    }
+
+    QCPGraph* g = addGraph();
+    g->addData(keys, values);
+//    rescaleAll();
+
+    return g;
 }
 
 QCPAxisRect *LuaPlot::createAxisRect(QCustomPlot *parentPlot, bool setupDefaultAxes)

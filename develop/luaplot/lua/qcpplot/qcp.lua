@@ -410,6 +410,24 @@ local function initPlot(p, tfName, t, interaction)
   end
 end
 
+local function getSize(p, e)
+  p:replot(M.CustomPlot.rpRefreshHint)
+
+  local xSize, ySize = 1.0, 1.0
+  local r = p:axisRect(0, 0):rect()
+  if (e.pointsOfWidth == 0) then
+    e.pointsOfWidth = r:width()
+  else 
+    xSize = math.max(r:width() / e.pointsOfWidth, xSize)
+  end
+  if (e.pointsOfHeight == 0) then 
+    e.pointsOfHeight = r:height()
+  else
+    ySize = math.max(r:height() / e.pointsOfHeight, ySize)
+  end
+  return math.max(xSize, ySize)
+end
+
 --------------------
 
 function M.startPlot(f, tfName, t)
@@ -447,11 +465,10 @@ end
 
 M.Expression = {
   name = "name of the expression",
-  expression = "mathematic expression",
   xLower = -10, xUpper = 10,
   yLower = -10, yUpper = 10,
+  diff = 1e-10,
   pointsOfWidth = 0, pointsOfHeight = 0,
-  splitInPoint = 3,
 };
   
 function M.Expression:new(e)
@@ -462,48 +479,66 @@ function M.Expression:new(e)
   for k, v in pairs(e) do
     r[k] = v
   end
-  r.diff = r:calcDefaultDiff() / 10
   return r
 end
 
-function M.Expression:calcDefaultDiff()
-  local w, h = 800, 600
-  if (self.pointsOfWidth ~= 0) then w = self.pointsOfWidth end
-  if (self.pointsOfHeight ~= 0) then h = self.pointsOfHeight end
-
-  local dx = (self.xUpper - self.xLower) / w
-  local dy = (self.yUpper - self.yLower) / h
-
-  return math.sqrt(dx*dx + dy*dy)
-end
-
-function M.addExpression(p, e)
+function M.addEquation(p, e)
   local function f(x, y)
-    return e:f(x, y)
+    local l, r = e:equation(x, y)
+    return math.abs(l - r)
   end
-  local function f2(x, y)
-    return e:f2(x, y)
-  end
-
+  
+  local size = getSize(p, e)
   -- 临时生成一个字符串，作为从c/c++调用lua function的名字，
   -- 调用完成后，马上删除该全局变量。
   local ef_name = {}
   e.luaFunctionName = tostring(ef_name)
-  -- 优先选用f2作为expression的计算函数，这是为了加快处理速度
-  if e.f2 == nil then e.luaReturnType = "boolean"; _G[e.luaFunctionName] = f;
-  else e.luaReturnType = "number"; _G[e.luaFunctionName] = f2;
-  end
-  local curve = p:addLuaExpression(e)
+  _G[e.luaFunctionName] = f;
+  local curve = p:addLuaEquation(e)
   _G[e.luaFunctionName] = nil
 
-  curve:setScatterStyle(luaplot.ScatterStyleConstructor.fromShapeAndSize(M.ScatterStyle.ssSquare, 1))
+  curve:setScatterStyle(luaplot.ScatterStyleConstructor.fromShapeAndSize(M.ScatterStyle.ssSquare, size))
+  p.xAxis:setRange(e.xLower, e.xUpper)
+  p.yAxis:setRange(e.yLower, e.yUpper)
   return curve
 end
 
-function M.startExpression(e)
+function M.startEquation(e)
   local function fp(p)
-    local curve = M.addExpression(p, e)
-    p:setWindowTitle(e.name .. ", " .. e.expression)
+    local curve = M.addEquation(p, e)
+    p:setWindowTitle(e.name)
+  end
+
+  M.startPlot(fp)
+end
+
+--------------------
+
+function M.addFunction(p, e)
+  local function f(x)
+    return e:fun(x)
+  end
+
+  local size = getSize(p, e)
+  -- 临时生成一个字符串，作为从c/c++调用lua function的名字，
+  -- 调用完成后，马上删除该全局变量。
+  local ef_name = {}
+  e.luaFunctionName = tostring(ef_name)
+  _G[e.luaFunctionName] = f;
+  local graph = p:addLuaFunction(e)
+  _G[e.luaFunctionName] = nil
+
+  graph:setScatterStyle(luaplot.ScatterStyleConstructor.fromShapeAndSize(M.ScatterStyle.ssSquare, size))
+  p.xAxis:setRange(e.xLower, e.xUpper)
+  p.yAxis:setRange(e.yLower, e.yUpper)
+
+  return graph
+end
+
+function M.startFunction(e)
+  local function fp(p)
+    local curve = M.addFunction(p, e)
+    p:setWindowTitle(e.name)
   end
 
   M.startPlot(fp)
