@@ -398,6 +398,11 @@ M.ItemBracket = {
 
 --------------------
 
+-------------------------------------------------
+-- p： 就是luaplot对象，是userdata类型，在c++中创建的；
+-- tfName：定时器函数的名称，字符串类型；缺省值是nil，表示不设置定时器
+-- t： 定时器的间隔时间，缺省是0，表示不停顿的执行定时器函数；
+-- interaction：是否设置plot的Interactions，boolean类型，缺省值是false，表示不允许用户拖动、放大缩小plot。
 local function initPlot(p, tfName, t, interaction)
   if tfName then 
     if t == nil then t = 0 end
@@ -410,6 +415,11 @@ local function initPlot(p, tfName, t, interaction)
   end
 end
 
+-------------------------------------------------
+-- p： 就是luaplot对象，是userdata类型，在c++中创建的；
+-- e： Expression对象，实际是一个table。
+-- 返回值：plot中plotable对象中Scatter的大小。
+-- 本函数同时也设置e的pointsOfWidth和pointsOfHeight。如果pointsOfWidth为0，就根据plot中axisRect的屏幕点数，设置pointsOfWidth为axisRect.width()。pointsOfHeight同理设置。
 local function getSize(p, e)
   p:replot(M.CustomPlot.rpRefreshHint)
 
@@ -467,7 +477,6 @@ M.Expression = {
   name = "name of the expression",
   xLower = -10, xUpper = 10,
   yLower = -10, yUpper = 10,
-  diff = 1e-10,
   pointsOfWidth = 0, pointsOfHeight = 0,
 };
   
@@ -479,6 +488,11 @@ function M.Expression:new(e)
   for k, v in pairs(e) do
     r[k] = v
   end
+
+  -- 根据用户提供的x、y轴的range，设置diff的缺省值。这是一个经验值，用户也可以自行设置。
+  local range = math.min((r.xUpper - r.xLower), (r.yUpper - r.yLower))
+  r.diff = range * 1e-6
+
   return r
 end
 
@@ -498,6 +512,7 @@ function M.addEquation(p, e)
   _G[e.luaFunctionName] = nil
 
   curve:setScatterStyle(luaplot.ScatterStyleConstructor.fromShapeAndSize(M.ScatterStyle.ssSquare, size))
+  curve:setLineStyle(M.Curve.lsNone)
   p.xAxis:setRange(e.xLower, e.xUpper)
   p.yAxis:setRange(e.yLower, e.yUpper)
   return curve
@@ -538,6 +553,39 @@ end
 function M.startFunction(e)
   local function fp(p)
     local curve = M.addFunction(p, e)
+    p:setWindowTitle(e.name)
+  end
+
+  M.startPlot(fp)
+end
+
+--------------------
+
+function M.addLogic(p, e)
+  local function f(x, y)
+    return e:logic(x, y)
+  end
+
+  local size = getSize(p, e)
+  -- 临时生成一个字符串，作为从c/c++调用lua function的名字，
+  -- 调用完成后，马上删除该全局变量。
+  local ef_name = {}
+  e.luaFunctionName = tostring(ef_name)
+  _G[e.luaFunctionName] = f;
+  local curve = p:addLuaLogic(e)
+  _G[e.luaFunctionName] = nil
+
+  curve:setScatterStyle(luaplot.ScatterStyleConstructor.fromShapeAndSize(M.ScatterStyle.ssSquare, size))
+  curve:setLineStyle(M.Curve.lsNone)
+  p.xAxis:setRange(e.xLower, e.xUpper)
+  p.yAxis:setRange(e.yLower, e.yUpper)
+
+  return graph
+end
+
+function M.startLogic(e)
+  local function fp(p)
+    local curve = M.addLogic(p, e)
     p:setWindowTitle(e.name)
   end
 

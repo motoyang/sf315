@@ -160,7 +160,7 @@ function e0:f3(x, y, diff)
 
   return math.abs(left - right)
 end
-qcp.startE2(e0)
+qcp.startEquation(e0)
 
 -----------------
 

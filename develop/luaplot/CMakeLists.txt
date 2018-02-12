@@ -79,7 +79,7 @@ add_custom_command(TARGET ${VER_LIB}
   COMMAND echo "daily build command"
   COMMAND /home/xt/bin/ver.sh ver.h
   WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-  COMMENT "This command will be executed before building target ${PROJECT_NAME}"
+  COMMENT "This command will be executed before building target ${VER_LIB}"
   )
 
 #add_custom_target(Test1 ALL

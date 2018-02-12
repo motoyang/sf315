@@ -65,7 +65,7 @@ sudo tar -g macOSinfo -cJvPf macOS_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz /mnt/ma
 
 sudo tar -g macOSinfo -cJvPf macOS_diff_`date +%Y%m%d-%H%M%S`.tar.xz /mnt/macos
 
-sudo tar -g macOSinfo -cvPf - /mnt/macos 2>err.txt | parallel --pipe --block 20M -k -j4 xz -zc > macOS_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
+sudo tar -g macOSinfo -cvPf - /mnt/macos 2>err.txt | parallel --pipe -k -j4 xz -zc > macOS_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
 
 # --hfs分区的操作------------------------
 
@@ -77,6 +77,9 @@ sudo fsck.hfsplus -f /dev/sda2
 sudo mkdir /media/mac
 sudo mount -t hfsplus -o force,rw /dev/sda2 /media/mac/
 sudo mount -t hfsplus -o force,ro /dev/nvme0n1p2 /mnt/macos
+
+# 挂载efi分区
+sudo mount -o ro /dev/nvme0n1p1 /mnt/efi
 
 # --parallel----------------------
 
@@ -96,7 +99,7 @@ cat my_large_log | parallel --pipe grep pattern
 sudo tar -g sysinfo -cvPf - /media/xt/win10 | parallel --pipe -k -j4 xz -zc > win10.tar.xz
 sudo tar -g sysinfo -cvPf - /usr | parallel --pipe -j4 -k -j4 xz -zc > usr.tar.xz
 
-sudo tar -g sysinfo -cvPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt  --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe -k -j4 xz -zc > sys_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
+sudo tar -g sysinfo -cvPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe -k -j4 xz -zc > sys_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
 
 sudo tar -g sysinfo -cvPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt  --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe -k -j4 xz -zc > sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz
 

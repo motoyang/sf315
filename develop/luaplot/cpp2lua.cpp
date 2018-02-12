@@ -361,6 +361,7 @@ static void QtWidget2Lua(lua_State* L, const char* ns)
 
               .addFunction("addLuaEquation", &LuaPlot::addLuaEquation)
               .addFunction("addLuaFunction", &LuaPlot::addLuaFunction)
+              .addFunction("addLuaLogic", &LuaPlot::addLuaLogic)
 
               .addFunction("createAxisRect", &LuaPlot::createAxisRect)
               .addFunction("createColorMap", &LuaPlot::createColorMap)
@@ -830,6 +831,7 @@ static void QcpPlottable2Lua(lua_State* L, const char* ns)
           .endClass()
             .deriveClass<QCPCurve, QCPAbstractPlottable1D<QCPCurveData>>("Curve")
               .addFunction("data", &QCPCurve::data)
+              .addFunction("setLineStyle", &QCPCurve::setLineStyle)
               .addFunction("setScatterStyle", &QCPCurve::setScatterStyle)
             .endClass()
 

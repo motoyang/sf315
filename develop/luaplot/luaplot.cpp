@@ -115,7 +115,7 @@ QCPCurve *LuaPlot::addLuaEquation(const LuaExpression &e)
 
     QCPCurve* curve = new QCPCurve(xAxis, yAxis);
     curve->addData(keys, values);
-    curve->setLineStyle(QCPCurve::lsNone);
+//    curve->setLineStyle(QCPCurve::lsNone);
 //    rescaleAll();
 
     return curve;
@@ -128,9 +128,9 @@ QCPGraph *LuaPlot::addLuaFunction(const LuaExpression &e)
     QVector<double> keys, values;
     double dx = (e.xUpper - e.xLower) / e.pointsOfWidth;
 
-    double x = e.xLower;
+    double x = e.xLower + dx/2;
     for (int i = 0; i <= e.pointsOfWidth; ++i) {
-        double y = f(x + dx / 2);
+        double y = f(x);
         keys.append(x);
         values.append(y);
         x += dx;
@@ -138,9 +138,37 @@ QCPGraph *LuaPlot::addLuaFunction(const LuaExpression &e)
 
     QCPGraph* g = addGraph();
     g->addData(keys, values);
-//    rescaleAll();
 
     return g;
+}
+
+QCPCurve *LuaPlot::addLuaLogic(const LuaExpression &e)
+{
+    luabridge::LuaRef f = luabridge::getGlobal(m_L, e.luaFunctionName.toUtf8().constData());
+
+    QVector<double> keys, values;
+    double dx = (e.xUpper - e.xLower) / e.pointsOfWidth;
+    double dy = (e.yUpper - e.yLower) / e.pointsOfHeight;
+
+    double x = e.xLower + dx/2;
+    double y = e.yLower + dy/2;
+    for (int i = 0; i <= e.pointsOfWidth; ++i) {
+        for (int j = 0; j <= e.pointsOfHeight; ++j) {
+            if (f(x, y)) {
+                keys.append(x);
+                values.append(y);
+            }
+            y += dy;
+        }
+        x += dx;
+        y = e.yLower;
+    }
+
+    QCPCurve* curve = new QCPCurve(xAxis, yAxis);
+    curve->addData(keys, values);
+//    curve->setLineStyle(QCPCurve::lsNone);
+
+    return curve;
 }
 
 QCPAxisRect *LuaPlot::createAxisRect(QCustomPlot *parentPlot, bool setupDefaultAxes)

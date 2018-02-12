@@ -39,6 +39,7 @@ public:
     void setTimer(const char* funName, int msec);
     QCPCurve* addLuaEquation(const LuaExpression& e);
     QCPGraph* addLuaFunction(const LuaExpression& e);
+    QCPCurve *addLuaLogic(const LuaExpression& e);
 
     QCPAxisRect*            createAxisRect(QCustomPlot *parentPlot, bool setupDefaultAxes=true);
     QCPAxisTickerFixed*     createAxisTickerFixed();
