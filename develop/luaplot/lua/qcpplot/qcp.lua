@@ -473,6 +473,166 @@ end
 
 --------------------
 
+M.Region = {
+  name = "name of the region",
+  xLower = -10, xUpper = 10,
+  yLower = -10, yUpper = 10,
+  pointsOfWidth = 0, pointsOfHeight = 0,
+};
+
+function M.Region:new(e)
+  local r = {}
+  for k, v in pairs(self) do
+    r[k] = v
+  end
+  for k, v in pairs(e) do
+    r[k] = v
+  end
+
+  -- 根据用户提供的x、y轴的range，设置diff的缺省值。这是一个经验值，用户也可以自行设置。
+  local range = math.min((r.xUpper - r.xLower), (r.yUpper - r.yLower))
+  r.diff = range * 1e-6
+
+  -- 初始化plot的大小，此后就能得到正确的axisRect大小。
+  r.plot.xAxis:setRange(r.xLower, r.xUpper)
+  r.plot.yAxis:setRange(r.yLower, r.yUpper)
+  r.plot:replot(M.CustomPlot.rpRefreshHint)
+
+  -- 初始化pointsOfWidth和pointsOfHeight
+  local xSize, ySize = 1.0, 1.0
+  local rect = r.plot:axisRect(0, 0):rect()
+  if (r.pointsOfWidth == 0) then
+    r.pointsOfWidth = rect:width()
+  else 
+    xSize = math.max(rect:width() / r.pointsOfWidth, xSize)
+  end
+  if (r.pointsOfHeight == 0) then 
+    r.pointsOfHeight = rect:height()
+  else
+    ySize = math.max(rect:height() / r.pointsOfHeight, ySize)
+  end
+
+  -- 初始化Scatter的size
+  r.sizeOfScatter = math.max(xSize, ySize)
+
+  return r
+end
+
+function M.Region:addFunction(f)
+  local keys, values = {}, {}
+
+  local dx = (self.xUpper - self.xLower) / self.pointsOfWidth
+  local x = self.xLower + dx/2
+  for i = 0, self.pointsOfWidth do
+    local y = f(x)
+    keys[i+1] = x
+    values[i+1] = y
+    
+    x = x + dx
+  end
+
+  local graph = self.plot:addGraph(nil, nil)
+  graph:addVector(keys, values)
+  graph:setScatterStyle(luaplot.ScatterStyleConstructor.fromShapeAndSize(M.ScatterStyle.ssSquare, self.sizeOfScatter))
+
+  return graph
+end
+
+function M.Region:addLogic(f)
+  local keys, values = {}, {}
+  local dx = (self.xUpper - self.xLower) / self.pointsOfWidth
+  local dy = (self.yUpper - self.yLower) / self.pointsOfHeight
+  
+  local x = self.xLower + dx/2
+  local y = self.yLower + dy/2
+  for i = 0, self.pointsOfWidth do
+    for j = 0, self.pointsOfHeight do
+      if f(x, y) then
+        keys[#keys+1] = x
+        values[#values+1] = y
+      end
+      y = y + dy
+    end
+    x = x + dx
+    y = self.yLower + dy/2
+  end
+
+  local curve = self.plot:createCurve(self.plot.xAxis, self.plot.yAxis)
+  curve:setVector2(keys, values)
+  curve:setLineStyle(M.Curve.lsNone)
+  curve:setScatterStyle(luaplot.ScatterStyleConstructor.fromShapeAndSize(M.ScatterStyle.ssSquare, self.sizeOfScatter))
+  
+  return curve
+end
+
+function M.Region:addEquation(e)
+
+  local function calc(l, b, r, t)
+    local split = 4
+    local minV = math.huge
+    local xc, yc = (r-l)/2, (t-b)/2
+    local dx = (r-l) / split
+    local dy = (t-b) / split
+    for i = 0, split do 
+      local x = l + i*dx
+      for j = 0, split do
+        local y = b + j*dy
+        local left, right = e(x, y)
+        local v = math.abs(left - right)
+        if (v < self.diff) then return true end
+        if (v < minV) then
+          minV = v
+          xc, yc = x, y
+        end
+      end
+    end    
+    return false, xc, yc, dx, dy
+  end
+
+  local function loop(l, b, r, t)
+    local min_dx, min_dy = self.diff * 1e-3, self.diff * 1e-3
+    local x1, y1, x2, y2 = l, b, r, t
+    repeat
+      local value, xc, yc, dx, dy = calc(x1, y1, x2, y2)
+  --    print("dx, dy = ", dx, dy)
+      if value == true then return true end
+      if (dx < min_dx) or (dy < min_dy) then return false end
+      x1 = math.max(xc-dx, l)
+      y1 = math.max(yc-dy, b)
+      x2 = math.min(xc+dx, r)
+      y2 = math.min(yc+dy, t)
+    until(false)
+  end
+
+  local keys, values = {}, {}
+  local dx = (self.xUpper - self.xLower) / self.pointsOfWidth
+  local dy = (self.yUpper - self.yLower) / self.pointsOfHeight
+
+  local x, y = self.xLower, self.yLower
+  for i = 0, self.pointsOfWidth do
+    for j = 0, self.pointsOfHeight do
+      if (loop(x, y, x+dx, y+dy)) then
+        keys[#keys+1] = x
+        values[#values+1] = y
+      end
+      y = y + dy
+    end
+    x = x + dx
+    y = self.yLower
+  end
+--  pa.pprint("keys=", keys)
+
+  local curve = self.plot:createCurve(self.plot.xAxis, self.plot.yAxis)
+  curve:setVector2(keys, values)
+  curve:setLineStyle(M.Curve.lsNone)
+  curve:setScatterStyle(luaplot.ScatterStyleConstructor.fromShapeAndSize(M.ScatterStyle.ssSquare, self.sizeOfScatter))
+  
+  return curve
+end
+
+--------------------
+
+
 M.Expression = {
   name = "name of the expression",
   xLower = -10, xUpper = 10,

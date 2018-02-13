@@ -161,7 +161,7 @@ QCPCurve *LuaPlot::addLuaLogic(const LuaExpression &e)
             y += dy;
         }
         x += dx;
-        y = e.yLower;
+        y = e.yLower + dy/2;
     }
 
     QCPCurve* curve = new QCPCurve(xAxis, yAxis);

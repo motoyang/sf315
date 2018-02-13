@@ -61,6 +61,19 @@ end
 qcp.startEquation(e0)
 --]]
 
+local e5 = qcp.Expression:new {name = "有趣的图5",}
+function e5:equation(x, y)
+  local l1 = x/math.sin(x) + y/math.sin(y)
+  local l2 = x/math.sin(x) - y/math.sin(y)
+  local r1 = x*y/math.sin(x*y)
+  local r2 = -(x*y/math.sin(x*y))
+
+  if (math.abs(l1-r1) < self.diff) or (math.abs(l2-r2) < self.diff) or (math.abs(l1-r2) < self.diff) or (math.abs(l2-r1) < self.diff)
+
+  return left, right
+end
+qcp.startEquation(e5)
+
 local e1 = qcp.Expression:new {name = "有趣的图1",}
 function e1:equation(x, y)
   local left = math.exp(math.sin(x)+math.cos(y))

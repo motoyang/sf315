@@ -65,7 +65,7 @@ sudo tar -g macOSinfo -cJvPf macOS_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz /mnt/ma
 
 sudo tar -g macOSinfo -cJvPf macOS_diff_`date +%Y%m%d-%H%M%S`.tar.xz /mnt/macos
 
-sudo tar -g macOSinfo -cvPf - /mnt/macos 2>err.txt | parallel --pipe -k -j4 xz -zc > macOS_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
+sudo tar -g macOSinfo -cvPf - /mnt/macos 2>err.txt | parallel --pipe --recend "" -k -j4 xz -zc > macOS_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
 
 # --hfs分区的操作------------------------
 
@@ -96,12 +96,12 @@ pre_placehoder_5
 # 这时管道前面的不是作为参数，而是标准输入传给后面的命令
 cat my_large_log | parallel --pipe grep pattern 
 
-sudo tar -g sysinfo -cvPf - /media/xt/win10 | parallel --pipe -k -j4 xz -zc > win10.tar.xz
-sudo tar -g sysinfo -cvPf - /usr | parallel --pipe -j4 -k -j4 xz -zc > usr.tar.xz
+sudo tar -g sysinfo -cvPf - /media/xt/win10 | parallel --pipe --recend "" -k -j4 xz -zc > win10.tar.xz
+sudo tar -g sysinfo -cvPf - /usr | parallel --pipe --recend "" -j4 -k -j4 xz -zc > usr.tar.xz
 
-sudo tar -g sysinfo -cvPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe -k -j4 xz -zc > sys_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
+sudo tar -g sysinfo -cvPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > sys_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
 
-sudo tar -g sysinfo -cvPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt  --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe -k -j4 xz -zc > sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz
+sudo tar -g sysinfo -cvPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt  --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz
 
 
 # --输出重定向--------------------
@@ -120,3 +120,70 @@ ls -al 1> list.txt 2> &1
 
 # 将显示的数据，正确的输出到 list.txt 错误的数据则予以丢弃！ /dev/null ，可以说成是黑洞装置。为空，即不保存。
 ls -al 1> list.txt 2> /dev/null
+
+
+# --进程查看--------------------
+
+# 显示同一终端下的所有程序
+ps –a
+
+# 显示有效用户的相关进程 
+ps –u
+
+# 列出较完整的信息 
+ps –x
+
+# 查询系统所有进程数据 
+ps aux
+
+# 查看不与terminal有关的进程 
+ps ax
+
+# 查看同一部分进程树状态 
+ps axjf
+
+# ps可以与grep组合一起查询，表示查看所有进程里是 java 的进程信息等等
+ps -ef | grep java
+
+
+# --测试磁盘读写速度--------------------
+
+# cd到u盘目录,测试写入速度
+$ dd if=/dev/zero of=./largefile bs=8k count=10
+10+0 records in
+10+0 records out
+81920 bytes (82 MB) copied, 11.0626 s, 7.4 MB/s
+
+# 测试读取速度 (清除缓存)
+$ sudo sh -c "sync && echo 3 > /proc/sys/vm/drop_caches"     
+$ dd if=./largefile of=/dev/null bs=8k
+8+0 records in
+8+0 records out
+65536 bytes (66 MB) copied, 2.90366 s, 22.6 MB/s
+
+
+# --使用deb包--------------------
+
+# 查看deb包含有哪些文件(不安装)
+dpkg -c xxx.deb // 安装前根据deb文件查看
+dpkg -L debname // 安装后根据包名查看
+
+
+# 安装deb包
+dpkg -i xxx.deb
+
+
+# 移除deb包
+dpkg -r debname
+
+
+# 查看某个文件属于哪个deb包
+dpkg -S filepath
+
+# 释放安装内容到dirname目录中
+dpkg -X xxx.deb dirname
+
+
+# 释放控制信息到当前目录下的DEBIAN子目录中
+dpkg -e xxx.deb
+
