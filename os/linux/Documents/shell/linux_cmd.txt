@@ -187,3 +187,10 @@ dpkg -X xxx.deb dirname
 # 释放控制信息到当前目录下的DEBIAN子目录中
 dpkg -e xxx.deb
 
+
+sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys BA300B7755AFCFAE
+sudo add-apt-repository 'deb http://typora.io linux/'
+sudo apt-get update
+sudo apt-get install typora
+
+

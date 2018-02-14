@@ -26,9 +26,6 @@ function fp(plot)
   local data = colorMap:data()
   local x, y = luaplot.ColorMapDataHelper.cellToCoord(data, 1, 2)
 
---  local x
---  local y
---  local z
   for xIndex = 0, nx-1 do
     for yIndex = 0, ny-1 do
       local data = colorMap:data()
@@ -59,7 +56,6 @@ function fp(plot)
 
   -- rescale the key (x) and value (y) axes so the whole color map is visible:
   plot:rescaleAxes()
---]]
 end
 
 function fw(w)

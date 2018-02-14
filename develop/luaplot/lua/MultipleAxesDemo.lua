@@ -6,21 +6,19 @@ Real time generated data and time bottom axis
 
 --]]
 
---local ar=require("l1.array")
 local pa=require("qcpplot.print_any")
 local qcp=require("qcpplot.qcp")
 local qt=require("qcpplot.qt5")
 
 -- fp means function of plot
-
 function fp(plot)
-
   plot:setLocale(luaplot.LocaleConstructor.fromLanguageAndCountry(qt.Locale.English, qt.Locale.UnitedKingdom)); -- period as decimal separator and comma as thousand separator
   plot.legend:setVisible(true);
   local legendFont = luaplot.FontConstructor.fromFont(plot:font());  -- start out with MainWindow's font..
   legendFont:setPointSize(9); -- and make a bit smaller for legend
   plot.legend:setFont(legendFont);
   plot.legend:setBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(255,255,255,230), qt.SolidPattern));
+
   -- by default, the legend is in the inset layout of the main axis rect. So this is how we access it to change legend placement:
   plot:axisRect(0):insetLayout():setInsetAlignment(0, qt.AlignBottom + qt.AlignRight);
 
@@ -140,7 +138,6 @@ function fp(plot)
   -- make ticks on right axis go inward and outward:
   plot.yAxis2:setTickLength(3, 3);
   plot.yAxis2:setSubTickLength(1, 1);
-
 end
 
 function fw(w)
@@ -148,7 +145,5 @@ function fw(w)
   fp(p)
 end
 
-
 qcp.startMainWindow(fw)
 
---qcp.startPlot(timerSlot)

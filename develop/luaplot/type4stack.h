@@ -334,54 +334,6 @@ struct Stack <QCPCurveData>
     }
 };
 
-template <>
-struct Stack <LuaExpression const&> : public TablePushAndGet
-{
-    static const char* name;
-    static const char* luaFunctionName;
-    static const char* xLower;
-    static const char* xUpper;
-    static const char* yLower;
-    static const char* yUpper;
-    static const char* diff;
-    static const char* pointsOfWidth;
-    static const char* pointsOfHeight;
-
-/*
-    static void push (lua_State* L, LuaExpression const& v)
-    {
-    }
-*/
-    static LuaExpression get (lua_State* L, int index)
-    {
-//        dumpStack(Q_FUNC_INFO, L);
-        Q_ASSERT(lua_istable(L, index));
-
-        LuaExpression le;
-        le.name = getStringByName(L, index, name);
-        le.luaFunctionName = getStringByName(L, index, luaFunctionName);
-        le.xLower = getNumberByName(L, index, xLower);
-        le.xUpper = getNumberByName(L, index, xUpper);
-        le.yLower = getNumberByName(L, index, yLower);
-        le.yUpper = getNumberByName(L, index, yUpper);
-        le.diff = getNumberByName(L, index, diff);
-        le.pointsOfWidth = getIntegerByName(L, index, pointsOfWidth);
-        le.pointsOfHeight = getIntegerByName(L, index, pointsOfHeight);
-
-//        dumpStack(nullptr, L);
-        return le;
-    }
-};
-const char* Stack <LuaExpression const&>::name = "name";
-const char* Stack <LuaExpression const&>::luaFunctionName = "luaFunctionName";
-const char* Stack <LuaExpression const&>::xLower = "xLower";
-const char* Stack <LuaExpression const&>::xUpper = "xUpper";
-const char* Stack <LuaExpression const&>::yLower = "yLower";
-const char* Stack <LuaExpression const&>::yUpper = "yUpper";
-const char* Stack <LuaExpression const&>::diff = "diff";
-const char* Stack <LuaExpression const&>::pointsOfWidth = "pointsOfWidth";
-const char* Stack <LuaExpression const&>::pointsOfHeight = "pointsOfHeight";
-
 }   // namespace luabridge end.
 
 #endif // TYPE4STACK_H

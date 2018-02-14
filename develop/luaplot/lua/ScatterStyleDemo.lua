@@ -6,14 +6,12 @@ A demonstration of several scatter point styles.
 
 --]]
 
---local ar=require("l1.array")
 local pa=require("qcpplot.print_any")
 local qcp=require("qcpplot.qcp")
 local qt=require("qcpplot.qt5")
 
 -- fp means function of plot
 function fp(plot)
-
     plot.legend:setVisible(true);
     plot.legend:setFont(luaplot.FontConstructor.fromFamily("Helvetica", 9, -1, false));
     plot.legend:setRowSpacing(-3);
@@ -89,3 +87,4 @@ function fw(w)
 end
 
 qcp.startMainWindow(fw)
+

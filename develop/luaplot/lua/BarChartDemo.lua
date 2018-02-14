@@ -6,7 +6,6 @@ Three stacked bar charts with manual x axis tick labels
 
 --]]
 
---local ar=require("l1.array")
 local pa=require("qcpplot.print_any")
 local qcp=require("qcpplot.qcp")
 local qt=require("qcpplot.qt5")

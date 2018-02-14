@@ -359,10 +359,6 @@ static void QtWidget2Lua(lua_State* L, const char* ns)
               .addConstructor<void (*) (QWidget*)>()
               .addCFunction("setLuaState", &LuaPlot::setLuaState)
 
-              .addFunction("addLuaEquation", &LuaPlot::addLuaEquation)
-              .addFunction("addLuaFunction", &LuaPlot::addLuaFunction)
-              .addFunction("addLuaLogic", &LuaPlot::addLuaLogic)
-
               .addFunction("createAxisRect", &LuaPlot::createAxisRect)
               .addFunction("createColorMap", &LuaPlot::createColorMap)
               .addFunction("createColorScale", &LuaPlot::createColorScale)

@@ -6,14 +6,12 @@ Statistical 5-parameter-box-plot with outliers
 
 --]]
 
---local ar=require("l1.array")
 local pa=require("qcpplot.print_any")
 local qcp=require("qcpplot.qcp")
 local qt=require("qcpplot.qt5")
 
 -- fp means function of plot
 function fp(plot)
-
   local statistical = plot:createStatisticalBox(plot.xAxis, plot.yAxis)
   local boxBrush = luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(60, 60, 255, 100), qt.SolidPattern)
   boxBrush:setStyle(qt.Dense6Pattern)

@@ -6,14 +6,12 @@ Pixmap scatter points and a multi-lined axis label, as well as a plot title at t
 
 --]]
 
---local ar=require("l1.array")
 local pa=require("qcpplot.print_any")
 local qcp=require("qcpplot.qcp")
 local qt=require("qcpplot.qt5")
 
 -- fp means function of plot
 function fp(plot)
-
   plot:axisRect(0):setBackgroundByPixmap(luaplot.PixmapConstructor.fromFile("./solarpanels.png", nil, qt.AutoColor));
   plot:addGraph(nil, nil);
   plot:lastGraph():setLineStyle(qcp.Graph.lsLine);
@@ -52,7 +50,6 @@ function fp(plot)
   plot.legend:setIconSizeXY(50, 20);
   plot.legend:setVisible(true);
   plot:axisRect(0):insetLayout():setInsetAlignment(0, qt.AlignLeft + qt.AlignTop);
-
 end
 
 function fw(w)

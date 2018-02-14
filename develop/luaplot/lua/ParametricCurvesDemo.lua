@@ -6,17 +6,11 @@ Parametric curves with translucent gradient filling
 
 --]]
 
---local ar=require("l1.array")
 local pa=require("qcpplot.print_any")
 local qcp=require("qcpplot.qcp")
 local qt=require("qcpplot.qt5")
 
---local plot = luaplot.LuaPlot(nil)
---plot.legend:setVisible(true)
---local plot = luaplot.getPlot()
-
 local function fp(plot)
-
   local fermatSpiral1 = plot:createCurve(plot.xAxis, plot.yAxis)
   local fermatSpiral2 = plot:createCurve(plot.xAxis, plot.yAxis)
   local deltoidRadial = plot:createCurve(plot.xAxis, plot.yAxis)
@@ -35,10 +29,6 @@ local function fp(plot)
         ["value"]=2*math.sin(2*theta)-math.sin(1*theta)}
   end
 
---pa.print_any(dataSpiral1)
---pa.print_any(dataSpiral2)
---pa.print_any(dataDeltoid)
-
   fermatSpiral1:data():addVector(dataSpiral1, true)
   fermatSpiral2:data():addVector(dataSpiral2, true)
   deltoidRadial:data():addVector(dataDeltoid, true)
@@ -54,7 +44,6 @@ local function fp(plot)
   deltoidRadial:setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromRGB(170, 20, 240, 255)))
   deltoidRadial:setBrush(luaplot.BrushConstructor.fromGradient(radialGrad))
 
-  --plot:setInteractions(qcp.iRangeDrag + qcp.iRangeZoom + qcp.iSelectPlottables)
   plot:axisRect(0):setupFullAxesBox()
   plot:rescaleAxes()
 
@@ -65,14 +54,5 @@ local function fw(w)
   fp(p)
 end
 
-qcp.startPlot(fp)
 qcp.startMainWindow(fw)
 
---[[
-local mainWidget = plot:parentWidget():parentWidget()
-mainWidget:resize(800, 600)
-mainWidget:setWindowTitle("中华人民and Sinbad")
---plot:setAttribute(qt.WA_DeleteOnClose, true)
---plot:show()
---luaplot.App.exec()
---]]

@@ -6,18 +6,12 @@ Real time generated data and time bottom axis
 
 --]]
 
---local ar=require("l1.array")
 local pa=require("qcpplot.print_any")
 local qcp=require("qcpplot.qcp")
 local qt=require("qcpplot.qt5")
 
 -- fp means function of plot
-local plotInTimerSlot;
-
-function fp(plot)
-
-  plotInTimerSlot = plot;
-
+local function fp(plot)
   plot:addGraph(nil, nil); -- blue line
   plot:graph(0):setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromRGB(40, 110, 255, 255)));
   plot:addGraph(nil, nil); -- red line
@@ -32,14 +26,9 @@ function fp(plot)
   -- make left and bottom axes transfer their ranges to right and top axes:
   luaplot.QObject.connect(plot.xAxis, qt.SIGNAL("rangeChanged(QCPRange)"), plot.xAxis2, qt.SLOT("setRange(QCPRange)"), qt.AutoConnection);
   luaplot.QObject.connect(plot.yAxis, qt.SIGNAL("rangeChanged(QCPRange)"), plot.yAxis2, qt.SLOT("setRange(QCPRange)"), qt.AutoConnection);
-   
-  -- setup a timer that repeatedly calls MainWindow::realtimeDataSlot:
-  --connect(&dataTimer, SIGNAL(timeout()), this, SLOT(realtimeDataSlot()));
-  --dataTimer.start(0); -- Interval 0 means to refresh as fast as possible
-
 end
 
-function fw(w)
+local function fw(w)
   local p = w:getPlot()
   fp(p)
 end
@@ -48,10 +37,7 @@ local lastFpsKey = 0;
 local frameCount = 0;
 local time = luaplot.QTime.currentTime();
 local lastPointKey = 0;
-function timerSlot()
-
-  local plot = plotInTimerSlot;
-
+function timerSlot(plot)
   local key = time:elapsed() / 1000.0;
   if (key - lastPointKey > 0.002) then 
     plot:graph(0):addData(key, math.sin(key)+math.random()*1*math.sin(key/0.3843));
@@ -79,9 +65,7 @@ function timerSlot()
     local msg = string.format("%0.0f FPS, Total Data points: %d", fps, size)
     return msg
   end
-
 end
 
 qcp.startMainWindow(fw, "timerSlot", 0)
 
---qcp.startPlot(timerSlot)

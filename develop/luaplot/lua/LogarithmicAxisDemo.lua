@@ -6,14 +6,12 @@ Logarithmic axis scaling. Note correct display of the sine function crossing zer
 
 --]]
 
---local ar=require("l1.array")
 local pa=require("qcpplot.print_any")
 local qcp=require("qcpplot.qcp")
 local qt=require("qcpplot.qt5")
 
 -- fp means function of plot
 function fp(plot)
-
   plot:setNoAntialiasingOnDrag(true); -- more performance/responsiveness during dragging
   plot:addGraph(nil, nil);
   local pen = luaplot.QPen();
@@ -90,7 +88,6 @@ function fp(plot)
   plot.legend:setVisible(true);
   plot.legend:setBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(255,255,255,150), qt.SolidPattern));
   plot:axisRect(0):insetLayout():setInsetAlignment(0, qt.AlignLeft + qt.AlignTop); -- make legend align in top left corner or axis rect
-
 end
 
 function fw(w)

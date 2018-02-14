@@ -13,17 +13,6 @@
 
 // --
 
-struct LuaExpression {
-    QString name;
-    QString luaFunctionName;
-    double xLower, xUpper;
-    double yLower, yUpper;
-    double diff;
-    int pointsOfWidth, pointsOfHeight;
-};
-
-// --
-
 class LuaPlot : public QCustomPlot
 {
     Q_OBJECT
@@ -34,12 +23,10 @@ class LuaPlot : public QCustomPlot
 
 public:
     LuaPlot(QWidget* parent);
+    ~LuaPlot();
 
     int setLuaState(lua_State* L);
     void setTimer(const char* funName, int msec);
-    QCPCurve* addLuaEquation(const LuaExpression& e);
-    QCPGraph* addLuaFunction(const LuaExpression& e);
-    QCPCurve *addLuaLogic(const LuaExpression& e);
 
     QCPAxisRect*            createAxisRect(QCustomPlot *parentPlot, bool setupDefaultAxes=true);
     QCPAxisTickerFixed*     createAxisTickerFixed();
@@ -74,6 +61,9 @@ public slots:
     void rescaleAll();
     void savePlot();
     void aboutPlot();
+
+protected:
+
 };
 
 #endif // LUAPLOT_H

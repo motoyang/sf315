@@ -23,6 +23,9 @@ public:
 
 public slots:
     void bracketDataSlot();
+
+protected:
+
 };
 
 #endif // MAINWINDOW_H

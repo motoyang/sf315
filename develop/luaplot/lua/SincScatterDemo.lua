@@ -6,14 +6,12 @@ sinc function with data points, corresponding error bars and a 2-sigma confidenc
 
 --]]
 
---local ar=require("l1.array")
 local pa=require("qcpplot.print_any")
 local qcp=require("qcpplot.qcp")
 local qt=require("qcpplot.qt5")
 
 -- fp means function of plot
 function fp(plot)
-
   plot.legend:setVisible(true);
   plot.legend:setFont(luaplot.FontConstructor.fromFamily("Helvetica",9,-1,false));
   -- set locale to english, so we get english decimal separator:
@@ -90,7 +88,6 @@ function fp(plot)
   plot.xAxis:moveRange(-10);
   -- make top right axes clones of bottom left axes. Looks prettier:
   plot:axisRect(0):setupFullAxesBox();
-
 end
 
 function fw(w)

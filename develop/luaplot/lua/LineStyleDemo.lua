@@ -6,14 +6,12 @@ A demonstration of several line styles
 
 --]]
 
---local ar=require("l1.array")
 local pa=require("qcpplot.print_any")
 local qcp=require("qcpplot.qcp")
 local qt=require("qcpplot.qt5")
 
 -- fp means function of plot
 function fp(plot)
-
   plot.legend:setVisible(true)
   plot.legend:setFont(luaplot.FontConstructor.fromFamily("Helvetica", 9, -1, false))
   local pen = luaplot.QPen()
@@ -25,12 +23,11 @@ function fp(plot)
     plot:lastGraph():setPen(pen)
 
     local idx = i-qcp.Graph.lsNone
---    print("idx=", idx)
     local name = lineNames[idx+1]
---    print("name=", name)
     plot:lastGraph():setName(name)
     plot:lastGraph():setLineStyle(i)
     plot:lastGraph():setScatterStyle(luaplot.ScatterStyleConstructor.fromShapeAndSize(qcp.ScatterStyle.ssCircle, 5))
+
     -- generate data:
     local x, y = {}, {}
     for j=0, 15-1 do

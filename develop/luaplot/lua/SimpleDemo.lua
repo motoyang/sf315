@@ -6,14 +6,12 @@ A simple decaying sine function with fill and its exponential envelope in red
 
 --]]
 
---local ar=require("l1.array")
 local pa=require("qcpplot.print_any")
 local qcp=require("qcpplot.qcp")
 local qt=require("qcpplot.qt5")
 
 -- fp means function of plot
 function fp(plot)
-
   -- add two graph into the plot
   plot:addGraph(nil, nil)
   plot:addGraph(nil, nil)
@@ -30,9 +28,6 @@ function fp(plot)
     y0[i+1] = math.exp(-i/150.0)*math.cos(i/10.0)
     y1[i+1] = math.exp(-i/150.0)
   end
---pa.print_any(x)
---pa.print_any(y0)
---pa.print_any(y1)
 
   -- and add these data to these graph
   plot:graph(0):setVector(x, y0, true)
@@ -49,7 +44,6 @@ function fp(plot)
 
   plot:graph(0):rescaleAxes(false)
   plot:graph(1):rescaleAxes(true)
-
 end
 
 function fw(w)

@@ -11,6 +11,7 @@ static bool DoLuaFile(lua_State* L,
                const QString& file,
                QString* error = nullptr)
 {
+    bool r = true;
     if (luaL_dofile(L, file.toUtf8().constData()) != LUA_OK) {
         if (error) {
             // 从栈顶获取错误消息。
@@ -18,9 +19,11 @@ static bool DoLuaFile(lua_State* L,
                 *error = QString::fromUtf8(lua_tostring(L, -1));
             }
         }
-        return false;
+        r = false;
     }
-    return true;
+
+//    lua_gc(L, LUA_GCCOLLECT, 0);
+    return r;
 }
 
 static lua_State* openLua()
