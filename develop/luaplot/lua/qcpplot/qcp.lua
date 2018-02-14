@@ -459,7 +459,7 @@ end
 function M.startMainWindow(f, tfName, t)
   local w = luaplot.MainWindow(nil)
   w:resize(800, 600)
-  w:setWindowTitle("luaplot")
+  w:setWindowTitle("luaplot in main window")
 
   local p = w:getPlot()
   p:setLuaState()
@@ -492,6 +492,9 @@ function M.Region:new(e)
   -- 根据用户提供的x、y轴的range，设置diff的缺省值。这是一个经验值，用户也可以自行设置。
   local range = math.min((r.xUpper - r.xLower), (r.yUpper - r.yLower))
   r.diff = range * 1e-6
+
+  -- 设置plot的标题
+  r.plot:setWindowTitle(r.name)
 
   -- 初始化plot的大小，此后就能得到正确的axisRect大小。
   r.plot.xAxis:setRange(r.xLower, r.xUpper)
