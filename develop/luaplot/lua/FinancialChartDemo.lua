@@ -77,8 +77,8 @@ local function fp(plot)
   volumeNeg:setPen(luaplot.PenConstructor.fromStyle(qt.NoPen))
   volumeNeg:setBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(180, 90, 90, 255), qt.SolidPattern))
 
-  luaplot.connect(plot.xAxis, "rangeChanged(QCPRange)", volumeAxisRect:axis(qcp.Axis.atBottom, 0), "setRange(QCPRange)", qt.AutoConnection)
-  luaplot.connect(volumeAxisRect:axis(qcp.Axis.atBottom, 0), "rangeChanged(QCPRange)", plot.xAxis, "setRange(QCPRange)", qt.AutoConnection)
+  luaplot.QObject.connect(plot.xAxis, qt.SIGNAL("rangeChanged(QCPRange)"), volumeAxisRect:axis(qcp.Axis.atBottom, 0), qt.SLOT("setRange(QCPRange)"), qt.AutoConnection)
+  luaplot.QObject.connect(volumeAxisRect:axis(qcp.Axis.atBottom, 0), qt.SIGNAL("rangeChanged(QCPRange)"), plot.xAxis, qt.SLOT("setRange(QCPRange)"), qt.AutoConnection)
 
   local dateTimeTicker = plot:createAxisTickerDateTime()
   dateTimeTicker:setDateTimeSpec(qt.UTC)

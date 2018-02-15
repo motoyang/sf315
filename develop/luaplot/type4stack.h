@@ -51,6 +51,7 @@ STACK_AS_INT(QLocale::Country)
 STACK_AS_INT(QLocale::Language)
 STACK_AS_INT(QLocale::Script)
 
+STACK_AS_INT(QCP::MarginSide)
 STACK_AS_INT(QCPAxis::AxisType)
 STACK_AS_INT(QCPAxis::ScaleType)
 STACK_AS_INT(QCPAxisTicker::TickStepStrategy)
@@ -86,6 +87,7 @@ STACK_AS_INT_CONST_FROM(QCP::Interactions, QCP::Interaction)
 
 struct TablePushAndGet
 {
+    /*
     static QString getStringByName(lua_State* L, int index, const char* name)
     {
         lua_pushstring(L, name);
@@ -131,6 +133,24 @@ struct TablePushAndGet
     {
         lua_pushstring(L, name);
         lua_pushinteger(L, value);
+        lua_rawset(L, index);
+    }
+*/
+    template<typename T>
+    static T getValueByName(lua_State* L, int index, const char* name)
+    {
+        lua_pushstring(L, name);
+        lua_rawget(L, index);
+        T r = Stack<T>::get(L, lua_absindex(L, -1));
+        lua_pop(L, 1);
+        return r;
+    }
+
+    template<typename T>
+    static void pushValueByName(lua_State* L, int index, const char* name, const T& value)
+    {
+        lua_pushstring(L, name);
+        Stack<T>::push(L, value);
         lua_rawset(L, index);
     }
 };
@@ -249,6 +269,192 @@ struct Stack <QVector<T> >
     }
 };
 
+// --
+
+template <>
+struct Stack <QCPBarsData const&> : public TablePushAndGet
+{
+    static const char* key;
+    static const char* value;
+
+    static void push (lua_State* L, QCPBarsData const& v)
+    {
+        lua_newtable(L);
+        int index = lua_absindex(L, -1);
+        pushValueByName(L, index, key, v.key);
+        pushValueByName(L, index, value, v.value);
+    }
+
+    static QCPBarsData get (lua_State* L, int index)
+    {
+        Q_ASSERT(lua_istable(L, index));
+
+        QCPBarsData d;
+        d.key = getValueByName<double>(L, index, key);
+        d.value = getValueByName<double>(L, index, value);
+
+        return d;
+    }
+};
+const char* Stack<QCPBarsData const&>::key = "key";
+const char* Stack<QCPBarsData const&>::value = "value";
+
+template <>
+struct Stack <QCPBarsData>
+{
+    static void push (lua_State* L, QCPBarsData const& v)
+    {
+        Stack<QCPBarsData const&>::push(L, v);
+    }
+
+    static QCPBarsData get (lua_State* L, int index)
+    {
+        return Stack<QCPBarsData const&>::get(L, index);
+    }
+};
+
+template <>
+struct Stack <QCPErrorBarsData const&> : public TablePushAndGet
+{
+    static const char* errorMinus;
+    static const char* errorPlus;
+
+    static void push (lua_State* L, QCPErrorBarsData const& v)
+    {
+        lua_newtable(L);
+        int index = lua_absindex(L, -1);
+        pushValueByName(L, index, errorMinus, v.errorMinus);
+        pushValueByName(L, index, errorPlus, v.errorPlus);
+    }
+
+    static QCPErrorBarsData get (lua_State* L, int index)
+    {
+        Q_ASSERT(lua_istable(L, index));
+
+        QCPErrorBarsData d;
+        d.errorMinus = getValueByName<double>(L, index, errorMinus);
+        d.errorPlus = getValueByName<double>(L, index, errorPlus);
+
+        return d;
+    }
+};
+const char* Stack<QCPErrorBarsData const&>::errorMinus = "errorMinus";
+const char* Stack<QCPErrorBarsData const&>::errorPlus = "errorPlus";
+
+template <>
+struct Stack <QCPErrorBarsData>
+{
+    static void push (lua_State* L, QCPErrorBarsData const& v)
+    {
+        Stack<QCPErrorBarsData const&>::push(L, v);
+    }
+
+    static QCPErrorBarsData get (lua_State* L, int index)
+    {
+        return Stack<QCPErrorBarsData const&>::get(L, index);
+    }
+};
+
+template <>
+struct Stack <QCPFinancialData const&> : public TablePushAndGet
+{
+    static const char* key;
+    static const char* open;
+    static const char* high;
+    static const char* low;
+    static const char* close;
+
+    static void push (lua_State* L, QCPFinancialData const& v)
+    {
+        lua_newtable(L);
+        int index = lua_absindex(L, -1);
+        pushValueByName(L, index, key, v.key);
+        pushValueByName(L, index, open, v.open);
+        pushValueByName(L, index, high, v.high);
+        pushValueByName(L, index, low, v.low);
+        pushValueByName(L, index, close, v.close);
+    }
+
+    static QCPFinancialData get (lua_State* L, int index)
+    {
+        Q_ASSERT(lua_istable(L, index));
+
+        QCPFinancialData d;
+        d.key = getValueByName<double>(L, index, key);
+        d.open = getValueByName<double>(L, index, open);
+        d.high = getValueByName<double>(L, index, high);
+        d.low = getValueByName<double>(L, index, low);
+        d.close = getValueByName<double>(L, index, close);
+
+        return d;
+    }
+};
+const char* Stack<QCPFinancialData const&>::key = "key";
+const char* Stack<QCPFinancialData const&>::open = "open";
+const char* Stack<QCPFinancialData const&>::high = "high";
+const char* Stack<QCPFinancialData const&>::low = "low";
+const char* Stack<QCPFinancialData const&>::close = "close";
+
+template <>
+struct Stack <QCPFinancialData>
+{
+    static void push (lua_State* L, QCPFinancialData const& v)
+    {
+        Stack<QCPFinancialData const&>::push(L, v);
+    }
+
+    static QCPFinancialData get (lua_State* L, int index)
+    {
+        return Stack<QCPFinancialData const&>::get(L, index);
+    }
+};
+
+template <>
+struct Stack <QCPCurveData const&> : public TablePushAndGet
+{
+    static const char* t;
+    static const char* key;
+    static const char* value;
+    static void push (lua_State* L, QCPCurveData const& v)
+    {
+        lua_newtable(L);
+        int index = lua_absindex(L, -1);
+        pushValueByName(L, index, t, v.t);
+        pushValueByName(L, index, key, v.key);
+        pushValueByName(L, index, value, v.value);
+    }
+
+    static QCPCurveData get (lua_State* L, int index)
+    {
+        Q_ASSERT(lua_istable(L, index));
+
+        QCPCurveData d;
+        d.t = getValueByName<double>(L, index, t);
+        d.key = getValueByName<double>(L, index, key);
+        d.value = getValueByName<double>(L, index, value);
+
+        return d;
+    }
+
+};
+const char* Stack<QCPCurveData const&>::t = "t";
+const char* Stack<QCPCurveData const&>::key = "key";
+const char* Stack<QCPCurveData const&>::value = "value";
+
+template <>
+struct Stack <QCPCurveData>
+{
+    static void push (lua_State* L, QCPCurveData const& v)
+    {
+        Stack<QCPCurveData const&>::push(L, v);
+    }
+
+    static QCPCurveData get (lua_State* L, int index)
+    {
+        return Stack<QCPCurveData const&>::get(L, index);
+    }
+};
+
 template <>
 struct Stack <QCPGraphData const&> : public TablePushAndGet
 {
@@ -257,8 +463,9 @@ struct Stack <QCPGraphData const&> : public TablePushAndGet
     static void push (lua_State* L, QCPGraphData const& v)
     {
         lua_newtable(L);
-        pushNumberByName(L, -2, key, v.key);
-        pushNumberByName(L, -1, value, v.value);
+        int index = lua_absindex(L, -1);
+        pushValueByName(L, index, key, v.key);
+        pushValueByName(L, index, value, v.value);
     }
 
     static QCPGraphData get (lua_State* L, int index)
@@ -266,14 +473,14 @@ struct Stack <QCPGraphData const&> : public TablePushAndGet
         Q_ASSERT(lua_istable(L, index));
 
         QCPGraphData d;
-        d.key = getNumberByName(L, index, key);
-        d.value = getNumberByName(L, index, value);
+        d.key = getValueByName<double>(L, index, key);
+        d.value = getValueByName<double>(L, index, value);
 
         return d;
     }
 };
-const char* Stack <QCPGraphData const&>::key = "key";
-const char* Stack <QCPGraphData const&>::value = "value";
+const char* Stack<QCPGraphData const&>::key = "key";
+const char* Stack<QCPGraphData const&>::value = "value";
 
 template <>
 struct Stack <QCPGraphData>
@@ -290,47 +497,63 @@ struct Stack <QCPGraphData>
 };
 
 template <>
-struct Stack <QCPCurveData const&> : public TablePushAndGet
+struct Stack <QCPStatisticalBoxData const&> : public TablePushAndGet
 {
-    static const char* t;
     static const char* key;
-    static const char* value;
-    static void push (lua_State* L, QCPCurveData const& v)
+    static const char* minimum;
+    static const char* lowerQuartile;
+    static const char* median;
+    static const char* upperQuartile;
+    static const char* maximum;
+    static const char* outliers;
+    static void push (lua_State* L, QCPStatisticalBoxData const& v)
     {
         lua_newtable(L);
-        pushNumberByName(L, -2, t, v.t);
-        pushNumberByName(L, -2, key, v.key);
-        pushNumberByName(L, -2, value, v.value);
+        int index = lua_absindex(L, -1);
+        pushValueByName(L, index, key, v.key);
+        pushValueByName(L, index, minimum, v.minimum);
+        pushValueByName(L, index, lowerQuartile, v.lowerQuartile);
+        pushValueByName(L, index, median, v.median);
+        pushValueByName(L, index, upperQuartile, v.upperQuartile);
+        pushValueByName(L, index,  maximum, v.maximum);
+        pushValueByName(L, index, outliers, v.outliers);
     }
 
-    static QCPCurveData get (lua_State* L, int index)
+    static QCPStatisticalBoxData get (lua_State* L, int index)
     {
         Q_ASSERT(lua_istable(L, index));
 
-        QCPCurveData d;
-        d.t = getNumberByName(L, index, t);
-        d.key = getNumberByName(L, index, key);
-        d.value = getNumberByName(L, index, value);
+        QCPStatisticalBoxData d;
+        d.key = getValueByName<double>(L, index, key);
+        d.minimum = getValueByName<double>(L, index, minimum);
+        d.lowerQuartile = getValueByName<double>(L, index, lowerQuartile);
+        d.median = getValueByName<double>(L, index, median);
+        d.upperQuartile = getValueByName<double>(L, index, upperQuartile);
+        d.maximum = getValueByName<double>(L, index, maximum);
+        d.outliers = getValueByName<QVector<double>>(L, index, outliers);
 
         return d;
     }
-
 };
-const char* Stack <QCPCurveData const&>::t = "t";
-const char* Stack <QCPCurveData const&>::key = "key";
-const char* Stack <QCPCurveData const&>::value = "value";
+const char* Stack<QCPStatisticalBoxData const&>::key = "key";
+const char* Stack<QCPStatisticalBoxData const&>::minimum = "minimum";
+const char* Stack<QCPStatisticalBoxData const&>::lowerQuartile = "lowerQuartile";
+const char* Stack<QCPStatisticalBoxData const&>::median = "median";
+const char* Stack<QCPStatisticalBoxData const&>::upperQuartile = "upperQuartile";
+const char* Stack<QCPStatisticalBoxData const&>::maximum = "maximum";
+const char* Stack<QCPStatisticalBoxData const&>::outliers = "outliers";
 
 template <>
-struct Stack <QCPCurveData>
+struct Stack <QCPStatisticalBoxData>
 {
-    static void push (lua_State* L, QCPCurveData const& v)
+    static void push (lua_State* L, QCPStatisticalBoxData const& v)
     {
-        Stack<QCPCurveData const&>::push(L, v);
+        Stack<QCPStatisticalBoxData const&>::push(L, v);
     }
 
-    static QCPCurveData get (lua_State* L, int index)
+    static QCPStatisticalBoxData get (lua_State* L, int index)
     {
-        return Stack<QCPCurveData const&>::get(L, index);
+        return Stack<QCPStatisticalBoxData const&>::get(L, index);
     }
 };
 

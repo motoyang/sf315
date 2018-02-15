@@ -39,8 +39,8 @@ function fp(plot)
   plot.yAxis2:setVisible(true);
   plot.yAxis2:setTickLabels(false);
 
-  luaplot.connect(plot.xAxis, "rangeChanged(QCPRange)", plot.xAxis2, "setRange(QCPRange)", qt.AutoConnection)
-  luaplot.connect(plot.yAxis, "rangeChanged(QCPRange)", plot.yAxis2, "setRange(QCPRange)", qt.AutoConnection)
+  luaplot.QObject.connect(plot.xAxis, qt.SIGNAL("rangeChanged(QCPRange)"), plot.xAxis2, qt.SLOT("setRange(QCPRange)"), qt.AutoConnection)
+  luaplot.QObject.connect(plot.yAxis, qt.SIGNAL("rangeChanged(QCPRange)"), plot.yAxis2, qt.SLOT("setRange(QCPRange)"), qt.AutoConnection)
 
   plot:graph(0):rescaleAxes(false)
   plot:graph(1):rescaleAxes(true)

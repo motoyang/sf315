@@ -101,8 +101,9 @@ sudo tar -g sysinfo -cvPf - /usr | parallel --pipe --recend "" -j4 -k -j4 xz -zc
 
 sudo tar -g sysinfo -cvPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > sys_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
 
-sudo tar -g sysinfo -cvPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt  --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz
+sudo tar -g sysinfo -cvPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz
 
+sudo tar -g homeinfo -cvPf - /home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > home_diff_`date +%Y%m%d-%H%M%S`.tar.xz
 
 # --输出重定向--------------------
 

@@ -22,8 +22,24 @@ QString getQString(const QString& s)
     return s + " + " + s;
 }
 
-// --
+QCPStatisticalBoxData getStatisticalBoxData(const QCPStatisticalBoxData& d)
+{
+    QCPStatisticalBoxData r(d);
+    r.key += 1;
+    r.minimum += 2;
+    r.maximum += 3;
+    r.lowerQuartile += 4;
+    r.median += 5;
+    r.upperQuartile += 6;
+    for (double& v: r.outliers) {
+        v++;
+    }
 
+    return r;
+}
+
+// --
+/*
 void connectProxy(const QObject *sender, const char *signal,
              const QObject *receiver, const char *member,
              Qt::ConnectionType t = Qt::AutoConnection)
@@ -35,7 +51,7 @@ void connectProxy(const QObject *sender, const char *signal,
                   receiver, QString("1").append(member).toUtf8().constData(),
                   t);
 }
-
+*/
 // --
 
 struct BrushConstructor
@@ -170,7 +186,7 @@ static void QtCore2Lua(lua_State* L, const char* ns)
     luabridge::getGlobalNamespace(L)
       .beginNamespace(ns)
 
-        .addFunction("connect", connectProxy)
+//        .addFunction("connect", connectProxy)
 
         .beginClass<QDate>("QDate")
           .addConstructor<void(*)(int, int, int)>()
@@ -396,66 +412,157 @@ static void QtWidget2Lua(lua_State* L, const char* ns)
     ;
 }
 
-static int cellToCoord(lua_State* L)
+struct ColorMapDataHelper
 {
-    // from lua: key, value = celltoCoord(colorMapData, keyIndex, valueIndex)
+    static int cellToCoord(lua_State* L)
+    {
+        // from lua: key, value = cellToCoord(colorMapData, keyIndex, valueIndex)
 
-    int valueIndex = luabridge::Stack<int>::get(L, 3);
-    int keyIndex = luabridge::Stack<int>::get(L, 2);
-    QCPColorMapData* colorMapData = luabridge::Stack<QCPColorMapData*>::get(L, 1);
-    lua_settop(L, 0);
+        int valueIndex = luabridge::Stack<int>::get(L, 3);
+        int keyIndex = luabridge::Stack<int>::get(L, 2);
+        QCPColorMapData* colorMapData = luabridge::Stack<QCPColorMapData*>::get(L, 1);
+        lua_settop(L, 0);
 
-    double key = 0.0, value = 0.0;
-    colorMapData->cellToCoord(keyIndex, valueIndex, &key, &value);
+        double key = 0.0, value = 0.0;
+        colorMapData->cellToCoord(keyIndex, valueIndex, &key, &value);
 
-    luabridge::Stack<double>::push(L, key);
-    luabridge::Stack<double>::push(L, value);
+        luabridge::Stack<double>::push(L, key);
+        luabridge::Stack<double>::push(L, value);
 
-    return 2;
-}
+        return 2;
+    }
+
+    static int coordToCell(lua_State* L)
+    {
+        // from lua: keyIndex, valueIndex = coordToCell(colorMapData, key, value)
+
+        double value = luabridge::Stack<double>::get(L, 3);
+        double key = luabridge::Stack<double>::get(L, 2);
+        QCPColorMapData* colorMapData = luabridge::Stack<QCPColorMapData*>::get(L, 1);
+        lua_settop(L, 0);
+
+        int keyIndex = 0, valueIndex = 0;
+        colorMapData->coordToCell(key, value, &keyIndex, &valueIndex);
+
+        luabridge::Stack<double>::push(L, keyIndex);
+        luabridge::Stack<double>::push(L, valueIndex);
+
+        return 2;
+    }
+};
 
 static void QcpContainer2Lua(lua_State* L, const char* ns)
 {
+// begin of #define
+#define CONTAINER_FUNCTIONS(c, d) \
+    .addFunction("autoSqueeze", &c::autoSqueeze) \
+    .addFunction("addContainer", static_cast<void(c::*)(const c&)>(&c::add)) \
+    .addFunction("addVector", static_cast<void(c::*)(const QVector<d>&, bool)>(&c::add)) \
+    .addFunction("addData", static_cast<void(c::*)(const d&)>(&c::add)) \
+    .addFunction("clear", &c::clear) \
+    .addFunction("isEmpty", &c::isEmpty) \
+    .addFunction("remove", static_cast<void(c::*)(double)>(&c::remove)) \
+    .addFunction("removeBetween", static_cast<void(c::*)(double, double)>(&c::remove)) \
+    .addFunction("removeAfter", &c::removeAfter) \
+    .addFunction("removeBefore", &c::removeBefore) \
+    .addFunction("size", &c::size) \
+    .addFunction("setAutoSqueeze", &c::setAutoSqueeze) \
+    .addFunction("setVector", static_cast<void(c::*)(const QVector<d>&, bool)>(&c::set)) \
+    .addFunction("setContainer", static_cast<void(c::*)(const c&)>(&c::set)) \
+    .addFunction("sort", &c::sort) \
+    .addFunction("squeeze", &c::squeeze)
+// end of #define
+
     luabridge::getGlobalNamespace(L)
       .beginNamespace(ns)
 
         .beginClass<QCPColorMapData>("ColorMapData")
+          .addConstructor<void(*)(int, int, const QCPRange&, const QCPRange&)>()
+          .addFunction("alpha", &QCPColorMapData::alpha)
+          .addFunction("cell", &QCPColorMapData::cell)
+          .addFunction("clear", &QCPColorMapData::clear)
+          .addFunction("clearAlpha", &QCPColorMapData::clearAlpha)
+          .addFunction("data", &QCPColorMapData::data)
+          .addFunction("dataBounds", &QCPColorMapData::dataBounds)
+          .addFunction("fill", &QCPColorMapData::fill)
+          .addFunction("fillAlpha", &QCPColorMapData::fillAlpha)
+          .addFunction("isEmpty", &QCPColorMapData::isEmpty)
+          .addFunction("keyRange", &QCPColorMapData::keyRange)
+          .addFunction("keySize", &QCPColorMapData::keySize)
+          .addFunction("recalculateDataBounds", &QCPColorMapData::recalculateDataBounds)
+          .addFunction("setAlpha", &QCPColorMapData::setAlpha)
           .addFunction("setCell", &QCPColorMapData::setCell)
+          .addFunction("setData", &QCPColorMapData::setData)
+          .addFunction("setKeyRange", &QCPColorMapData::setKeyRange)
+          .addFunction("setKeySize", &QCPColorMapData::setKeySize)
           .addFunction("setRange", &QCPColorMapData::setRange)
           .addFunction("setSize", &QCPColorMapData::setSize)
-//            .addFunction("cellToCoord", &QCPColorMapData::cellToCoord)
+          .addFunction("setValueRange", &QCPColorMapData::setValueRange)
+          .addFunction("setValueSize", &QCPColorMapData::setValueSize)
+          .addFunction("valueRange", &QCPColorMapData::valueRange)
+          .addFunction("valueSize", &QCPColorMapData::valueSize)
         .endClass()
         .beginNamespace("ColorMapDataHelper")
-          .addCFunction("cellToCoord", cellToCoord)
+          .addCFunction("cellToCoord", &ColorMapDataHelper::cellToCoord)
+          .addCFunction("coordToCell", &ColorMapDataHelper::coordToCell)
         .endNamespace()
 
+        .beginClass<QCPBarsDataContainer>("BarsDataContainer")
+            CONTAINER_FUNCTIONS(QCPBarsDataContainer, QCPBarsData)
+        .endClass()
+
         .beginClass<QCPCurveDataContainer>("CurveDataContainer")
-          .addFunction("addContainer", static_cast<void(QCPCurveDataContainer::*)(const QCPCurveDataContainer&)>(&QCPCurveDataContainer::add))
-          .addFunction("addVector", static_cast<void(QCPCurveDataContainer::*)(const QVector<QCPCurveData>&, bool)>(&QCPCurveDataContainer::add))
-          .addFunction("addData", static_cast<void(QCPCurveDataContainer::*)(const QCPCurveData&)>(&QCPCurveDataContainer::add))
-          .addFunction("size", &QCPCurveDataContainer::size)
+            CONTAINER_FUNCTIONS(QCPCurveDataContainer, QCPCurveData)
         .endClass()
 
         .beginClass<QCPFinancialDataContainer>("FinancialDataContainer")
-          .addFunction("addContainer", static_cast<void(QCPFinancialDataContainer::*)(const QCPFinancialDataContainer&)>(&QCPFinancialDataContainer::add))
-          .addFunction("addVector", static_cast<void(QCPFinancialDataContainer::*)(const QVector<QCPFinancialData>&, bool)>(&QCPFinancialDataContainer::add))
-          .addFunction("addData", static_cast<void(QCPFinancialDataContainer::*)(const QCPFinancialData&)>(&QCPFinancialDataContainer::add))
-          .addFunction("size", &QCPFinancialDataContainer::size)
+            CONTAINER_FUNCTIONS(QCPFinancialDataContainer, QCPFinancialData)
         .endClass()
 
         .beginClass<QCPGraphDataContainer>("GraphDataContainer")
+            CONTAINER_FUNCTIONS(QCPGraphDataContainer, QCPGraphData)
+/*
+          .addFunction("autoSqueeze", &QCPGraphDataContainer::autoSqueeze)
           .addFunction("addContainer", static_cast<void(QCPGraphDataContainer::*)(const QCPGraphDataContainer&)>(&QCPGraphDataContainer::add))
           .addFunction("addVector", static_cast<void(QCPGraphDataContainer::*)(const QVector<QCPGraphData>&, bool)>(&QCPGraphDataContainer::add))
           .addFunction("addData", static_cast<void(QCPGraphDataContainer::*)(const QCPGraphData&)>(&QCPGraphDataContainer::add))
+          .addFunction("clear", &QCPGraphDataContainer::clear)
+          .addFunction("isEmpty", &QCPGraphDataContainer::isEmpty)
+          .addFunction("remove", static_cast<void(QCPGraphDataContainer::*)(double)>(&QCPGraphDataContainer::remove))
+          .addFunction("removeBetween", static_cast<void(QCPGraphDataContainer::*)(double, double)>(&QCPGraphDataContainer::remove))
           .addFunction("removeAfter", &QCPGraphDataContainer::removeAfter)
           .addFunction("removeBefore", &QCPGraphDataContainer::removeBefore)
           .addFunction("size", &QCPGraphDataContainer::size)
+          .addFunction("setAutoSqueeze", &QCPGraphDataContainer::setAutoSqueeze)
           .addFunction("setVector", static_cast<void(QCPGraphDataContainer::*)(const QVector<QCPGraphData>&, bool)>(&QCPGraphDataContainer::set))
           .addFunction("setContainer", static_cast<void(QCPGraphDataContainer::*)(const QCPGraphDataContainer&)>(&QCPGraphDataContainer::set))
+          .addFunction("sort", &QCPGraphDataContainer::sort)
+          .addFunction("squeeze", &QCPGraphDataContainer::squeeze)
+*/
         .endClass()
 
+        .beginClass<QCPStatisticalBoxDataContainer>("StatisticalBoxDataContainer")
+            CONTAINER_FUNCTIONS(QCPStatisticalBoxDataContainer, QCPStatisticalBoxData)
+        .endClass()
+/*
+        .beginClass<QCPStatisticalBoxData>("StatisticalBoxData")
+          .addConstructor<void(*)()>()
+          .addData("lowerQuartile", &QCPStatisticalBoxData::lowerQuartile)
+          .addData("key", &QCPStatisticalBoxData::key)
+          .addData("maximum", &QCPStatisticalBoxData::maximum)
+          .addData("minimum", &QCPStatisticalBoxData::minimum)
+          .addData("median", &QCPStatisticalBoxData::median)
+          .addData("outliers", &QCPStatisticalBoxData::outliers)
+          .addData("upperQuartile", &QCPStatisticalBoxData::upperQuartile)
+          .addFunction("mainKey", &QCPStatisticalBoxData::mainKey)
+          .addFunction("mainValue", &QCPStatisticalBoxData::mainValue)
+          .addFunction("sortKey", &QCPStatisticalBoxData::sortKey)
+          .addFunction("valueRange", &QCPStatisticalBoxData::valueRange)
+        .endClass()
+*/
       .endNamespace()
     ;
+#undef CONTAINER_FUNCTIONS
 }
 
 static void QcpBasic2Lua(lua_State* L, const char* ns)
@@ -625,16 +732,46 @@ static void QcpBasic2Lua(lua_State* L, const char* ns)
         .endClass()
 
         .deriveClass<QCPMarginGroup, QObject>("MarginGroup")
+          .addConstructor<void(*)(QCustomPlot*)>()
+          .addFunction("clear", &QCPMarginGroup::clear)
+          .addFunction("elements", &QCPMarginGroup::elements)
+          .addFunction("isEmpty", &QCPMarginGroup::isEmpty)
         .endClass()
 
         .beginClass<QCPRange>("Range")
           .addConstructor<void(*)(double, double)>()
           .addData("upper", &QCPRange::upper)
           .addData("lower", &QCPRange::lower)
+          .addFunction("bounded", &QCPRange::bounded)
           .addFunction("center", &QCPRange::center)
+          .addFunction("contains", &QCPRange::contains)
+          .addFunction("expand", static_cast<void(QCPRange::*)(double)>(&QCPRange::expand))
+          .addFunction("expandByRange", static_cast<void(QCPRange::*)(const QCPRange&)>(&QCPRange::expand))
+          .addFunction("expanded", static_cast<QCPRange(QCPRange::*)(double)const>(&QCPRange::expanded))
+          .addFunction("expandedByRange", static_cast<QCPRange(QCPRange::*)(const QCPRange&)const>(&QCPRange::expanded))
+          .addFunction("normalize", &QCPRange::normalize)
+          .addFunction("sanitizedForLinScale", &QCPRange::sanitizedForLinScale)
+          .addFunction("sanitizedForLogScale", &QCPRange::sanitizedForLogScale)
+          .addFunction("size", &QCPRange::size)
         .endClass()
 
         .beginClass<QCPScatterStyle>("ScatterStyle")
+          .addFunction("brush", &QCPScatterStyle::brush)
+          .addFunction("customPath", &QCPScatterStyle::customPath)
+          .addFunction("pen", &QCPScatterStyle::pen)
+          .addFunction("pixmap", &QCPScatterStyle::pixmap)
+          .addFunction("isNone", &QCPScatterStyle::isNone)
+          .addFunction("isPenDefined", &QCPScatterStyle::isPenDefined)
+          .addFunction("setBrush", &QCPScatterStyle::setBrush)
+          .addFunction("setCustomPath", &QCPScatterStyle::setCustomPath)
+          .addFunction("setFromOther", &QCPScatterStyle::setFromOther)
+          .addFunction("setPen", &QCPScatterStyle::setPen)
+          .addFunction("setPixmap", &QCPScatterStyle::setPixmap)
+          .addFunction("setSize", &QCPScatterStyle::setSize)
+          .addFunction("setShape", &QCPScatterStyle::setShape)
+          .addFunction("shape", &QCPScatterStyle::shape)
+          .addFunction("size", &QCPScatterStyle::size)
+          .addFunction("undefinePen", &QCPScatterStyle::undefinePen)
         .endClass()
         .beginClass<ScatterStyleConstructor>("ScatterStyleConstructor")
           .addStaticFunction("fromShapeAndSize", &ScatterStyleConstructor::fromShapeAndSize)
@@ -642,19 +779,16 @@ static void QcpBasic2Lua(lua_State* L, const char* ns)
           .addStaticFunction("fromPainterPath", &ScatterStyleConstructor::fromPainterPath)
           .addStaticFunction("fromPixmap", &ScatterStyleConstructor::fromPixmap)
         .endClass()
-
+/*
         .beginClass<QCPSelectionDecorator>("QCPSelectionDecorator")
         .endClass()
 
           .deriveClass<QCPSelectionDecoratorBracket, QCPSelectionDecorator>("QCPSelectionDecoratorBracket")
           .endClass()
 
-//        .beginClass<QCPStatisticalBoxData>("StatisticalBoxData")
-//        .endClass()
-
         .beginClass<QCPVector2D>("QCPVector2D")
         .endClass()
-
+*/
       .endNamespace()
     ;
 }
@@ -947,6 +1081,7 @@ static void Tester2Lua(lua_State* L, const char* ns)
 
         .addFunction("getQVector", getQVector)
         .addFunction("getQString", getQString)
+        .addFunction("getStatisticalBoxData", getStatisticalBoxData)
 
 //        .beginClass<aaa>("aaa")
 //        .endClass()
