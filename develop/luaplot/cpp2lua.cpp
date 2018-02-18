@@ -39,20 +39,6 @@ QCPStatisticalBoxData getStatisticalBoxData(const QCPStatisticalBoxData& d)
 }
 
 // --
-/*
-void connectProxy(const QObject *sender, const char *signal,
-             const QObject *receiver, const char *member,
-             Qt::ConnectionType t = Qt::AutoConnection)
-{
-//    qDebug() <<"signal: " << signal;
-//    qDebug() <<"member: " << member;
-
-    qApp->connect(sender, QString("2").append(signal).toUtf8().constData(),
-                  receiver, QString("1").append(member).toUtf8().constData(),
-                  t);
-}
-*/
-// --
 
 struct BrushConstructor
 {
@@ -186,8 +172,6 @@ static void QtCore2Lua(lua_State* L, const char* ns)
     luabridge::getGlobalNamespace(L)
       .beginNamespace(ns)
 
-//        .addFunction("connect", connectProxy)
-
         .beginClass<QDate>("QDate")
           .addConstructor<void(*)(int, int, int)>()
         .endClass()
@@ -235,11 +219,13 @@ static void QtGui2Lua(lua_State* L, const char* ns)
         .endClass()
 
         .beginClass<QPointF>("QPointF")
+          .addConstructor<void(*)(double, double)>()
           .addFunction("x", &QPointF::x)
           .addFunction("y", &QPointF::y)
         .endClass()
 
         .beginClass<QRect>("QRect")
+          .addConstructor<void(*)(int, int, int, int)>()
           .addFunction("width", &QRect::width)
           .addFunction("height", &QRect::height)
         .endClass()
@@ -354,21 +340,79 @@ static void QtWidget2Lua(lua_State* L, const char* ns)
             .addData("xAxis2", &QCustomPlot::xAxis2)
             .addData("yAxis", &QCustomPlot::yAxis)
             .addData("yAxis2", &QCustomPlot::yAxis2)
+
             .addFunction("addGraph", &QCustomPlot::addGraph)
             .addFunction("addLayer", &QCustomPlot::addLayer)
+            .addFunction("antialiasedElements", &QCustomPlot::antialiasedElements)
+            .addFunction("autoAddPlottableToLegend", &QCustomPlot::autoAddPlottableToLegend)
             .addFunction("axisRect", &QCustomPlot::axisRect)
+            .addFunction("axisRectCount", &QCustomPlot::axisRectCount)
+            .addFunction("axisRects", &QCustomPlot::axisRects)
+            .addFunction("background", &QCustomPlot::background)
+            .addFunction("backgroundScaled", &QCustomPlot::backgroundScaled)
+            .addFunction("backgroundScaledMode", &QCustomPlot::backgroundScaledMode)
+            .addFunction("bufferDevicePixelRatio", &QCustomPlot::bufferDevicePixelRatio)
+            .addFunction("clearGraphs", &QCustomPlot::clearGraphs)
+            .addFunction("clearItems", &QCustomPlot::clearItems)
+            .addFunction("clearPlottables", &QCustomPlot::clearPlottables)
+            .addFunction("currentLayer", &QCustomPlot::currentLayer)
             .addFunction("graph", static_cast<QCPGraph*(QCustomPlot::*)(int) const>(&QCustomPlot::graph))
+            .addFunction("graphCount", &QCustomPlot::graphCount)
+            .addFunction("hasPlottable", &QCustomPlot::hasPlottable)
+            .addFunction("hasItem", &QCustomPlot::hasItem)
+            .addFunction("interactions", &QCustomPlot::interactions)
+            .addFunction("item", static_cast<QCPAbstractItem*(QCustomPlot::*)(int)const>(&QCustomPlot::item))
+            .addFunction("itemCount", &QCustomPlot::itemCount)
             .addFunction("lastGraph", static_cast<QCPGraph*(QCustomPlot::*)() const>(&QCustomPlot::graph))
+            .addFunction("lastItem", static_cast<QCPAbstractItem*(QCustomPlot::*)()const>(&QCustomPlot::item))
+            .addFunction("lastPlottable", static_cast<QCPAbstractPlottable*(QCustomPlot::*)()>(&QCustomPlot::plottable))
             .addFunction("layerByName", static_cast<QCPLayer*(QCustomPlot::*)(const QString&)const>(&QCustomPlot::layer))
             .addFunction("layerByIndex", static_cast<QCPLayer*(QCustomPlot::*)(int)const>(&QCustomPlot::layer))
+            .addFunction("layerCount", &QCustomPlot::layerCount)
+            .addFunction("multiSelectModifier", &QCustomPlot::multiSelectModifier)
+            .addFunction("moveLayer", &QCustomPlot::moveLayer)
+            .addFunction("noAntialiasingOnDrag", &QCustomPlot::noAntialiasingOnDrag)
+            .addFunction("notAntialiasedElements", &QCustomPlot::notAntialiasedElements)
+            .addFunction("openGl", &QCustomPlot::openGl)
+            .addFunction("plottable", static_cast<QCPAbstractPlottable*(QCustomPlot::*)(int)>(&QCustomPlot::plottable))
+            .addFunction("plottableCount", &QCustomPlot::plottableCount)
             .addFunction("plotLayout", &QCustomPlot::plotLayout)
+            .addFunction("plottingHints", &QCustomPlot::plottingHints)
+            .addFunction("removeGraph", static_cast<bool(QCustomPlot::*)(QCPGraph*)>(&QCustomPlot::removeGraph))
+            .addFunction("removeGraphByIndex", static_cast<bool(QCustomPlot::*)(int)>(&QCustomPlot::removeGraph))
+            .addFunction("removeItem", static_cast<bool(QCustomPlot::*)(QCPAbstractItem*)>(&QCustomPlot::removeItem))
+            .addFunction("removeItemByIndex", static_cast<bool(QCustomPlot::*)(int)>(&QCustomPlot::removeItem))
+            .addFunction("removeLayer", &QCustomPlot::removeLayer)
+            .addFunction("removePlottable", static_cast<bool(QCustomPlot::*)(QCPAbstractPlottable*)>(&QCustomPlot::removePlottable))
+            .addFunction("removePlottableByIndex", static_cast<bool(QCustomPlot::*)(int)>(&QCustomPlot::removePlottable))
             .addFunction("replot", &QCustomPlot::replot)
             .addFunction("rescaleAxes", &QCustomPlot::rescaleAxes)
+            .addFunction("saveBmp", &QCustomPlot::saveBmp)
+            .addFunction("saveJpg", &QCustomPlot::saveJpg)
+            .addFunction("savePdf", &QCustomPlot::savePdf)
+            .addFunction("savePng", &QCustomPlot::savePng)
+            .addFunction("setAntialiasedElement", &QCustomPlot::setAntialiasedElement)
+            .addFunction("setAntialiasedElements", &QCustomPlot::setAntialiasedElements)
             .addFunction("setAutoAddPlottableToLegend", &QCustomPlot::setAutoAddPlottableToLegend)
-            .addFunction("setBackground", static_cast<void(QCustomPlot::*)(const QBrush&)>(&QCustomPlot::setBackground))
+            .addFunction("setBackgroundByPixmap", static_cast<void(QCustomPlot::*)(const QPixmap&, bool, Qt::AspectRatioMode)>(&QCustomPlot::setBackground))
+            .addFunction("setBackgroundByBrush", static_cast<void(QCustomPlot::*)(const QBrush&)>(&QCustomPlot::setBackground))
+            .addFunction("setBackgroundScaled", &QCustomPlot::setBackgroundScaled)
+            .addFunction("setBufferDevicePixelRatio", &QCustomPlot::setBufferDevicePixelRatio)
+            .addFunction("setCurrentLayer", static_cast<bool(QCustomPlot::*)(QCPLayer*)>(&QCustomPlot::setCurrentLayer))
+            .addFunction("setCurrentLayerByName", static_cast<bool(QCustomPlot::*)(const QString&)>(&QCustomPlot::setCurrentLayer))
             .addFunction("setInteractions", &QCustomPlot::setInteractions)
+            .addFunction("setInteraction", &QCustomPlot::setInteraction)
             .addFunction("setLocale", &QCustomPlot::setLocale)
+            .addFunction("setNotAntialiasedElement", &QCustomPlot::setNotAntialiasedElement)
+            .addFunction("setNotAntialiasedElements", &QCustomPlot::setNotAntialiasedElements)
             .addFunction("setNoAntialiasingOnDrag", &QCustomPlot::setNoAntialiasingOnDrag)
+            .addFunction("setOpenGl", &QCustomPlot::setOpenGl)
+            .addFunction("setPlottingHint", &QCustomPlot::setPlottingHint)
+            .addFunction("setPlottingHints", &QCustomPlot::setPlottingHints)
+            .addFunction("setViewport", &QCustomPlot::setViewport)
+            .addFunction("toPixmap", &QCustomPlot::toPixmap)
+            .addFunction("viewport", &QCustomPlot::viewport)
+
           .endClass()
 
             .deriveClass<LuaPlot, QCustomPlot>("LuaPlot")
@@ -412,7 +456,8 @@ static void QtWidget2Lua(lua_State* L, const char* ns)
     ;
 }
 
-struct ColorMapDataHelper
+template<typename T>
+struct CoordHelper
 {
     static int cellToCoord(lua_State* L)
     {
@@ -420,11 +465,11 @@ struct ColorMapDataHelper
 
         int valueIndex = luabridge::Stack<int>::get(L, 3);
         int keyIndex = luabridge::Stack<int>::get(L, 2);
-        QCPColorMapData* colorMapData = luabridge::Stack<QCPColorMapData*>::get(L, 1);
+        T* cc = luabridge::Stack<T*>::get(L, 1);
         lua_settop(L, 0);
 
         double key = 0.0, value = 0.0;
-        colorMapData->cellToCoord(keyIndex, valueIndex, &key, &value);
+        cc->cellToCoord(keyIndex, valueIndex, &key, &value);
 
         luabridge::Stack<double>::push(L, key);
         luabridge::Stack<double>::push(L, value);
@@ -438,14 +483,50 @@ struct ColorMapDataHelper
 
         double value = luabridge::Stack<double>::get(L, 3);
         double key = luabridge::Stack<double>::get(L, 2);
-        QCPColorMapData* colorMapData = luabridge::Stack<QCPColorMapData*>::get(L, 1);
+        T* cc = luabridge::Stack<T*>::get(L, 1);
         lua_settop(L, 0);
 
         int keyIndex = 0, valueIndex = 0;
-        colorMapData->coordToCell(key, value, &keyIndex, &valueIndex);
+        cc->coordToCell(key, value, &keyIndex, &valueIndex);
 
         luabridge::Stack<double>::push(L, keyIndex);
         luabridge::Stack<double>::push(L, valueIndex);
+
+        return 2;
+    }
+
+    static int pixelsToCoords(lua_State* L)
+    {
+        // from lua: key, value = pixelsToCoords(AbstractPlottable, x, y)
+
+        double y = luabridge::Stack<double>::get(L, 3);
+        double x = luabridge::Stack<double>::get(L, 2);
+        T* cc = luabridge::Stack<T*>::get(L, 1);
+        lua_settop(L, 0);
+
+        double key = 0.0, value = 0.0;
+        cc->pixelsToCoords(x, y, key, value);
+
+        luabridge::Stack<double>::push(L, key);
+        luabridge::Stack<double>::push(L, value);
+
+        return 2;
+    }
+
+    static int coordsToPixels(lua_State* L)
+    {
+        // from lua: x, y = coordsToPixels(AbstractPlottable, key, value)
+
+        double value = luabridge::Stack<double>::get(L, 3);
+        double key = luabridge::Stack<double>::get(L, 2);
+        T* cc = luabridge::Stack<T*>::get(L, 1);
+        lua_settop(L, 0);
+
+        double x = 0, y = 0;
+        cc->coordsToPixels(key, value, x, y);
+
+        luabridge::Stack<double>::push(L, x);
+        luabridge::Stack<double>::push(L, y);
 
         return 2;
     }
@@ -503,8 +584,8 @@ static void QcpContainer2Lua(lua_State* L, const char* ns)
           .addFunction("valueSize", &QCPColorMapData::valueSize)
         .endClass()
         .beginNamespace("ColorMapDataHelper")
-          .addCFunction("cellToCoord", &ColorMapDataHelper::cellToCoord)
-          .addCFunction("coordToCell", &ColorMapDataHelper::coordToCell)
+          .addCFunction("cellToCoord", &CoordHelper<QCPColorMapData>::cellToCoord)
+          .addCFunction("coordToCell", &CoordHelper<QCPColorMapData>::coordToCell)
         .endNamespace()
 
         .beginClass<QCPBarsDataContainer>("BarsDataContainer")
@@ -521,45 +602,12 @@ static void QcpContainer2Lua(lua_State* L, const char* ns)
 
         .beginClass<QCPGraphDataContainer>("GraphDataContainer")
             CONTAINER_FUNCTIONS(QCPGraphDataContainer, QCPGraphData)
-/*
-          .addFunction("autoSqueeze", &QCPGraphDataContainer::autoSqueeze)
-          .addFunction("addContainer", static_cast<void(QCPGraphDataContainer::*)(const QCPGraphDataContainer&)>(&QCPGraphDataContainer::add))
-          .addFunction("addVector", static_cast<void(QCPGraphDataContainer::*)(const QVector<QCPGraphData>&, bool)>(&QCPGraphDataContainer::add))
-          .addFunction("addData", static_cast<void(QCPGraphDataContainer::*)(const QCPGraphData&)>(&QCPGraphDataContainer::add))
-          .addFunction("clear", &QCPGraphDataContainer::clear)
-          .addFunction("isEmpty", &QCPGraphDataContainer::isEmpty)
-          .addFunction("remove", static_cast<void(QCPGraphDataContainer::*)(double)>(&QCPGraphDataContainer::remove))
-          .addFunction("removeBetween", static_cast<void(QCPGraphDataContainer::*)(double, double)>(&QCPGraphDataContainer::remove))
-          .addFunction("removeAfter", &QCPGraphDataContainer::removeAfter)
-          .addFunction("removeBefore", &QCPGraphDataContainer::removeBefore)
-          .addFunction("size", &QCPGraphDataContainer::size)
-          .addFunction("setAutoSqueeze", &QCPGraphDataContainer::setAutoSqueeze)
-          .addFunction("setVector", static_cast<void(QCPGraphDataContainer::*)(const QVector<QCPGraphData>&, bool)>(&QCPGraphDataContainer::set))
-          .addFunction("setContainer", static_cast<void(QCPGraphDataContainer::*)(const QCPGraphDataContainer&)>(&QCPGraphDataContainer::set))
-          .addFunction("sort", &QCPGraphDataContainer::sort)
-          .addFunction("squeeze", &QCPGraphDataContainer::squeeze)
-*/
         .endClass()
 
         .beginClass<QCPStatisticalBoxDataContainer>("StatisticalBoxDataContainer")
             CONTAINER_FUNCTIONS(QCPStatisticalBoxDataContainer, QCPStatisticalBoxData)
         .endClass()
-/*
-        .beginClass<QCPStatisticalBoxData>("StatisticalBoxData")
-          .addConstructor<void(*)()>()
-          .addData("lowerQuartile", &QCPStatisticalBoxData::lowerQuartile)
-          .addData("key", &QCPStatisticalBoxData::key)
-          .addData("maximum", &QCPStatisticalBoxData::maximum)
-          .addData("minimum", &QCPStatisticalBoxData::minimum)
-          .addData("median", &QCPStatisticalBoxData::median)
-          .addData("outliers", &QCPStatisticalBoxData::outliers)
-          .addData("upperQuartile", &QCPStatisticalBoxData::upperQuartile)
-          .addFunction("mainKey", &QCPStatisticalBoxData::mainKey)
-          .addFunction("mainValue", &QCPStatisticalBoxData::mainValue)
-          .addFunction("sortKey", &QCPStatisticalBoxData::sortKey)
-          .addFunction("valueRange", &QCPStatisticalBoxData::valueRange)
-        .endClass()
-*/
+
       .endNamespace()
     ;
 #undef CONTAINER_FUNCTIONS
@@ -799,50 +847,120 @@ static void QcpLayerable2Lua(lua_State* L, const char* ns)
       .beginNamespace(ns)
 
         .deriveClass<QCPLayerable, QObject>("Layerable")
+          .addFunction("antialiased", &QCPLayerable::antialiased)
+          .addFunction("parentLayerable", &QCPLayerable::parentLayerable)
+          .addFunction("parentPlot", &QCPLayerable::parentPlot)
+          .addFunction("realVisibility", &QCPLayerable::realVisibility)
           .addFunction("setAntialiased", &QCPLayerable::setAntialiased)
           .addFunction("setVisible", &QCPLayerable::setVisible)
-          .addFunction("setLayer", static_cast<bool(QCPLayerable::*)(const QString&)>(&QCPLayerable::setLayer))
+          .addFunction("setLayer", static_cast<bool(QCPLayerable::*)(QCPLayer*)>(&QCPLayerable::setLayer))
+          .addFunction("setLayerByName", static_cast<bool(QCPLayerable::*)(const QString&)>(&QCPLayerable::setLayer))
+          .addFunction("visible", &QCPLayerable::visible)
         .endClass()
 
           .deriveClass<QCPAxis, QCPLayerable>("Axis")
+            .addStaticFunction("orientation", static_cast<Qt::Orientation(*)(QCPAxis::AxisType)>(&QCPAxis::orientation))
+
+            .addFunction("axisRect", &QCPAxis::axisRect)
+            .addFunction("axisType", &QCPAxis::axisType)
+            .addFunction("basePen", &QCPAxis::basePen)
+            .addFunction("coordToPixel", &QCPAxis::coordToPixel)
             .addFunction("grid", &QCPAxis::grid)
+            .addFunction("graphs", &QCPAxis::graphs)
+            .addFunction("items", &QCPAxis::items)
+            .addFunction("label", &QCPAxis::label)
+            .addFunction("labelPadding", &QCPAxis::labelPadding)
+            .addFunction("labelFont", &QCPAxis::labelFont)
+            .addFunction("labelColor", &QCPAxis::labelColor)
+            .addFunction("lowerEnding", &QCPAxis::lowerEnding)
             .addFunction("moveRange", &QCPAxis::moveRange)
+            .addFunction("numberFormat", &QCPAxis::numberFormat)
+            .addFunction("numberPrecision", &QCPAxis::numberPrecision)
+            .addFunction("offset", &QCPAxis::offset)
+            .addFunction("orientation", static_cast<Qt::Orientation(QCPAxis::*)()const>(&QCPAxis::orientation))
+            .addFunction("padding", &QCPAxis::padding)
+            .addFunction("pixelToCoord", &QCPAxis::pixelToCoord)
+            .addFunction("pixelOrientation", &QCPAxis::pixelOrientation)
+            .addFunction("plottables", &QCPAxis::plottables)
             .addFunction("range", &QCPAxis::range)
+            .addFunction("rangeReversed", &QCPAxis::rangeReversed)
+            .addFunction("rescale", &QCPAxis::rescale)
             .addFunction("scaleRange", static_cast<void(QCPAxis::*)(double, double)>(&QCPAxis::scaleRange))
+            .addFunction("scaleType", &QCPAxis::scaleType)
             .addFunction("setBasePen", &QCPAxis::setBasePen)
+            .addFunction("setScaleRatio", &QCPAxis::setScaleRatio)
+            .addFunction("setLowerEnding", &QCPAxis::setLowerEnding)
+            .addFunction("setUpperEnding", &QCPAxis::setUpperEnding)
             .addFunction("setPadding", &QCPAxis::setPadding)
             .addFunction("setRange", static_cast<void(QCPAxis::*)(double, double)>(&QCPAxis::setRange))
+            .addFunction("setRangeLower", &QCPAxis::setRangeLower)
+            .addFunction("setRangeReversed", &QCPAxis::setRangeReversed)
             .addFunction("setRangeWithSize", static_cast<void(QCPAxis::*)(double, double, Qt::AlignmentFlag)>(&QCPAxis::setRange))
+            .addFunction("setRangeUpper", &QCPAxis::setRangeUpper)
             .addFunction("setLabel", &QCPAxis::setLabel)
+            .addFunction("setLabelFont", &QCPAxis::setLabelFont)
             .addFunction("setLabelColor", &QCPAxis::setLabelColor)
+            .addFunction("setLabelPadding", &QCPAxis::setLabelPadding)
             .addFunction("setNumberFormat", &QCPAxis::setNumberFormat)
             .addFunction("setNumberPrecision", &QCPAxis::setNumberPrecision)
+            .addFunction("setPadding", &QCPAxis::setPadding)
+            .addFunction("setOffset", &QCPAxis::setOffset)
             .addFunction("setScaleType", &QCPAxis::setScaleType)
             .addFunction("setSubTickLength", &QCPAxis::setSubTickLength)
             .addFunction("setSubTickPen", &QCPAxis::setSubTickPen)
             .addFunction("setSubTicks", &QCPAxis::setSubTicks)
+            .addFunction("setSubTickLength", &QCPAxis::setSubTickLength)
+            .addFunction("setSubTickLengthIn", &QCPAxis::setSubTickLengthIn)
+            .addFunction("setSubTickLengthOut", &QCPAxis::setSubTickLengthOut)
             .addFunction("setTicker", &QCPAxis::setTicker)
+            .addFunction("setTicks", &QCPAxis::setTicks)
             .addFunction("setTickLabels", &QCPAxis::setTickLabels)
             .addFunction("setTickLabelColor", &QCPAxis::setTickLabelColor)
             .addFunction("setTickLabelFont", &QCPAxis::setTickLabelFont)
+            .addFunction("setTickLabelPadding", &QCPAxis::setTickLabelPadding)
             .addFunction("setTickLabelRotation", &QCPAxis::setTickLabelRotation)
+            .addFunction("setTickLabelSide", &QCPAxis::setTickLabelSide)
             .addFunction("setTickLength", &QCPAxis::setTickLength)
+            .addFunction("setTickLengthIn", &QCPAxis::setTickLengthIn)
+            .addFunction("setTickLengthOut", &QCPAxis::setTickLengthOut)
             .addFunction("setTickPen", &QCPAxis::setTickPen)
             .addFunction("setTicks", &QCPAxis::setTicks)
             .addFunction("setUpperEnding", &QCPAxis::setUpperEnding)
+            .addFunction("subTickLengthIn", &QCPAxis::subTickLengthIn)
+            .addFunction("subTickLengthOut", &QCPAxis::subTickLengthOut)
             .addFunction("ticker", &QCPAxis::ticker)
+            .addFunction("tickLabelColor", &QCPAxis::tickLabelColor)
+            .addFunction("tickLabelFont", &QCPAxis::tickLabelFont)
+            .addFunction("tickLabelPadding", &QCPAxis::tickLabelPadding)
+            .addFunction("tickLabelRotation", &QCPAxis::tickLabelRotation)
+            .addFunction("tickLabels", &QCPAxis::tickLabels)
+            .addFunction("tickLabelSide", &QCPAxis::tickLabelSide)
+            .addFunction("tickLengthIn", &QCPAxis::tickLengthIn)
+            .addFunction("tickLengthOut", &QCPAxis::tickLengthOut)
+            .addFunction("tickPen", &QCPAxis::tickPen)
+            .addFunction("ticks", &QCPAxis::ticks)
+            .addFunction("tickVector", &QCPAxis::tickVector)
+            .addFunction("tickVectorLabels", &QCPAxis::tickVectorLabels)
+            .addFunction("upperEnding", &QCPAxis::upperEnding)
           .endClass()
 
           .deriveClass<QCPGrid, QCPLayerable>("Grid")
+            .addFunction("antialiasedSubGrid", &QCPGrid::antialiasedSubGrid)
+            .addFunction("antialiasedZeroLine", &QCPGrid::antialiasedZeroLine)
+            .addFunction("pen", &QCPGrid::pen)
+            .addFunction("setAntialiasedSubGrid", &QCPGrid::setAntialiasedSubGrid)
+            .addFunction("setAntialiasedZeroLine", &QCPGrid::setAntialiasedZeroLine)
             .addFunction("setPen", &QCPGrid::setPen)
             .addFunction("setSubGridPen", &QCPGrid::setSubGridPen)
             .addFunction("setSubGridVisible", &QCPGrid::setSubGridVisible)
-            .addFunction("setVisible", &QCPGrid::setVisible)
             .addFunction("setZeroLinePen", &QCPGrid::setZeroLinePen)
+            .addFunction("subGridPen", &QCPGrid::subGridPen)
+            .addFunction("subGridVisible", &QCPGrid::subGridVisible)
+            .addFunction("zeroLinePen", &QCPGrid::zeroLinePen)
           .endClass()
 
-          .deriveClass<QCPSelectionRect, QCPLayerable>("SelectionRect")
-          .endClass()
+//          .deriveClass<QCPSelectionRect, QCPLayerable>("SelectionRect")
+//          .endClass()
 
       .endNamespace()
     ;
@@ -854,61 +972,168 @@ static void QcpItem2Lua(lua_State* L, const char* ns)
       .beginNamespace(ns)
 
         .deriveClass<QCPAbstractItem, QCPLayerable>("AbstractItem")
+          .addFunction("anchor", &QCPAbstractItem::anchor)
+          .addFunction("anchors", &QCPAbstractItem::anchors)
+          .addFunction("clipAxisRect", &QCPAbstractItem::clipAxisRect)
+          .addFunction("clipToAxisRect", &QCPAbstractItem::clipToAxisRect)
+          .addFunction("hasAnchor", &QCPAbstractItem::hasAnchor)
+          .addFunction("position", &QCPAbstractItem::position)
+          .addFunction("positions", &QCPAbstractItem::positions)
+          .addFunction("setClipToAxisRect", &QCPAbstractItem::setClipToAxisRect)
+          .addFunction("setClipAxisRect", &QCPAbstractItem::setClipAxisRect)
         .endClass()
 
           .deriveClass<QCPItemBracket, QCPAbstractItem>("ItemBracket")
             .addData("left", &QCPItemBracket::left)
             .addData("right", &QCPItemBracket::right)
             .addData("center", &QCPItemBracket::center)
+
+            .addFunction("length", &QCPItemBracket::length)
+            .addFunction("pen", &QCPItemBracket::pen)
+            .addFunction("style", &QCPItemBracket::style)
             .addFunction("setLength", &QCPItemBracket::setLength)
+            .addFunction("setPen", &QCPItemBracket::setPen)
+            .addFunction("setStyle", &QCPItemBracket::setStyle)
           .endClass()
 
           .deriveClass<QCPItemCurve, QCPAbstractItem>("ItemCurve")
+            .addData("endDir", &QCPItemCurve::endDir)
             .addData("start", &QCPItemCurve::start)
             .addData("startDir", &QCPItemCurve::startDir)
             .addData("theEnd", &QCPItemCurve::end)
-            .addData("endDir", &QCPItemCurve::endDir)
+
+            .addFunction("head", &QCPItemCurve::head)
+            .addFunction("pen", &QCPItemCurve::pen)
+            .addFunction("tail", &QCPItemCurve::tail)
             .addFunction("setHead", &QCPItemCurve::setHead)
+            .addFunction("setPen", &QCPItemCurve::setPen)
             .addFunction("setTail", &QCPItemCurve::setTail)
           .endClass()
 
           .deriveClass<QCPItemEllipse, QCPAbstractItem>("ItemEllipse")
+            .addData("topLeft", &QCPItemEllipse::topLeft)
+            .addData("bottomRight", &QCPItemEllipse::bottomRight)
+            .addData("topLeftRim", &QCPItemEllipse::topLeftRim)
+            .addData("top", &QCPItemEllipse::top)
+            .addData("topRightRim", &QCPItemEllipse::topRightRim)
+            .addData("right", &QCPItemEllipse::right)
+            .addData("bottomRightRim", &QCPItemEllipse::bottomRightRim)
+            .addData("bottom", &QCPItemEllipse::bottom)
+            .addData("bottomLeftRim", &QCPItemEllipse::bottomLeftRim)
+            .addData("left", &QCPItemEllipse::left)
+            .addData("center", &QCPItemEllipse::center)
+
+            .addFunction("pen", &QCPItemEllipse::pen)
+            .addFunction("brush", &QCPItemEllipse::brush)
+            .addFunction("setPen", &QCPItemEllipse::setPen)
+            .addFunction("setBrush", &QCPItemEllipse::setBrush)
           .endClass()
 
           .deriveClass<QCPItemLine, QCPAbstractItem>("ItemLine")
+            .addData("start", &QCPItemLine::start)
+            .addData("theEnd", &QCPItemLine::end)
+
+            .addFunction("head", &QCPItemLine::head)
+            .addFunction("pen", &QCPItemLine::pen)
+            .addFunction("tail", &QCPItemLine::tail)
+            .addFunction("setHead", &QCPItemLine::setHead)
+            .addFunction("setPen", &QCPItemLine::setPen)
+            .addFunction("setTail", &QCPItemLine::setTail)
           .endClass()
 
           .deriveClass<QCPItemPixmap, QCPAbstractItem>("ItemPixmap")
+            .addData("topLeft", &QCPItemPixmap::topLeft)
+            .addData("bottomRight", &QCPItemPixmap::bottomRight)
+            .addData("top", &QCPItemPixmap::top)
+            .addData("topRight", &QCPItemPixmap::topRight)
+            .addData("right", &QCPItemPixmap::right)
+            .addData("bottom", &QCPItemPixmap::bottom)
+            .addData("bottomLeft", &QCPItemPixmap::bottomLeft)
+            .addData("left", &QCPItemPixmap::left)
+
+            .addFunction("aspectRatioMode", &QCPItemPixmap::aspectRatioMode)
+            .addFunction("pen", &QCPItemPixmap::pen)
+            .addFunction("pixmap", &QCPItemPixmap::pixmap)
+            .addFunction("scaled", &QCPItemPixmap::scaled)
+            .addFunction("setPen", &QCPItemPixmap::setPen)
+            .addFunction("setPixmap", &QCPItemPixmap::setPixmap)
+            .addFunction("setScaled", &QCPItemPixmap::setScaled)
+            .addFunction("transformationMode", &QCPItemPixmap::transformationMode)
           .endClass()
 
           .deriveClass<QCPItemRect, QCPAbstractItem>("ItemRect")
+            .addData("topLeft", &QCPItemRect::topLeft)
+            .addData("bottomRight", &QCPItemRect::bottomRight)
+            .addData("top", &QCPItemRect::top)
+            .addData("topRight", &QCPItemRect::topRight)
+            .addData("right", &QCPItemRect::right)
+            .addData("bottom", &QCPItemRect::bottom)
+            .addData("bottomLeft", &QCPItemRect::bottomLeft)
+            .addData("left", &QCPItemRect::left)
+
+            .addFunction("brush", &QCPItemRect::brush)
+            .addFunction("pen", &QCPItemRect::pen)
+            .addFunction("setBrush", &QCPItemRect::setBrush)
+            .addFunction("setPen", &QCPItemRect::setPen)
           .endClass()
 
           .deriveClass<QCPItemStraightLine, QCPAbstractItem>("ItemStraightLine")
+            .addData("point1", &QCPItemStraightLine::point1)
+            .addData("point2", &QCPItemStraightLine::point2)
+
+            .addFunction("pen", &QCPItemStraightLine::pen)
+            .addFunction("setPen", &QCPItemStraightLine::setPen)
           .endClass()
 
           .deriveClass<QCPItemText, QCPAbstractItem>("ItemText")
             .addData("position", &QCPItemText::position)
             .addData("left", &QCPItemText::left)
+            .addData("right", &QCPItemText::right)
             .addData("top", &QCPItemText::top)
+            .addData("topLeft", &QCPItemText::topLeft)
+            .addData("topRight", &QCPItemText::topRight)
             .addData("bottom", &QCPItemText::bottom)
+            .addData("bottomLeft", &QCPItemText::bottomLeft)
+            .addData("bottomRight", &QCPItemText::bottomRight)
+
+            .addFunction("color", &QCPItemText::color)
+            .addFunction("brush", &QCPItemText::brush)
+            .addFunction("font", &QCPItemText::font)
+            .addFunction("padding", &QCPItemText::padding)
+            .addFunction("pen", &QCPItemText::pen)
+            .addFunction("positionAlignment", &QCPItemText::positionAlignment)
+            .addFunction("rotation", &QCPItemText::rotation)
+            .addFunction("setColor", &QCPItemText::setColor)
+            .addFunction("setBrush", &QCPItemText::setBrush)
+            .addFunction("setPen", &QCPItemText::setPen)
             .addFunction("setPositionAlignment", &QCPItemText::setPositionAlignment)
             .addFunction("setText", &QCPItemText::setText)
             .addFunction("setTextAlignment", &QCPItemText::setTextAlignment)
             .addFunction("setFont", &QCPItemText::setFont)
             .addFunction("setPadding", &QCPItemText::setPadding)
             .addFunction("setRotation", &QCPItemText::setRotation)
+            .addFunction("text", &QCPItemText::text)
+            .addFunction("textAlignment", &QCPItemText::textAlignment)
           .endClass()
 
           .deriveClass<QCPItemTracer, QCPAbstractItem>("QCPItemTracer")
             .addData("position", &QCPItemTracer::position)
+
+            .addFunction("brush", &QCPItemTracer::brush)
+            .addFunction("graph", &QCPItemTracer::graph)
+            .addFunction("graphKey", &QCPItemTracer::graphKey)
+            .addFunction("interpolating", &QCPItemTracer::interpolating)
+            .addFunction("pen", &QCPItemTracer::pen)
+            .addFunction("size", &QCPItemTracer::size)
+            .addFunction("style", &QCPItemTracer::style)
+            .addFunction("updatePosition", &QCPItemTracer::updatePosition)
+            .addFunction("setBrush", &QCPItemTracer::setBrush)
             .addFunction("setGraph", &QCPItemTracer::setGraph)
             .addFunction("setGraphKey", &QCPItemTracer::setGraphKey)
             .addFunction("setInterpolating", &QCPItemTracer::setInterpolating)
-            .addFunction("setStyle", &QCPItemTracer::setStyle)
             .addFunction("setPen", &QCPItemTracer::setPen)
-            .addFunction("setBrush", &QCPItemTracer::setBrush)
             .addFunction("setSize", &QCPItemTracer::setSize)
+            .addFunction("setStyle", &QCPItemTracer::setStyle)
           .endClass()
 
       .endNamespace()
@@ -917,21 +1142,52 @@ static void QcpItem2Lua(lua_State* L, const char* ns)
 
 static void QcpPlottable2Lua(lua_State* L, const char* ns)
 {
+// begin of #define ABSTRACT_PLOTTABLE_1D_FUNCTIONS
+#define ABSTRACT_PLOTTABLE_1D_FUNCTIONS(c) \
+    .addFunction("dataCount", &QCPAbstractPlottable1D<QCPBarsData>::dataCount) \
+    .addFunction("dataMainKey", &QCPAbstractPlottable1D<QCPBarsData>::dataMainKey) \
+    .addFunction("dataPixelPosition", &QCPAbstractPlottable1D<QCPBarsData>::dataPixelPosition) \
+    .addFunction("dataSortKey", &QCPAbstractPlottable1D<QCPBarsData>::dataSortKey) \
+    .addFunction("dataMainValue", &QCPAbstractPlottable1D<QCPBarsData>::dataMainValue) \
+    .addFunction("dataValueRange", &QCPAbstractPlottable1D<QCPBarsData>::dataValueRange) \
+    .addFunction("sortKeyIsMainKey", &QCPAbstractPlottable1D<QCPBarsData>::sortKeyIsMainKey) \
+    .addFunction("findBegin", &QCPAbstractPlottable1D<QCPBarsData>::findBegin) \
+    .addFunction("findEnd", &QCPAbstractPlottable1D<QCPBarsData>::findEnd)
+// end of #define ABSTRACT_PLOTTABLE_1D_FUNCTIONS
+
     luabridge::getGlobalNamespace(L)
       .beginNamespace(ns)
 
         .deriveClass<QCPAbstractPlottable, QCPLayerable>("AbstractPlottable")
+          .addFunction("addToLegend", static_cast<bool(QCPAbstractPlottable::*)(QCPLegend*)>(&QCPAbstractPlottable::addToLegend))
+          .addFunction("addLegendToLegend", static_cast<bool(QCPAbstractPlottable::*)()>(&QCPAbstractPlottable::addToLegend))
+          .addFunction("antialiasedFill", &QCPAbstractPlottable::antialiasedFill)
+          .addFunction("antialiasedScatters", &QCPAbstractPlottable::antialiasedScatters)
+          .addFunction("brush", &QCPAbstractPlottable::brush)
+          .addFunction("coordsToPixels", static_cast<QPointF(QCPAbstractPlottable::*)(double, double)const>(&QCPAbstractPlottable::coordsToPixels))
+          .addFunction("getKeyRange", &QCPAbstractPlottable::getKeyRange)
+          .addFunction("getValueRange", &QCPAbstractPlottable::getValueRange)
           .addFunction("keyAxis", &QCPAbstractPlottable::keyAxis)
+          .addFunction("name", &QCPAbstractPlottable::name)
+          .addFunction("pen", &QCPAbstractPlottable::pen)
+          .addFunction("valueAxis", &QCPAbstractPlottable::valueAxis)
           .addFunction("removeFromLegend", static_cast<bool(QCPAbstractPlottable::*)()const>(&QCPAbstractPlottable::removeFromLegend))
           .addFunction("removeLegendFromLegend", static_cast<bool(QCPAbstractPlottable::*)(QCPLegend*)const>(&QCPAbstractPlottable::removeFromLegend))
           .addFunction("rescaleAxes", &QCPAbstractPlottable::rescaleAxes)
           .addFunction("rescaleKeyAxis", &QCPAbstractPlottable::rescaleKeyAxis)
           .addFunction("setAntialiasedFill", &QCPAbstractPlottable::setAntialiasedFill)
+          .addFunction("setAntialiasedScatters", &QCPAbstractPlottable::setAntialiasedScatters)
           .addFunction("setBrush", &QCPAbstractPlottable::setBrush)
+          .addFunction("setKeyAxis", &QCPAbstractPlottable::setKeyAxis)
           .addFunction("setName", &QCPAbstractPlottable::setName)
+          .addFunction("setValueAxis", &QCPAbstractPlottable::setValueAxis)
           .addFunction("setPen", &QCPAbstractPlottable::setPen)
           .addFunction("valueAxis", &QCPAbstractPlottable::valueAxis)
         .endClass()
+        .beginNamespace("AbstractPlottableHelper")
+          .addCFunction("pixelsToCoords", &CoordHelper<QCPAbstractPlottable>::pixelsToCoords)
+          .addCFunction("coordsToPixels", &CoordHelper<QCPAbstractPlottable>::coordsToPixels)
+        .endNamespace()
 
           .deriveClass<QCPColorMap, QCPAbstractPlottable>("ColorMap")
             .addFunction("data", &QCPColorMap::data)
@@ -948,16 +1204,35 @@ static void QcpPlottable2Lua(lua_State* L, const char* ns)
           .endClass()
 
           .deriveClass<QCPAbstractPlottable1D<QCPBarsData>, QCPAbstractPlottable>("AbstractPlottable1D_BarsData")
+            ABSTRACT_PLOTTABLE_1D_FUNCTIONS(QCPAbstractPlottable1D<QCPBarsData>)
           .endClass()
             .deriveClass<QCPBars, QCPAbstractPlottable1D<QCPBarsData> >("Bars")
+
               .addFunction("addData", static_cast<void(QCPBars::*)(double, double)>(&QCPBars::addData))
+              .addFunction("addVector", static_cast<void(QCPBars::*)(const QVector<double>&, const QVector<double>&, bool)>(&QCPBars::addData))
+              .addFunction("barAbove", &QCPBars::barAbove)
+              .addFunction("barBelow", &QCPBars::barBelow)
+              .addFunction("barsGroup", &QCPBars::barsGroup)
+              .addFunction("baseValue", &QCPBars::baseValue)
+              .addFunction("data", &QCPBars::data)
+              .addFunction("getKeyRange", &QCPBars::getKeyRange)
+              .addFunction("getValueRange", &QCPBars::getValueRange)
               .addFunction("moveAbove", &QCPBars::moveAbove)
+              .addFunction("moveBelow", &QCPBars::moveBelow)
+              .addFunction("stackingGap", &QCPBars::stackingGap)
+              .addFunction("setContainer", static_cast<void(QCPBars::*)(QSharedPointer<QCPBarsDataContainer>)>(&QCPBars::setData))
+              .addFunction("setBarsGroup", &QCPBars::setBarsGroup)
+              .addFunction("setBaseValue", &QCPBars::setBaseValue)
               .addFunction("setVector", static_cast<void(QCPBars::*)(const QVector<double>&, const QVector<double>&, bool)>(&QCPBars::setData))
               .addFunction("setStackingGap", &QCPBars::setStackingGap)
               .addFunction("setWidth", &QCPBars::setWidth)
+              .addFunction("setWidthType", &QCPBars::setWidthType)
+              .addFunction("width", &QCPBars::width)
+              .addFunction("widthType", &QCPBars::widthType)
             .endClass()
 
           .deriveClass<QCPAbstractPlottable1D<QCPCurveData>, QCPAbstractPlottable>("QCPAbstractPlottable1D_QCPCurveData")
+            ABSTRACT_PLOTTABLE_1D_FUNCTIONS(QCPAbstractPlottable1D<QCPCurveData>)
           .endClass()
             .deriveClass<QCPCurve, QCPAbstractPlottable1D<QCPCurveData>>("Curve")
               .addFunction("data", &QCPCurve::data)
@@ -968,6 +1243,7 @@ static void QcpPlottable2Lua(lua_State* L, const char* ns)
             .endClass()
 
           .deriveClass<QCPAbstractPlottable1D<QCPFinancialData>, QCPAbstractPlottable>("QCPAbstractPlottable1D_QCPFinancialData")
+            ABSTRACT_PLOTTABLE_1D_FUNCTIONS(QCPAbstractPlottable1D<QCPFinancialData>)
           .endClass()
             .deriveClass<QCPFinancial, QCPAbstractPlottable1D<QCPFinancialData>>("Financial")
               .addFunction("data", &QCPFinancial::data)
@@ -982,6 +1258,7 @@ static void QcpPlottable2Lua(lua_State* L, const char* ns)
             .endClass()
 
           .deriveClass<QCPAbstractPlottable1D<QCPGraphData>, QCPAbstractPlottable>("QCPAbstractPlottable1D_QCPGraphData")
+            ABSTRACT_PLOTTABLE_1D_FUNCTIONS(QCPAbstractPlottable1D<QCPGraphData>)
           .endClass()
             .deriveClass<QCPGraph, QCPAbstractPlottable1D<QCPGraphData> >("Graph")
               .addFunction("data", &QCPGraph::data)
@@ -994,6 +1271,7 @@ static void QcpPlottable2Lua(lua_State* L, const char* ns)
             .endClass()
 
           .deriveClass<QCPAbstractPlottable1D<QCPStatisticalBoxData>, QCPAbstractPlottable>("QCPAbstractPlottable1D_QCPStatisticalBoxData")
+            ABSTRACT_PLOTTABLE_1D_FUNCTIONS(QCPAbstractPlottable1D<QCPStatisticalBoxData>)
           .endClass()
             .deriveClass<QCPStatisticalBox, QCPAbstractPlottable1D<QCPStatisticalBoxData>>("StatisticalBox")
               .addFunction("addData", static_cast<void(QCPStatisticalBox::*)(double, double, double, double, double, double, const QVector<double>&)>(&QCPStatisticalBox::addData))
@@ -1003,6 +1281,8 @@ static void QcpPlottable2Lua(lua_State* L, const char* ns)
 
       .endNamespace()
     ;
+
+#undef ABSTRACT_PLOTTABLE_1D_FUNCTIONS
 }
 
 static void QcpElement2Lua(lua_State* L, const char* ns)

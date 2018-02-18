@@ -81,9 +81,9 @@ function fp(plot)
   -- move bars above graphs and grid below bars:
   plot:addLayer("abovemain", plot:layerByName("main"), qcp.CustomPlot.limAbove);
   plot:addLayer("belowmain", plot:layerByName("main"), qcp.CustomPlot.limBelow);
-  graph1:setLayer("abovemain");
-  plot.xAxis:grid():setLayer("belowmain");
-  plot.yAxis:grid():setLayer("belowmain");
+  graph1:setLayerByName("abovemain");
+  plot.xAxis:grid():setLayerByName("belowmain");
+  plot.yAxis:grid():setLayerByName("belowmain");
    
   -- set some pens, brushes and backgrounds:
   local pen1 = luaplot.PenConstructor.fromBrush(
@@ -133,7 +133,7 @@ function fp(plot)
   plotGradient:setFinalStopXY(0, 350);
   plotGradient:setColorAt(0, luaplot.ColorConstructor.fromRGB(80, 80, 80, 255));
   plotGradient:setColorAt(1, luaplot.ColorConstructor.fromRGB(50, 50, 50, 255));
-  plot:setBackground(luaplot.BrushConstructor.fromGradient(plotGradient));
+  plot:setBackgroundByBrush(luaplot.BrushConstructor.fromGradient(plotGradient));
   
   local axisRectGradient = luaplot.QLinearGradient();
   axisRectGradient:setStartXY(0, 0);

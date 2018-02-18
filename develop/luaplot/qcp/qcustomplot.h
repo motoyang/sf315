@@ -3336,7 +3336,7 @@ public:
   
   // non-property methods:
   void coordsToPixels(double key, double value, double &x, double &y) const;
-  const QPointF coordsToPixels(double key, double value) const;
+  QPointF coordsToPixels(double key, double value) const;
   void pixelsToCoords(double x, double y, double &key, double &value) const;
   void pixelsToCoords(const QPointF &pixelPos, double &key, double &value) const;
   void rescaleAxes(bool onlyEnlarge=false) const;
@@ -3630,7 +3630,7 @@ public:
   QCP::AntialiasedElements antialiasedElements() const { return mAntialiasedElements; }
   QCP::AntialiasedElements notAntialiasedElements() const { return mNotAntialiasedElements; }
   bool autoAddPlottableToLegend() const { return mAutoAddPlottableToLegend; }
-  const QCP::Interactions interactions() const { return mInteractions; }
+  QCP::Interactions interactions() const { return mInteractions; }
   int selectionTolerance() const { return mSelectionTolerance; }
   bool noAntialiasingOnDrag() const { return mNoAntialiasingOnDrag; }
   QCP::PlottingHints plottingHints() const { return mPlottingHints; }

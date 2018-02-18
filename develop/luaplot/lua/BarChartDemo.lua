@@ -18,7 +18,7 @@ function fp(plot)
   gradient:setColorAt(0, luaplot.ColorConstructor.fromRGB(90, 90, 90, 255))
   gradient:setColorAt(0.38, luaplot.ColorConstructor.fromRGB(105, 105, 105, 255))
   gradient:setColorAt(1, luaplot.ColorConstructor.fromRGB(70, 70, 70, 255))
-  plot:setBackground(luaplot.BrushConstructor.fromGradient(gradient))
+  plot:setBackgroundByBrush(luaplot.BrushConstructor.fromGradient(gradient))
 
   -- create empty bar chart objects:
   local regen = plot:createBars(plot.xAxis, plot.yAxis)

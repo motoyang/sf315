@@ -51,12 +51,15 @@ STACK_AS_INT(QLocale::Country)
 STACK_AS_INT(QLocale::Language)
 STACK_AS_INT(QLocale::Script)
 
+STACK_AS_INT(QCP::AntialiasedElement)
 STACK_AS_INT(QCP::MarginSide)
+STACK_AS_INT(QCP::PlottingHint)
 STACK_AS_INT(QCPAxis::AxisType)
 STACK_AS_INT(QCPAxis::ScaleType)
 STACK_AS_INT(QCPAxisTicker::TickStepStrategy)
 STACK_AS_INT(QCPAxisTickerFixed::ScaleStrategy)
 STACK_AS_INT(QCPAxisTickerPi::FractionStyle)
+STACK_AS_INT(QCPBars::WidthType)
 STACK_AS_INT(QCPBarsGroup::SpacingType)
 STACK_AS_INT(QCPColorGradient::ColorInterpolation)
 STACK_AS_INT(QCPColorGradient::GradientPreset)
@@ -77,7 +80,10 @@ STACK_AS_INT_FROM(Qt::ImageConversionFlags, Qt::ImageConversionFlag)
 STACK_AS_INT_FROM(QCP::MarginSides, QCP::MarginSide)
 STACK_AS_INT_FROM(QCPAxis::AxisTypes, QCPAxis::AxisType)
 
+STACK_AS_INT_CONST_FROM(QCP::AntialiasedElements, QCP::AntialiasedElement)
 STACK_AS_INT_CONST_FROM(QCP::Interactions, QCP::Interaction)
+STACK_AS_INT_CONST_FROM(QCP::PlottingHints, QCP::PlottingHint)
+
 
 #undef STACK_AS_INT
 #undef STACK_AS_INT_FROM

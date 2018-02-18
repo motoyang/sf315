@@ -10920,7 +10920,7 @@ void QCPAbstractPlottable::coordsToPixels(double key, double value, double &x, d
 
   Transforms the given \a key and \a value to pixel coordinates and returns them in a QPointF.
 */
-const QPointF QCPAbstractPlottable::coordsToPixels(double key, double value) const
+QPointF QCPAbstractPlottable::coordsToPixels(double key, double value) const
 {
   QCPAxis *keyAxis = mKeyAxis.data();
   QCPAxis *valueAxis = mValueAxis.data();
