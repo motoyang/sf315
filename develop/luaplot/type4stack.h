@@ -35,7 +35,6 @@ template <> struct Stack <Y const&> { \
     } \
 };
 
-
 STACK_AS_INT(Qt::AlignmentFlag)
 STACK_AS_INT(Qt::AspectRatioMode)
 STACK_AS_INT(Qt::BrushStyle)
@@ -55,24 +54,36 @@ STACK_AS_INT(QCP::AntialiasedElement)
 STACK_AS_INT(QCP::MarginSide)
 STACK_AS_INT(QCP::PlottingHint)
 STACK_AS_INT(QCPAxis::AxisType)
+STACK_AS_INT(QCPAxis::LabelSide)
+STACK_AS_INT(QCPAxis::SelectablePart)
 STACK_AS_INT(QCPAxis::ScaleType)
 STACK_AS_INT(QCPAxisTicker::TickStepStrategy)
 STACK_AS_INT(QCPAxisTickerFixed::ScaleStrategy)
 STACK_AS_INT(QCPAxisTickerPi::FractionStyle)
+STACK_AS_INT(QCPAxisTickerTime::TimeUnit)
 STACK_AS_INT(QCPBars::WidthType)
 STACK_AS_INT(QCPBarsGroup::SpacingType)
 STACK_AS_INT(QCPColorGradient::ColorInterpolation)
 STACK_AS_INT(QCPColorGradient::GradientPreset)
 STACK_AS_INT(QCPCurve::LineStyle)
 STACK_AS_INT(QCPErrorBars::ErrorType)
+STACK_AS_INT(QCPFinancial::WidthType)
 STACK_AS_INT(QCPFinancial::ChartStyle)
 STACK_AS_INT(QCPGraph::LineStyle)
+STACK_AS_INT(QCPItemBracket::BracketStyle)
 STACK_AS_INT(QCPItemPosition::PositionType)
 STACK_AS_INT(QCPItemTracer::TracerStyle)
 STACK_AS_INT(QCPLayer::LayerMode)
 STACK_AS_INT(QCPLayoutElement::SizeConstraintRect)
+STACK_AS_INT(QCPLayoutElement::UpdatePhase)
+STACK_AS_INT(QCPLayoutGrid::FillOrder)
+STACK_AS_INT(QCPLayoutInset::InsetPlacement)
+STACK_AS_INT(QCPLegend::SelectablePart)
 STACK_AS_INT(QCPLineEnding::EndingStyle)
+STACK_AS_INT(QCPPainter::PainterMode)
+STACK_AS_INT(QCPScatterStyle::ScatterProperty)
 STACK_AS_INT(QCPScatterStyle::ScatterShape)
+STACK_AS_INT(QCPSelectionDecoratorBracket::BracketStyle)
 STACK_AS_INT(QCustomPlot::LayerInsertMode)
 STACK_AS_INT(QCustomPlot::RefreshPriority)
 
@@ -86,7 +97,6 @@ STACK_AS_INT_CONST_FROM(QCP::AntialiasedElements, QCP::AntialiasedElement)
 STACK_AS_INT_CONST_FROM(QCP::Interactions, QCP::Interaction)
 STACK_AS_INT_CONST_FROM(QCP::PlottingHints, QCP::PlottingHint)
 
-
 #undef STACK_AS_INT
 #undef STACK_AS_INT_FROM
 #undef STACK_AS_INT_CONST_FROM
@@ -95,55 +105,6 @@ STACK_AS_INT_CONST_FROM(QCP::PlottingHints, QCP::PlottingHint)
 
 struct TablePushAndGet
 {
-    /*
-    static QString getStringByName(lua_State* L, int index, const char* name)
-    {
-        lua_pushstring(L, name);
-        lua_rawget(L, index);
-        QString r = QString::fromUtf8(luaL_checkstring(L, -1));
-        lua_pop(L, 1);
-        return r;
-    }
-
-    static void pushStringByName(lua_State* L, int index, const char* name, const QString& value)
-    {
-        lua_pushstring(L, name);
-        lua_pushstring(L, value.toUtf8().constData());
-        lua_rawset(L, index);
-    }
-
-    static double getNumberByName(lua_State* L, int index, const char* name)
-    {
-        lua_pushstring(L, name);
-        lua_rawget(L, index);
-        double r = lua_tonumber(L, -1);
-        lua_pop(L, 1);
-        return r;
-    }
-
-    static void pushNumberByName(lua_State* L, int index, const char* name, double value)
-    {
-        lua_pushstring(L, name);
-        lua_pushnumber(L, value);
-        lua_rawset(L, index);
-    }
-
-    static int getIntegerByName(lua_State* L, int index, const char* name)
-    {
-        lua_pushstring(L, name);
-        lua_rawget(L, index);
-        int r = lua_tointeger(L, -1);
-        lua_pop(L, 1);
-        return r;
-    }
-
-    static void pushIntegerByName(lua_State* L, int index, const char* name, int value)
-    {
-        lua_pushstring(L, name);
-        lua_pushinteger(L, value);
-        lua_rawset(L, index);
-    }
-*/
     template<typename T>
     static T getValueByName(lua_State* L, int index, const char* name)
     {
