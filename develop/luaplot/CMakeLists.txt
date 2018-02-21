@@ -5,11 +5,22 @@ cmake_policy(SET CMP0071 OLD)
 #设置工程名称
 project(luaplot)
 
+# OFF is the default
+option(USE_CLANG "build application with clang" OFF)
+
+if(USE_CLANG)
+  # begin of clang settings
+  set(CMAKE_C_COMPILER "clang")
+  set(CMAKE_CXX_COMPILER "clang++")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+  include_directories(~/.local/include/c++/v1)
+  link_directories(~/.local/lib/)
+  # end of clang
+endif()
+
+
 #设置工程包含当前目录，非必须
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
-
-#set(CMAKE_C_COMPILER "clang")
-#set(CMAKE_CXX_COMPILER "clang++")
 
 set(CMAKE_BUILD_TYPE "Debug")
 #set(CMAKE_BUILD_TYPE "Release")

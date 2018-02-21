@@ -189,9 +189,19 @@ dpkg -X xxx.deb dirname
 dpkg -e xxx.deb
 
 
+# --增加私有仓库--------------------
+
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys BA300B7755AFCFAE
 sudo add-apt-repository 'deb http://typora.io linux/'
 sudo apt-get update
 sudo apt-get install typora
 
 
+# --so文件目录设置--------------------
+
+如果共享库文件安装到了/usr/local/lib(很多开源的共享库都会安装到该目录下)或其它"非/lib或/usr/lib"目录下, 那么在执行ldconfig命令前, 还要把新共享库目录加入到共享库配置文件/etc/ld.so.conf中, 如下:
+
+# cat /etc/ld.so.conf
+include ld.so.conf.d/*.conf
+# echo "/usr/local/lib" >> /etc/ld.so.conf
+# ldconfig
