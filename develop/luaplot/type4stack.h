@@ -90,12 +90,20 @@ STACK_AS_INT(QCustomPlot::RefreshPriority)
 STACK_AS_INT_FROM(Qt::Alignment, Qt::AlignmentFlag)
 STACK_AS_INT_FROM(Qt::ImageConversionFlags, Qt::ImageConversionFlag)
 
+STACK_AS_INT_CONST_FROM(Qt::Alignment, Qt::AlignmentFlag)
+STACK_AS_INT_CONST_FROM(Qt::ImageConversionFlags, Qt::ImageConversionFlag)
+
+STACK_AS_INT_FROM(QCP::AntialiasedElements, QCP::AntialiasedElement)
+STACK_AS_INT_FROM(QCP::Interactions, QCP::Interaction)
 STACK_AS_INT_FROM(QCP::MarginSides, QCP::MarginSide)
+STACK_AS_INT_FROM(QCP::PlottingHints, QCP::PlottingHint)
 STACK_AS_INT_FROM(QCPAxis::AxisTypes, QCPAxis::AxisType)
 
 STACK_AS_INT_CONST_FROM(QCP::AntialiasedElements, QCP::AntialiasedElement)
 STACK_AS_INT_CONST_FROM(QCP::Interactions, QCP::Interaction)
+STACK_AS_INT_CONST_FROM(QCP::MarginSides, QCP::MarginSide)
 STACK_AS_INT_CONST_FROM(QCP::PlottingHints, QCP::PlottingHint)
+STACK_AS_INT_CONST_FROM(QCPAxis::AxisTypes, QCPAxis::AxisType)
 
 #undef STACK_AS_INT
 #undef STACK_AS_INT_FROM

@@ -65,7 +65,7 @@ sudo tar -g macOSinfo -cJvPf macOS_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz /mnt/ma
 
 sudo tar -g macOSinfo -cJvPf macOS_diff_`date +%Y%m%d-%H%M%S`.tar.xz /mnt/macos
 
-sudo tar -g macOSinfo -cvPf - /mnt/macos 2>err.txt | parallel --pipe --recend "" -k -j4 xz -zc > macOS_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
+sudo tar -g macOSinfo -cvpPf - /mnt/macos 2>err.txt | parallel --pipe --recend "" -k -j4 xz -zc > macOS_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
 
 # --hfs分区的操作------------------------
 
@@ -96,14 +96,14 @@ pre_placehoder_5
 # 这时管道前面的不是作为参数，而是标准输入传给后面的命令
 cat my_large_log | parallel --pipe grep pattern 
 
-sudo tar -g sysinfo -cvPf - /media/xt/win10 | parallel --pipe --recend "" -k -j4 xz -zc > win10.tar.xz
-sudo tar -g sysinfo -cvPf - /usr | parallel --pipe --recend "" -j4 -k -j4 xz -zc > usr.tar.xz
+sudo tar -g sysinfo -cvpPf - /media/xt/win10 | parallel --pipe --recend "" -k -j4 xz -zc > win10.tar.xz
+sudo tar -g sysinfo -cvpPf - /usr | parallel --pipe --recend "" -j4 -k -j4 xz -zc > usr.tar.xz
 
-sudo tar -g sysinfo -cvPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > sys_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
+sudo tar -g sysinfo -cvpPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > sys_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
 
-sudo tar -g sysinfo -cvPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz
+sudo tar -g sysinfo -cvpPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz
 
-sudo tar -g homeinfo -cvPf - /home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > home_diff_`date +%Y%m%d-%H%M%S`.tar.xz
+sudo tar -g homeinfo -cvpPf - /home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > home_diff_`date +%Y%m%d-%H%M%S`.tar.xz
 
 # --输出重定向--------------------
 

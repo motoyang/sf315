@@ -5,19 +5,22 @@ cmake_policy(SET CMP0071 OLD)
 #设置工程名称
 project(luaplot)
 
-# OFF is the default
-option(USE_CLANG "build application with clang" OFF)
-
+# ON is the default
+option(USE_CLANG "build application with clang" ON)
 if(USE_CLANG)
   # begin of clang settings
   set(CMAKE_C_COMPILER "clang")
   set(CMAKE_CXX_COMPILER "clang++")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
-  include_directories(~/.local/include/c++/v1)
+  include_directories(~/.local/include/c++/v1 /usr/local/include)
   link_directories(~/.local/lib/)
   # end of clang
 endif()
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX17_EXTENSION_COMPILE_OPTION "-std=c++17")
+#set(CMAKE_CXX17_STANDARD_COMPILE_OPTION "")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -v -Wno-inconsistent-missing-override")
 
 #设置工程包含当前目录，非必须
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -25,10 +28,9 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_BUILD_TYPE "Debug")
 #set(CMAKE_BUILD_TYPE "Release")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 # cmake在生成链接文件时，会自动加上-rdyamic, 加入以下两句清空动态链接的选项
-set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS " ")
-set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS " ")
+#set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS " ")
+#set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS " ")
 
 #设置自动生成moc文件，一定要设置
 set(CMAKE_AUTOMOC ON)
@@ -70,7 +72,6 @@ add_library(${VER_LIB} ${VER_FILE})
 #创建工程文件
 add_executable(${PROJECT_NAME}
     ${SRC_FILES}
-#    ${HEAD_FILES}
     ${QRC_FILES}
     ${WRAP_FILES}
     )
@@ -82,7 +83,6 @@ target_link_libraries(${PROJECT_NAME}
     Qt5::Widgets Qt5::Core Qt5::Gui Qt5::PrintSupport
     )
 #link_directories(/lib/x86_64-linux-gnu)
-
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lua)
 
 add_custom_command(TARGET ${VER_LIB}
