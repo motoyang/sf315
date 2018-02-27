@@ -24,12 +24,12 @@ function fp(plot)
   colorMap:data():setSize(nx, ny)
   colorMap:data():setRange(luaplot.Range(-4, 4), luaplot.Range(-4, 4))
   local data = colorMap:data()
-  local x, y = luaplot.ColorMapDataHelper.cellToCoord(data, 1, 2)
+  local x, y = luaplot.ColorMapData.cellToCoord(data, 1, 2)
 
   for xIndex = 0, nx-1 do
     for yIndex = 0, ny-1 do
       local data = colorMap:data()
-      local x, y = luaplot.ColorMapDataHelper.cellToCoord(data, xIndex, yIndex)
+      local x, y = luaplot.ColorMapData.cellToCoord(data, xIndex, yIndex)
       local r = 3 * math.sqrt(x*x+y*y) + 0.01
       local z = 2*x*(math.cos(r+2)/r-math.sin(r+2)/r)
       colorMap:data():setCell(xIndex, yIndex, z)

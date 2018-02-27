@@ -17,9 +17,10 @@ if(USE_CLANG)
   # end of clang
 endif()
 
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX17_EXTENSION_COMPILE_OPTION "-std=c++17")
-#set(CMAKE_CXX17_STANDARD_COMPILE_OPTION "")
+#set(CMAKE_CXX17_EXTENSION_COMPILE_OPTION "-std=c++17")
+set(CMAKE_CXX17_STANDARD_COMPILE_OPTION "-std=c++17")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -v -Wno-inconsistent-missing-override")
 
 #设置工程包含当前目录，非必须
@@ -31,6 +32,8 @@ set(CMAKE_BUILD_TYPE "Debug")
 # cmake在生成链接文件时，会自动加上-rdyamic, 加入以下两句清空动态链接的选项
 #set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS " ")
 #set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS " ")
+
+#set(CMAKE_LINK_LIBRARY_FLAG "-Wl,--as-needed ")
 
 #设置自动生成moc文件，一定要设置
 set(CMAKE_AUTOMOC ON)

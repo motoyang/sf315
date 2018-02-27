@@ -18,7 +18,7 @@ local function fp(plot)
   local value1={}
   local value2={}
 
-  local start = luaplot.QDateTime(luaplot.QDate(2018,1,18))
+  local start = luaplot.QDateTime.fromDate(luaplot.QDate.fromYMD(2018,2,18))
   start:setTimeSpec(qt.UTC)
   local startTime = start:toTime_t()
   local binSize = 3600*24

@@ -43,6 +43,8 @@
 */
 //==============================================================================
 
+#pragma once
+
 /**
   None type means void parameters or return value.
 */

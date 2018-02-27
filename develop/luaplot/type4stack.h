@@ -184,8 +184,8 @@ template <>
 struct Stack<QCPBarsData const&>
     : public TablePushAndGet
 {
-    static const char* key;
-    static const char* value;
+    constexpr static const char* key = "key";
+    constexpr static const char* value = "value";
 
     static void push (lua_State* L, QCPBarsData const& v)
     {
@@ -206,20 +206,20 @@ struct Stack<QCPBarsData const&>
         return d;
     }
 };
-const char* Stack<QCPBarsData const&>::key = "key";
-const char* Stack<QCPBarsData const&>::value = "value";
 
 template <>
 struct Stack<QCPBarsData>
     : public Stack<QCPBarsData const&>
 {};
 
+// --
+
 template <>
 struct Stack<QCPErrorBarsData const&>
     : public TablePushAndGet
 {
-    static const char* errorMinus;
-    static const char* errorPlus;
+    constexpr static const char* errorMinus = "errorMinus";
+    constexpr static const char* errorPlus = "errorPlus";
 
     static void push (lua_State* L, QCPErrorBarsData const& v)
     {
@@ -240,23 +240,23 @@ struct Stack<QCPErrorBarsData const&>
         return d;
     }
 };
-const char* Stack<QCPErrorBarsData const&>::errorMinus = "errorMinus";
-const char* Stack<QCPErrorBarsData const&>::errorPlus = "errorPlus";
 
 template <>
 struct Stack<QCPErrorBarsData>
     : public Stack<QCPErrorBarsData const&>
 {};
 
+// --
+
 template <>
 struct Stack<QCPFinancialData const&>
     : public TablePushAndGet
 {
-    static const char* key;
-    static const char* open;
-    static const char* high;
-    static const char* low;
-    static const char* close;
+    constexpr static const char* key = "key";
+    constexpr static const char* open = "open";
+    constexpr static const char* high = "high";
+    constexpr static const char* low = "low";
+    constexpr static const char* close = "close";
 
     static void push (lua_State* L, QCPFinancialData const& v)
     {
@@ -283,24 +283,22 @@ struct Stack<QCPFinancialData const&>
         return d;
     }
 };
-const char* Stack<QCPFinancialData const&>::key = "key";
-const char* Stack<QCPFinancialData const&>::open = "open";
-const char* Stack<QCPFinancialData const&>::high = "high";
-const char* Stack<QCPFinancialData const&>::low = "low";
-const char* Stack<QCPFinancialData const&>::close = "close";
 
 template <>
 struct Stack<QCPFinancialData>
     : public Stack<QCPFinancialData const&>
 {};
 
+// --
+
 template <>
 struct Stack<QCPCurveData const&>
     : public TablePushAndGet
 {
-    static const char* t;
-    static const char* key;
-    static const char* value;
+    constexpr static const char* t = "t";
+    constexpr static const char* key = "key";
+    constexpr static const char* value = "value";
+
     static void push (lua_State* L, QCPCurveData const& v)
     {
         lua_newtable(L);
@@ -323,21 +321,21 @@ struct Stack<QCPCurveData const&>
     }
 
 };
-const char* Stack<QCPCurveData const&>::t = "t";
-const char* Stack<QCPCurveData const&>::key = "key";
-const char* Stack<QCPCurveData const&>::value = "value";
 
 template <>
 struct Stack<QCPCurveData>
     : public Stack<QCPCurveData const&>
 {};
 
+// --
+
 template <>
 struct Stack<QCPGraphData const&>
     : public TablePushAndGet
 {
-    static const char* key;
-    static const char* value;
+    constexpr static const char* key = "key";
+    constexpr static const char* value = "value";
+
     static void push (lua_State* L, QCPGraphData const& v)
     {
         lua_newtable(L);
@@ -357,25 +355,26 @@ struct Stack<QCPGraphData const&>
         return d;
     }
 };
-const char* Stack<QCPGraphData const&>::key = "key";
-const char* Stack<QCPGraphData const&>::value = "value";
 
 template <>
 struct Stack<QCPGraphData>
     : public Stack<QCPGraphData const&>
 {};
 
+// --
+
 template <>
 struct Stack<QCPStatisticalBoxData const&>
     : public TablePushAndGet
 {
-    static const char* key;
-    static const char* minimum;
-    static const char* lowerQuartile;
-    static const char* median;
-    static const char* upperQuartile;
-    static const char* maximum;
-    static const char* outliers;
+    constexpr static const char* key = "key";
+    constexpr static const char* minimum = "minimum";
+    constexpr static const char* lowerQuartile = "lowerQuartile";
+    constexpr static const char* median = "median";
+    constexpr static const char* upperQuartile = "upperQuartile";
+    constexpr static const char* maximum = "maximum";
+    constexpr static const char* outliers = "outliers";
+
     static void push (lua_State* L, QCPStatisticalBoxData const& v)
     {
         lua_newtable(L);
@@ -405,13 +404,6 @@ struct Stack<QCPStatisticalBoxData const&>
         return d;
     }
 };
-const char* Stack<QCPStatisticalBoxData const&>::key = "key";
-const char* Stack<QCPStatisticalBoxData const&>::minimum = "minimum";
-const char* Stack<QCPStatisticalBoxData const&>::lowerQuartile = "lowerQuartile";
-const char* Stack<QCPStatisticalBoxData const&>::median = "median";
-const char* Stack<QCPStatisticalBoxData const&>::upperQuartile = "upperQuartile";
-const char* Stack<QCPStatisticalBoxData const&>::maximum = "maximum";
-const char* Stack<QCPStatisticalBoxData const&>::outliers = "outliers";
 
 template <>
 struct Stack<QCPStatisticalBoxData>
