@@ -48,7 +48,7 @@ namespace luabridge
 
 // Forward declaration
 //
-template <class T>
+template <class T, class Enable = void>
 struct Stack;
 
 #include "detail/LuaHelpers.h"

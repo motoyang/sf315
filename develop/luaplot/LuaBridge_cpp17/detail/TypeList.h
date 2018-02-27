@@ -196,144 +196,11 @@ decltype(auto) obj_apply(T* obj, Function&& func, Tuple&& t)
 }
 
 // --
-/*
-template<typename Tuple>
-struct AlBase
-{
-};
 
-template<typename Head, typename... Args>
-struct AlBase<std::tuple<Head, Args...>>
-{
-    Head _h;
-    AlBase<std::tuple<Args...>> _t;
-
-    AlBase(Head h, AlBase<std::tuple<Args...>> const& t)
-        : _h(h)
-        , _t(t)
-    {}
-
-    decltype(auto) tuple() const
-    {
-        auto t = std::tuple_cat(std::make_tuple(_h), _t.tuple());
-        return t;
-    }
-
-    void print()
-    {
-      std::cout << _h << ", ";
-      _t.print();
-    }
-};
-
-template<typename Head>
-struct AlBase<std::tuple<Head>>
-{
-    Head _h;
-
-    AlBase(Head h)
-        : _h(h)
-    {}
-
-    decltype(auto) tuple() const
-    {
-        return std::make_tuple(_h);
-    }
-
-    void print()
-    {
-      std::cout << _h << std::endl;
-    }
-};
-
-template<>
-struct AlBase<std::tuple<>>
-{
-    AlBase(lua_State* L)
-    {
-    }
-
-    decltype(auto) tuple() const
-    {
-        return std::tuple<>();
-    }
-
-    void print()
-    {
-    }
-};
-*/
 template<int index, typename Tuple>
 struct ArgList2
 {
 };
-/*
-template <int index, typename Head, typename... Args>
-struct ArgList2<index, std::tuple<Head, Args...>>
-        : public AlBase<std::tuple<Head, Args...>>
-{
-    ArgList2(lua_State* L)
-             : AlBase<std::tuple<Head, Args...>>(Stack<Head>::get(L, index),
-                                                 ArgList2<index+1, std::tuple<Args...>>(L))
-    {}
-};
-
-template <int index, typename Head, typename... Args>
-struct ArgList2<index, std::tuple<Head&, Args...>>
-        : public AlBase<std::tuple<Head, Args...>>
-{
-    ArgList2(lua_State* L)
-             : AlBase<std::tuple<Head, Args...>>(Stack<Head>::get(L, index),
-                      ArgList2<index+1, std::tuple<Args...>>(L))
-    {}
-};
-
-template <int index, typename Head, typename... Args>
-struct ArgList2<index, std::tuple<Head const&, Args...>>
-        : public AlBase<std::tuple<Head, Args...>>
-{
-    ArgList2(lua_State* L)
-             : AlBase<std::tuple<Head, Args...>>(Stack<Head>::get(L, index),
-                      ArgList2<index+1, std::tuple<Args...>>(L))
-    {}
-};
-
-template <int index, typename Head>
-struct ArgList2<index, std::tuple<Head>>
-        : public AlBase<std::tuple<Head>>
-{
-    ArgList2(lua_State* L)
-             : AlBase<std::tuple<Head>>(Stack<Head>::get(L, index))
-    {}
-};
-
-template <int index, typename Head>
-struct ArgList2<index, std::tuple<Head&>>
-        : public AlBase<std::tuple<Head>>
-{
-    ArgList2(lua_State* L)
-             : AlBase<std::tuple<Head>>(Stack<Head>::get(L, index))
-    {}
-};
-
-template <int index, typename Head>
-struct ArgList2<index, std::tuple<Head const&>>
-        : public AlBase<std::tuple<Head>>
-{
-    ArgList2(lua_State* L)
-             : AlBase<std::tuple<Head>>(Stack<Head>::get(L, index))
-    {}
-};
-
-template<int index>
-struct ArgList2<index, std::tuple<>>
-        : public AlBase<std::tuple<>>
-{
-    ArgList2(lua_State* L)
-        : AlBase<std::tuple<>>(L)
-    {}
-};
-*/
 
 template <int index, typename Head, typename... Args>
 struct ArgList2<index, std::tuple<Head, Args...>>
@@ -360,48 +227,20 @@ struct ArgList2<index, std::tuple<Head, Args...>>
 
 template <int index, typename Head, typename... Args>
 struct ArgList2<index, std::tuple<Head&, Args...>>
+    : public ArgList2<index, std::tuple<Head, Args...>>
 {
-    Head _h;
-    ArgList2<index+1, std::tuple<Args...>> _t;
-
     ArgList2(lua_State* L)
-        : _h(Stack<Head>::get(L, index))
-        , _t(L)
+        : ArgList2<index, std::tuple<Head, Args...>>(L)
     {}
-
-    decltype(auto) tuple() const
-    {
-        return std::tuple_cat(std::make_tuple(_h), _t.tuple());
-    }
-
-    void print() const
-    {
-      std::cout << _h << ", ";
-      _t.print();
-    }
 };
 
 template <int index, typename Head, typename... Args>
 struct ArgList2<index, std::tuple<Head const&, Args...>>
+    : public ArgList2<index, std::tuple<Head, Args...>>
 {
-    Head _h;
-    ArgList2<index+1, std::tuple<Args...>> _t;
-
     ArgList2(lua_State* L)
-        : _h(Stack<Head>::get(L, index))
-        , _t(L)
+        : ArgList2<index, std::tuple<Head, Args...>>(L)
     {}
-
-    decltype(auto) tuple() const
-    {
-        return std::tuple_cat(std::make_tuple(_h), _t.tuple());
-    }
-
-    void print() const
-    {
-      std::cout << _h << ", ";
-      _t.print();
-    }
 };
 
 template <int index, typename Head>
@@ -426,44 +265,23 @@ struct ArgList2<index, std::tuple<Head>>
 
 template <int index, typename Head>
 struct ArgList2<index, std::tuple<Head&>>
+    : public ArgList2<index, std::tuple<Head>>
 {
-    Head _h;
     ArgList2(lua_State* L)
-        : _h(Stack<Head>::get(L, index))
-    {
-    }
-
-    decltype(auto) tuple() const
-    {
-        return std::make_tuple(_h);
-    }
-
-    void print() const
-    {
-      std::cout << _h << std::endl;
-    }
+        : ArgList2<index, std::tuple<Head>>(L)
+    {}
 };
 
 template <int index, typename Head>
 struct ArgList2<index, std::tuple<Head const&>>
+    : public ArgList2<index, std::tuple<Head>>
 {
-    Head _h;
     ArgList2(lua_State* L)
-        : _h(Stack<Head>::get(L, index))
-    {
-    }
-
-    decltype(auto) tuple() const
-    {
-        return std::make_tuple(_h);
-    }
-
-    void print() const
-    {
-      std::cout << _h << std::endl;
-    }
+        : ArgList2<index, std::tuple<Head>>(L)
+    {}
 };
 
+// 参数列表为空
 template <int index>
 struct ArgList2<index, std::tuple<>>
 {

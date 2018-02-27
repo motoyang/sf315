@@ -5,112 +5,45 @@
 
 namespace luabridge {
 
-#define STACK_AS_INT(X) \
-template <> struct Stack <X> { \
-    static void push (lua_State* L, X v) { \
-    lua_pushinteger(L, static_cast<int>(v)); \
-    } \
-    static X get (lua_State* L, int index) { \
-    return static_cast<X>(luaL_checkinteger(L, index)); \
-    } \
+// 针对enum类型的stack
+template<typename T>
+struct Stack<T, typename std::enable_if_t<std::is_enum<T>::value>>
+{
+    static void push (lua_State* L, T v) {
+        lua_pushinteger(L, static_cast<int>(v));
+    }
+    static T get (lua_State* L, int index) {
+        return static_cast<T>(luaL_checkinteger(L, index));
+    }
 };
 
-#define STACK_AS_INT_FROM(Y, X) \
-template <> struct Stack <Y> { \
-    static void push (lua_State* L, Y v) { \
-    lua_pushinteger(L, static_cast<int>(v)); \
-    } \
-    static Y get (lua_State* L, int index) { \
-    return Y(static_cast<X>(luaL_checkinteger(L, index))); \
-    } \
+// 针对QFlags<enum>类型的stack
+template<typename T>
+struct Stack<T, typename std::enable_if_t<
+    std::is_same<T, QFlags<typename T::enum_type>>::value &&
+        std::is_enum<typename T::enum_type>::value>>
+{
+    static void push (lua_State* L, T v) {
+        Stack<typename T::Int>::push(L, v);
+    }
+    static T get (lua_State* L, int index) {
+        return T(Stack<typename T::enum_type>::get(L, index));
+    }
 };
 
-#define STACK_AS_INT_CONST_FROM(Y, X) \
-template <> struct Stack <Y const&> { \
-    static void push (lua_State* L, Y v) { \
-    lua_pushinteger(L, static_cast<int>(v)); \
-    } \
-    static Y get (lua_State* L, int index) { \
-    return Y(static_cast<X>(luaL_checkinteger(L, index))); \
-    } \
-};
-
-STACK_AS_INT(Qt::AlignmentFlag)
-STACK_AS_INT(Qt::AspectRatioMode)
-STACK_AS_INT(Qt::BrushStyle)
-STACK_AS_INT(Qt::ConnectionType)
-STACK_AS_INT(Qt::GlobalColor)
-STACK_AS_INT(Qt::PenCapStyle)
-STACK_AS_INT(Qt::PenJoinStyle)
-STACK_AS_INT(Qt::PenStyle)
-STACK_AS_INT(Qt::TimeSpec)
-STACK_AS_INT(Qt::TransformationMode)
-STACK_AS_INT(Qt::WidgetAttribute)
-STACK_AS_INT(QLocale::Country)
-STACK_AS_INT(QLocale::Language)
-STACK_AS_INT(QLocale::Script)
-
-STACK_AS_INT(QCP::AntialiasedElement)
-STACK_AS_INT(QCP::MarginSide)
-STACK_AS_INT(QCP::PlottingHint)
-STACK_AS_INT(QCPAxis::AxisType)
-STACK_AS_INT(QCPAxis::LabelSide)
-STACK_AS_INT(QCPAxis::SelectablePart)
-STACK_AS_INT(QCPAxis::ScaleType)
-STACK_AS_INT(QCPAxisTicker::TickStepStrategy)
-STACK_AS_INT(QCPAxisTickerFixed::ScaleStrategy)
-STACK_AS_INT(QCPAxisTickerPi::FractionStyle)
-STACK_AS_INT(QCPAxisTickerTime::TimeUnit)
-STACK_AS_INT(QCPBars::WidthType)
-STACK_AS_INT(QCPBarsGroup::SpacingType)
-STACK_AS_INT(QCPColorGradient::ColorInterpolation)
-STACK_AS_INT(QCPColorGradient::GradientPreset)
-STACK_AS_INT(QCPCurve::LineStyle)
-STACK_AS_INT(QCPErrorBars::ErrorType)
-STACK_AS_INT(QCPFinancial::WidthType)
-STACK_AS_INT(QCPFinancial::ChartStyle)
-STACK_AS_INT(QCPGraph::LineStyle)
-STACK_AS_INT(QCPItemBracket::BracketStyle)
-STACK_AS_INT(QCPItemPosition::PositionType)
-STACK_AS_INT(QCPItemTracer::TracerStyle)
-STACK_AS_INT(QCPLayer::LayerMode)
-STACK_AS_INT(QCPLayoutElement::SizeConstraintRect)
-STACK_AS_INT(QCPLayoutElement::UpdatePhase)
-STACK_AS_INT(QCPLayoutGrid::FillOrder)
-STACK_AS_INT(QCPLayoutInset::InsetPlacement)
-STACK_AS_INT(QCPLegend::SelectablePart)
-STACK_AS_INT(QCPLineEnding::EndingStyle)
-STACK_AS_INT(QCPPainter::PainterMode)
-STACK_AS_INT(QCPScatterStyle::ScatterProperty)
-STACK_AS_INT(QCPScatterStyle::ScatterShape)
-STACK_AS_INT(QCPSelectionDecoratorBracket::BracketStyle)
-STACK_AS_INT(QCustomPlot::LayerInsertMode)
-STACK_AS_INT(QCustomPlot::RefreshPriority)
-
-STACK_AS_INT_FROM(Qt::Alignment, Qt::AlignmentFlag)
-STACK_AS_INT_FROM(Qt::ImageConversionFlags, Qt::ImageConversionFlag)
-
-STACK_AS_INT_CONST_FROM(Qt::Alignment, Qt::AlignmentFlag)
-STACK_AS_INT_CONST_FROM(Qt::ImageConversionFlags, Qt::ImageConversionFlag)
-
-STACK_AS_INT_FROM(QCP::AntialiasedElements, QCP::AntialiasedElement)
-STACK_AS_INT_FROM(QCP::Interactions, QCP::Interaction)
-STACK_AS_INT_FROM(QCP::MarginSides, QCP::MarginSide)
-STACK_AS_INT_FROM(QCP::PlottingHints, QCP::PlottingHint)
-STACK_AS_INT_FROM(QCPAxis::AxisTypes, QCPAxis::AxisType)
-
-STACK_AS_INT_CONST_FROM(QCP::AntialiasedElements, QCP::AntialiasedElement)
-STACK_AS_INT_CONST_FROM(QCP::Interactions, QCP::Interaction)
-STACK_AS_INT_CONST_FROM(QCP::MarginSides, QCP::MarginSide)
-STACK_AS_INT_CONST_FROM(QCP::PlottingHints, QCP::PlottingHint)
-STACK_AS_INT_CONST_FROM(QCPAxis::AxisTypes, QCPAxis::AxisType)
-
-#undef STACK_AS_INT
-#undef STACK_AS_INT_FROM
-#undef STACK_AS_INT_CONST_FROM
+// 针对QFlags<enum> const&类型的stack
+template<typename T>
+struct Stack<T const&, typename std::enable_if_t<
+    std::is_same<T, QFlags<typename T::enum_type>>::value &&
+        std::is_enum<typename T::enum_type>::value>>
+    : public Stack<T, typename std::enable_if_t<
+        std::is_same<T, QFlags<typename T::enum_type>>::value &&
+            std::is_enum<typename T::enum_type>::value>>
+{};
 
 // --
 
+// lua table的get和push
 struct TablePushAndGet
 {
     template<typename T>
@@ -135,36 +68,30 @@ struct TablePushAndGet
 // --
 
 template <>
-struct Stack <QString const&>
+struct Stack<QString const&>
 {
     static void push (lua_State* L, QString const& s)
     {
-        lua_pushstring (L, s.toUtf8().constData());
+        Stack<const char*>::push(L, s.toUtf8().constData());
     }
 
     static QString get (lua_State* L, int index)
     {
-        return QString::fromUtf8(luaL_checkstring (L, index));
+        return QString::fromUtf8(Stack<const char*>::get(L, index));
     }
 };
 
 template <>
-struct Stack <QString>
-{
-    static void push (lua_State* L, QString s)
-    {
-        Stack<QString const&>::push(L, s);
-    }
-    static QString get (lua_State* L, int index)
-    {
-        return Stack<QString const&>::get(L, index);
-    }
-};
+struct Stack<QString>
+    : public Stack<QString const&>
+{};
+
+// --
 
 template <typename T>
-struct Stack <QSharedPointer<T>>
+struct Stack<QSharedPointer<T> const&>
 {
-    static void push (lua_State* L, QSharedPointer<T> s)
+    static void push (lua_State* L, QSharedPointer<T> const& s)
     {
         Stack<T*>::push(L, s.data());
     }
@@ -175,7 +102,14 @@ struct Stack <QSharedPointer<T>>
 };
 
 template <typename T>
-struct Stack <QList<T*> >
+struct Stack <QSharedPointer<T>>
+    : public Stack<QSharedPointer<T> const&>
+{};
+
+// --
+
+template <typename T>
+struct Stack<QList<T*> const&>
 {
     static void push (lua_State* L, QList<T*> const& v)
     {
@@ -203,7 +137,14 @@ struct Stack <QList<T*> >
 };
 
 template <typename T>
-struct Stack <QVector<T> const&>
+struct Stack<QList<T*>>
+    : public Stack <QList<T*> const&>
+{};
+
+// --
+
+template <typename T>
+struct Stack<QVector<T> const&>
 {
     static void push (lua_State* L, QVector<T> const& v)
     {
@@ -233,23 +174,15 @@ struct Stack <QVector<T> const&>
 };
 
 template <typename T>
-struct Stack <QVector<T> >
-{
-    static void push (lua_State* L, QVector<T> const& v)
-    {
-        Stack<QVector<T> const&>::push(L, v);
-    }
-
-    static QVector<T> get (lua_State* L, int index)
-    {
-        return Stack<QVector<T> const&>::get(L, index);
-    }
-};
+struct Stack<QVector<T>>
+    : public Stack<QVector<T> const&>
+{};
 
 // --
 
 template <>
-struct Stack <QCPBarsData const&> : public TablePushAndGet
+struct Stack<QCPBarsData const&>
+    : public TablePushAndGet
 {
     static const char* key;
     static const char* value;
@@ -277,21 +210,13 @@ const char* Stack<QCPBarsData const&>::key = "key";
 const char* Stack<QCPBarsData const&>::value = "value";
 
 template <>
-struct Stack <QCPBarsData>
-{
-    static void push (lua_State* L, QCPBarsData const& v)
-    {
-        Stack<QCPBarsData const&>::push(L, v);
-    }
-
-    static QCPBarsData get (lua_State* L, int index)
-    {
-        return Stack<QCPBarsData const&>::get(L, index);
-    }
-};
+struct Stack<QCPBarsData>
+    : public Stack<QCPBarsData const&>
+{};
 
 template <>
-struct Stack <QCPErrorBarsData const&> : public TablePushAndGet
+struct Stack<QCPErrorBarsData const&>
+    : public TablePushAndGet
 {
     static const char* errorMinus;
     static const char* errorPlus;
@@ -319,21 +244,13 @@ const char* Stack<QCPErrorBarsData const&>::errorMinus = "errorMinus";
 const char* Stack<QCPErrorBarsData const&>::errorPlus = "errorPlus";
 
 template <>
-struct Stack <QCPErrorBarsData>
-{
-    static void push (lua_State* L, QCPErrorBarsData const& v)
-    {
-        Stack<QCPErrorBarsData const&>::push(L, v);
-    }
-
-    static QCPErrorBarsData get (lua_State* L, int index)
-    {
-        return Stack<QCPErrorBarsData const&>::get(L, index);
-    }
-};
+struct Stack<QCPErrorBarsData>
+    : public Stack<QCPErrorBarsData const&>
+{};
 
 template <>
-struct Stack <QCPFinancialData const&> : public TablePushAndGet
+struct Stack<QCPFinancialData const&>
+    : public TablePushAndGet
 {
     static const char* key;
     static const char* open;
@@ -373,21 +290,13 @@ const char* Stack<QCPFinancialData const&>::low = "low";
 const char* Stack<QCPFinancialData const&>::close = "close";
 
 template <>
-struct Stack <QCPFinancialData>
-{
-    static void push (lua_State* L, QCPFinancialData const& v)
-    {
-        Stack<QCPFinancialData const&>::push(L, v);
-    }
-
-    static QCPFinancialData get (lua_State* L, int index)
-    {
-        return Stack<QCPFinancialData const&>::get(L, index);
-    }
-};
+struct Stack<QCPFinancialData>
+    : public Stack<QCPFinancialData const&>
+{};
 
 template <>
-struct Stack <QCPCurveData const&> : public TablePushAndGet
+struct Stack<QCPCurveData const&>
+    : public TablePushAndGet
 {
     static const char* t;
     static const char* key;
@@ -419,21 +328,13 @@ const char* Stack<QCPCurveData const&>::key = "key";
 const char* Stack<QCPCurveData const&>::value = "value";
 
 template <>
-struct Stack <QCPCurveData>
-{
-    static void push (lua_State* L, QCPCurveData const& v)
-    {
-        Stack<QCPCurveData const&>::push(L, v);
-    }
-
-    static QCPCurveData get (lua_State* L, int index)
-    {
-        return Stack<QCPCurveData const&>::get(L, index);
-    }
-};
+struct Stack<QCPCurveData>
+    : public Stack<QCPCurveData const&>
+{};
 
 template <>
-struct Stack <QCPGraphData const&> : public TablePushAndGet
+struct Stack<QCPGraphData const&>
+    : public TablePushAndGet
 {
     static const char* key;
     static const char* value;
@@ -460,21 +361,13 @@ const char* Stack<QCPGraphData const&>::key = "key";
 const char* Stack<QCPGraphData const&>::value = "value";
 
 template <>
-struct Stack <QCPGraphData>
-{
-    static void push (lua_State* L, QCPGraphData const& v)
-    {
-        Stack<QCPGraphData const&>::push(L, v);
-    }
-
-    static QCPGraphData get (lua_State* L, int index)
-    {
-        return Stack<QCPGraphData const&>::get(L, index);
-    }
-};
+struct Stack<QCPGraphData>
+    : public Stack<QCPGraphData const&>
+{};
 
 template <>
-struct Stack <QCPStatisticalBoxData const&> : public TablePushAndGet
+struct Stack<QCPStatisticalBoxData const&>
+    : public TablePushAndGet
 {
     static const char* key;
     static const char* minimum;
@@ -521,18 +414,9 @@ const char* Stack<QCPStatisticalBoxData const&>::maximum = "maximum";
 const char* Stack<QCPStatisticalBoxData const&>::outliers = "outliers";
 
 template <>
-struct Stack <QCPStatisticalBoxData>
-{
-    static void push (lua_State* L, QCPStatisticalBoxData const& v)
-    {
-        Stack<QCPStatisticalBoxData const&>::push(L, v);
-    }
-
-    static QCPStatisticalBoxData get (lua_State* L, int index)
-    {
-        return Stack<QCPStatisticalBoxData const&>::get(L, index);
-    }
-};
+struct Stack<QCPStatisticalBoxData>
+    : public Stack<QCPStatisticalBoxData const&>
+{};
 
 }   // namespace luabridge end.
 
