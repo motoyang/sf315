@@ -13,20 +13,20 @@ local qt=require("qcpplot.qt5")
 -- fp means function of plot
 function fp(plot)
   plot.legend:setVisible(true)
-  plot.legend:setFont(luaplot.FontConstructor.fromFamily("Helvetica", 9, -1, false))
+  plot.legend:setFont(luaplot.QFont.fromFamily("Helvetica", 9, -1, false))
   local pen = luaplot.QPen()
   local lineNames = {"lsNone", "lsLine", "lsStepLeft", "lsStepRight", "lsStepCenter", "lsImpulse"}
 
   for i=qcp.Graph.lsNone, qcp.Graph.lsImpulse do
     plot:addGraph(nil, nil)
-    pen:setColor(luaplot.ColorConstructor.fromRGB(math.floor(0.5+math.sin(i*1+1.2)*80+80), math.floor(0.5+ math.sin(i*0.3+0)*80+80), math.floor(0.5+math.sin(i*0.3+1.5)*80+80), 255))
+    pen:setColor(luaplot.QColor.fromRGB(math.floor(0.5+math.sin(i*1+1.2)*80+80), math.floor(0.5+ math.sin(i*0.3+0)*80+80), math.floor(0.5+math.sin(i*0.3+1.5)*80+80), 255))
     plot:lastGraph():setPen(pen)
 
     local idx = i-qcp.Graph.lsNone
     local name = lineNames[idx+1]
     plot:lastGraph():setName(name)
     plot:lastGraph():setLineStyle(i)
-    plot:lastGraph():setScatterStyle(luaplot.ScatterStyleConstructor.fromShapeAndSize(qcp.ScatterStyle.ssCircle, 5))
+    plot:lastGraph():setScatterStyle(luaplot.ScatterStyle.fromShapeAndSize(qcp.ScatterStyle.ssCircle, 5))
 
     -- generate data:
     local x, y = {}, {}

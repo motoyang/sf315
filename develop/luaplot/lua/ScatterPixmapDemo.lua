@@ -12,16 +12,16 @@ local qt=require("qcpplot.qt5")
 
 -- fp means function of plot
 function fp(plot)
-  plot:axisRect(0):setBackgroundByPixmap(luaplot.PixmapConstructor.fromFile("./solarpanels.png", nil, qt.AutoColor));
+  plot:axisRect(0):setBackgroundByPixmap(luaplot.QPixmap.fromFile("./solarpanels.png", nil, qt.AutoColor));
   plot:addGraph(nil, nil);
   plot:lastGraph():setLineStyle(qcp.Graph.lsLine);
   local pen = luaplot.QPen();
-  pen:setColor(luaplot.ColorConstructor.fromRGB(255, 200, 20, 200));
+  pen:setColor(luaplot.QColor.fromRGB(255, 200, 20, 200));
   pen:setStyle(qt.DashLine);
   pen:setWidthF(2.5);
   plot:lastGraph():setPen(pen);
-  plot:lastGraph():setBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(255,200,20,70), qt.SolidPattern));
-  plot:lastGraph():setScatterStyle(luaplot.ScatterStyleConstructor.fromPixmap(luaplot.PixmapConstructor.fromFile("./sun.png", nil, qt.AutoColor):scaledXY(32, 32, qt.IgnoreAspectRatio, qt.FastTransformation)));
+  plot:lastGraph():setBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(255,200,20,70), qt.SolidPattern));
+  plot:lastGraph():setScatterStyle(luaplot.ScatterStyle.fromPixmap(luaplot.QPixmap.fromFile("./sun.png", nil, qt.AutoColor):scaledXY(32, 32, qt.IgnoreAspectRatio, qt.FastTransformation)));
   -- set graph name, will show up in legend next to icon:
   plot:lastGraph():setName("Data from Photovoltaic\nenergy barometer 2011");
   -- set data:
@@ -30,7 +30,7 @@ function fp(plot)
 
   -- set title of plot:
   plot:plotLayout():insertRow(0);
-  local textElement = plot:createTextElement(plot, "Regenerative Energies", luaplot.FontConstructor.fromFamily("sans", 12, qt.Font.Bold, falsee));
+  local textElement = plot:createTextElement(plot, "Regenerative Energies", luaplot.QFont.fromFamily("sans", 12, qt.Font.Bold, falsee));
   plot:plotLayout():addElement(0, 0, textElement);
   -- axis configurations:
   plot.xAxis:setLabel("Year");
@@ -46,7 +46,7 @@ function fp(plot)
   plot.xAxis:setRange(2004.5, 2011.5);
   plot.yAxis:setRange(0, 52);
   -- setup legend:
-  plot.legend:setFont(luaplot.FontConstructor.fromFamily(plot:font():family(), 7, -1, false));
+  plot.legend:setFont(luaplot.QFont.fromFamily(plot:font():family(), 7, -1, false));
   plot.legend:setIconSizeXY(50, 20);
   plot.legend:setVisible(true);
   plot:axisRect(0):insetLayout():setInsetAlignment(0, qt.AlignLeft + qt.AlignTop);

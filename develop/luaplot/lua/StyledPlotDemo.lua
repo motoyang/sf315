@@ -41,18 +41,18 @@ function fp(plot)
   local graph1 = plot:addGraph(nil, nil);
   graph1:setVector(x1, y1);
   graph1:setScatterStyle(
-    luaplot.ScatterStyleConstructor.fromShapePenBrushAndSize(
+    luaplot.ScatterStyle.fromShapePenBrushAndSize(
       qcp.ScatterStyle.ssCircle,
-      luaplot.PenConstructor.fromBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.black), qt.SolidPattern), 1.5, qt.SolidLine, qt.SquareCap, qt.BevelJoin),
-      luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.white), qt.SolidPattern),
+      luaplot.QPen.fromBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromGlobal(qt.black), qt.SolidPattern), 1.5, qt.SolidLine, qt.SquareCap, qt.BevelJoin),
+      luaplot.QBrush.fromColor(luaplot.QColor.fromGlobal(qt.white), qt.SolidPattern),
       9
     )
   );
   
   graph1:setPen(
-    luaplot.PenConstructor.fromBrush(
-      luaplot.BrushConstructor.fromColor(
-        luaplot.ColorConstructor.fromRGB(120, 120, 120, 255),
+    luaplot.QPen.fromBrush(
+      luaplot.QBrush.fromColor(
+        luaplot.QColor.fromRGB(120, 120, 120, 255),
         qt.SolidPattern
       ),
     2, qt.SolidLine, qt.SquareCap, qt.BevelJoin
@@ -61,21 +61,21 @@ function fp(plot)
    
   local graph2 = plot:addGraph(nil, nil);
   graph2:setVector(x2, y2);
-  graph2:setPen(luaplot.PenConstructor.fromStyle(qt.NoPen));
-  graph2:setBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(200, 200, 200, 20), qt.SolidPattern));
+  graph2:setPen(luaplot.QPen.fromStyle(qt.NoPen));
+  graph2:setBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(200, 200, 200, 20), qt.SolidPattern));
   graph2:setChannelFillGraph(graph1);
    
   local bars1 = plot:createBars(plot.xAxis, plot.yAxis);
   bars1:setWidth(9/20.0);
   bars1:setVector(x3, y3);
-  bars1:setPen(luaplot.PenConstructor.fromStyle(qt.NoPen));
-  bars1:setBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(10, 140, 70, 160), qt.SolidPattern));
+  bars1:setPen(luaplot.QPen.fromStyle(qt.NoPen));
+  bars1:setBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(10, 140, 70, 160), qt.SolidPattern));
    
   local bars2 = plot:createBars(plot.xAxis, plot.yAxis);
   bars2:setWidth(9/20);
   bars2:setVector(x4, y4);
-  bars2:setPen(luaplot.PenConstructor.fromStyle(qt.NoPen));
-  bars2:setBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(10, 100, 50, 70), qt.SolidPattern));
+  bars2:setPen(luaplot.QPen.fromStyle(qt.NoPen));
+  bars2:setBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(10, 100, 50, 70), qt.SolidPattern));
   bars2:moveAbove(bars1);
    
   -- move bars above graphs and grid below bars:
@@ -86,9 +86,9 @@ function fp(plot)
   plot.yAxis:grid():setLayerByName("belowmain");
    
   -- set some pens, brushes and backgrounds:
-  local pen1 = luaplot.PenConstructor.fromBrush(
-    luaplot.BrushConstructor.fromColor(
-      luaplot.ColorConstructor.fromRGB(120, 120, 120, 255),
+  local pen1 = luaplot.QPen.fromBrush(
+    luaplot.QBrush.fromColor(
+      luaplot.QColor.fromRGB(120, 120, 120, 255),
       qt.SolidPattern
     ),
     2, qt.SolidLine, qt.SquareCap, qt.BevelJoin
@@ -99,12 +99,12 @@ function fp(plot)
   plot.yAxis:setTickPen(pen1);
   plot.xAxis:setSubTickPen(pen1);
   plot.yAxis:setSubTickPen(pen1);
-  plot.xAxis:setTickLabelColor(luaplot.ColorConstructor.fromGlobal(qt.white));
-  plot.yAxis:setTickLabelColor(luaplot.ColorConstructor.fromGlobal(qt.white));
+  plot.xAxis:setTickLabelColor(luaplot.QColor.fromGlobal(qt.white));
+  plot.yAxis:setTickLabelColor(luaplot.QColor.fromGlobal(qt.white));
   
-  pen1 = luaplot.PenConstructor.fromBrush(
-      luaplot.BrushConstructor.fromColor(
-        luaplot.ColorConstructor.fromRGB(140, 140, 140, 255),
+  pen1 = luaplot.QPen.fromBrush(
+      luaplot.QBrush.fromColor(
+        luaplot.QColor.fromRGB(140, 140, 140, 255),
         qt.SolidPattern
       ),
     2, qt.DotLine, qt.SquareCap, qt.BevelJoin
@@ -112,9 +112,9 @@ function fp(plot)
   plot.xAxis:grid():setPen(pen1);
   plot.yAxis:grid():setPen(pen1);
   
-  pen1 = luaplot.PenConstructor.fromBrush(
-    luaplot.BrushConstructor.fromColor(
-        luaplot.ColorConstructor.fromRGB(80, 80, 80, 255),
+  pen1 = luaplot.QPen.fromBrush(
+    luaplot.QBrush.fromColor(
+        luaplot.QColor.fromRGB(80, 80, 80, 255),
         qt.SolidPattern
       ),
     2, qt.DotLine, qt.SquareCap, qt.BevelJoin
@@ -123,24 +123,24 @@ function fp(plot)
   plot.yAxis:grid():setSubGridPen(pen1);
   plot.xAxis:grid():setSubGridVisible(true);
   plot.yAxis:grid():setSubGridVisible(true);
-  plot.xAxis:grid():setZeroLinePen(luaplot.PenConstructor.fromStyle(qt.NoPen));
-  plot.yAxis:grid():setZeroLinePen(luaplot.PenConstructor.fromStyle(qt.NoPen));
+  plot.xAxis:grid():setZeroLinePen(luaplot.QPen.fromStyle(qt.NoPen));
+  plot.yAxis:grid():setZeroLinePen(luaplot.QPen.fromStyle(qt.NoPen));
   plot.xAxis:setUpperEnding(luaplot.LineEnding(qcp.LineEnding.esSpikeArrow, 8, 10, false));
   plot.yAxis:setUpperEnding(luaplot.LineEnding(qcp.LineEnding.esSpikeArrow, 8, 10, false));
   
   local plotGradient = luaplot.QLinearGradient();
   plotGradient:setStartXY(0, 0);
   plotGradient:setFinalStopXY(0, 350);
-  plotGradient:setColorAt(0, luaplot.ColorConstructor.fromRGB(80, 80, 80, 255));
-  plotGradient:setColorAt(1, luaplot.ColorConstructor.fromRGB(50, 50, 50, 255));
-  plot:setBackgroundByBrush(luaplot.BrushConstructor.fromGradient(plotGradient));
+  plotGradient:setColorAt(0, luaplot.QColor.fromRGB(80, 80, 80, 255));
+  plotGradient:setColorAt(1, luaplot.QColor.fromRGB(50, 50, 50, 255));
+  plot:setBackgroundByBrush(luaplot.QBrush.fromGradient(plotGradient));
   
   local axisRectGradient = luaplot.QLinearGradient();
   axisRectGradient:setStartXY(0, 0);
   axisRectGradient:setFinalStopXY(0, 350);
-  axisRectGradient:setColorAt(0, luaplot.ColorConstructor.fromRGB(80, 80, 80, 255));
-  axisRectGradient:setColorAt(1, luaplot.ColorConstructor.fromRGB(30, 30, 30, 255));
-  plot:axisRect(0):setBackgroundByBrush(luaplot.BrushConstructor.fromGradient(axisRectGradient));
+  axisRectGradient:setColorAt(0, luaplot.QColor.fromRGB(80, 80, 80, 255));
+  axisRectGradient:setColorAt(1, luaplot.QColor.fromRGB(30, 30, 30, 255));
+  plot:axisRect(0):setBackgroundByBrush(luaplot.QBrush.fromGradient(axisRectGradient));
    
   plot:rescaleAxes();
   plot.yAxis:setRange(0, 2);

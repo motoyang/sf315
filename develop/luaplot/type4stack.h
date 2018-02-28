@@ -180,12 +180,17 @@ struct Stack<QVector<T>>
 
 // --
 
+#define CONSTEXPR_STATIC_CONST_CHAR_POINTER(s)  \
+    constexpr static const char* s = #s;
+
 template <>
 struct Stack<QCPBarsData const&>
     : public TablePushAndGet
 {
-    constexpr static const char* key = "key";
-    constexpr static const char* value = "value";
+    CONSTEXPR_STATIC_CONST_CHAR_POINTER(key)
+    CONSTEXPR_STATIC_CONST_CHAR_POINTER(value)
+//    constexpr static const char* key = "key";
+//    constexpr static const char* value = "value";
 
     static void push (lua_State* L, QCPBarsData const& v)
     {
@@ -218,8 +223,10 @@ template <>
 struct Stack<QCPErrorBarsData const&>
     : public TablePushAndGet
 {
-    constexpr static const char* errorMinus = "errorMinus";
-    constexpr static const char* errorPlus = "errorPlus";
+    CONSTEXPR_STATIC_CONST_CHAR_POINTER(errorMinus)
+    CONSTEXPR_STATIC_CONST_CHAR_POINTER(errorPlus)
+//    constexpr static const char* errorMinus = "errorMinus";
+//    constexpr static const char* errorPlus = "errorPlus";
 
     static void push (lua_State* L, QCPErrorBarsData const& v)
     {
@@ -252,11 +259,17 @@ template <>
 struct Stack<QCPFinancialData const&>
     : public TablePushAndGet
 {
-    constexpr static const char* key = "key";
-    constexpr static const char* open = "open";
-    constexpr static const char* high = "high";
-    constexpr static const char* low = "low";
-    constexpr static const char* close = "close";
+    CONSTEXPR_STATIC_CONST_CHAR_POINTER(key)
+    CONSTEXPR_STATIC_CONST_CHAR_POINTER(open)
+    CONSTEXPR_STATIC_CONST_CHAR_POINTER(high)
+    CONSTEXPR_STATIC_CONST_CHAR_POINTER(low)
+    CONSTEXPR_STATIC_CONST_CHAR_POINTER(close)
+
+//    constexpr static const char* key = "key";
+//    constexpr static const char* open = "open";
+//    constexpr static const char* high = "high";
+//    constexpr static const char* low = "low";
+//    constexpr static const char* close = "close";
 
     static void push (lua_State* L, QCPFinancialData const& v)
     {
@@ -295,9 +308,13 @@ template <>
 struct Stack<QCPCurveData const&>
     : public TablePushAndGet
 {
-    constexpr static const char* t = "t";
-    constexpr static const char* key = "key";
-    constexpr static const char* value = "value";
+    CONSTEXPR_STATIC_CONST_CHAR_POINTER(t)
+    CONSTEXPR_STATIC_CONST_CHAR_POINTER(key)
+    CONSTEXPR_STATIC_CONST_CHAR_POINTER(value)
+
+//    constexpr static const char* t = "t";
+//    constexpr static const char* key = "key";
+//    constexpr static const char* value = "value";
 
     static void push (lua_State* L, QCPCurveData const& v)
     {
@@ -333,8 +350,11 @@ template <>
 struct Stack<QCPGraphData const&>
     : public TablePushAndGet
 {
-    constexpr static const char* key = "key";
-    constexpr static const char* value = "value";
+    CONSTEXPR_STATIC_CONST_CHAR_POINTER(key)
+    CONSTEXPR_STATIC_CONST_CHAR_POINTER(value)
+
+//    constexpr static const char* key = "key";
+//    constexpr static const char* value = "value";
 
     static void push (lua_State* L, QCPGraphData const& v)
     {
@@ -367,13 +387,21 @@ template <>
 struct Stack<QCPStatisticalBoxData const&>
     : public TablePushAndGet
 {
-    constexpr static const char* key = "key";
-    constexpr static const char* minimum = "minimum";
-    constexpr static const char* lowerQuartile = "lowerQuartile";
-    constexpr static const char* median = "median";
-    constexpr static const char* upperQuartile = "upperQuartile";
-    constexpr static const char* maximum = "maximum";
-    constexpr static const char* outliers = "outliers";
+    CONSTEXPR_STATIC_CONST_CHAR_POINTER(key)
+    CONSTEXPR_STATIC_CONST_CHAR_POINTER(minimum)
+    CONSTEXPR_STATIC_CONST_CHAR_POINTER(lowerQuartile)
+    CONSTEXPR_STATIC_CONST_CHAR_POINTER(median)
+    CONSTEXPR_STATIC_CONST_CHAR_POINTER(upperQuartile)
+    CONSTEXPR_STATIC_CONST_CHAR_POINTER(maximum)
+    CONSTEXPR_STATIC_CONST_CHAR_POINTER(outliers)
+
+//    constexpr static const char* key = "key";
+//    constexpr static const char* minimum = "minimum";
+//    constexpr static const char* lowerQuartile = "lowerQuartile";
+//    constexpr static const char* median = "median";
+//    constexpr static const char* upperQuartile = "upperQuartile";
+//    constexpr static const char* maximum = "maximum";
+//    constexpr static const char* outliers = "outliers";
 
     static void push (lua_State* L, QCPStatisticalBoxData const& v)
     {

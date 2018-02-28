@@ -13,7 +13,7 @@ local qt=require("qcpplot.qt5")
 -- fp means function of plot
 function fp(plot)
   -- set locale to english, so we get english month names:
-  plot:setLocale(luaplot.LocaleConstructor.fromLanguageAndCountry(qt.Locale.English, qt.Locale.UnitedKingdom))
+  plot:setLocale(luaplot.QLocale.fromLanguageAndCountry(qt.Locale.English, qt.Locale.UnitedKingdom))
 
   -- seconds of current time, we'll use it as starting point in time for data:
   local now = luaplot.QDateTime.currentDateTime():toTime_t()
@@ -22,10 +22,10 @@ function fp(plot)
   -- create multiple graphs:
   for gi=0, 5-1 do
     plot:addGraph(nil, nil)
-    local color = luaplot.ColorConstructor.fromRGB(math.floor(20+200/4.0*gi+0.5), math.floor(70*(1.6-gi/4.0)+0.5), 150, 150)
+    local color = luaplot.QColor.fromRGB(math.floor(20+200/4.0*gi+0.5), math.floor(70*(1.6-gi/4.0)+0.5), 150, 150)
     plot:lastGraph():setLineStyle(qcp.Graph.lsLine)
-    plot:lastGraph():setPen(luaplot.PenConstructor.fromColor(color:lighter(200)))
-    plot:lastGraph():setBrush(luaplot.BrushConstructor.fromColor(color, qt.SolidPattern))
+    plot:lastGraph():setPen(luaplot.QPen.fromColor(color:lighter(200)))
+    plot:lastGraph():setBrush(luaplot.QBrush.fromColor(color, qt.SolidPattern))
 
     -- generate random walk data:
     local timeData = {}
@@ -53,8 +53,8 @@ function fp(plot)
   plot.yAxis:setTicker(textTicker)
 
   -- set a more compact font size for bottom and left axis tick labels:
-  plot.xAxis:setTickLabelFont(luaplot.FontConstructor.fromFamily(luaplot.QFont():family(), 8, -1, false))
-  plot.yAxis:setTickLabelFont(luaplot.FontConstructor.fromFamily(luaplot.QFont():family(), 8, -1, false))
+  plot.xAxis:setTickLabelFont(luaplot.QFont.fromFamily(luaplot.QFont():family(), 8, -1, false))
+  plot.yAxis:setTickLabelFont(luaplot.QFont.fromFamily(luaplot.QFont():family(), 8, -1, false))
   --  set axis labels:
   plot.xAxis:setLabel("Date")
   plot.yAxis:setLabel("Random wobbly lines value")
@@ -70,7 +70,7 @@ function fp(plot)
   plot.yAxis:setRange(0, 60)
   -- show legend with slightly transparent background brush:
   plot.legend:setVisible(true)
-  plot.legend:setBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(255, 255, 255, 150), qt.SolidPattern))
+  plot.legend:setBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(255, 255, 255, 150), qt.SolidPattern))
 end
 
 function fw(w)

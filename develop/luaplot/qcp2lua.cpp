@@ -1,37 +1,12 @@
 #include <lua.hpp>
-#include <QDebug>
 #include <iostream>
 #include "LuaBridge_cpp17/LuaBridge.h"
 #include "qcp/qcustomplot.h"
-#include "utilities.h"
 #include "luaplot.h"
 #include "mainwindow.h"
 #include "type4stack.h"
 #include "qt2lua.h"
 #include "qcp2lua.h"
-
-// --
-
-struct ScatterStyleConstructor
-{
-    static QCPScatterStyle fromShapeAndSize(QCPScatterStyle::ScatterShape shape, double size=6) {
-        return QCPScatterStyle(shape, size);
-    }
-
-    static QCPScatterStyle fromShapePenBrushAndSize(QCPScatterStyle::ScatterShape shape,
-                                     const QPen &pen, const QBrush &brush,
-                                     double size) {
-        return QCPScatterStyle(shape, pen, brush, size);
-    }
-
-    static QCPScatterStyle fromPainterPath(const QPainterPath &customPath, const QPen &pen, const QBrush &brush=Qt::NoBrush, double size=6) {
-        return QCPScatterStyle(customPath, pen, brush, size);
-    }
-
-    static QCPScatterStyle fromPixmap(const QPixmap &pixmap) {
-        return QCPScatterStyle(pixmap);
-    }
-};
 
 // --
 
@@ -167,10 +142,6 @@ static void QcpContainer2Lua(lua_State* L, const char* ns)
           .addStaticCFunction("cellToCoord", &ColorMapDataHelper::cellToCoord)
           .addStaticCFunction("coordToCell", &ColorMapDataHelper::coordToCell)
         .endClass()
-//        .beginNamespace("ColorMapDataHelper")
-//          .addCFunction("cellToCoord", &CoordHelper<QCPColorMapData>::cellToCoord)
-//          .addCFunction("coordToCell", &CoordHelper<QCPColorMapData>::coordToCell)
-//        .endNamespace()
 
         .beginClass<QCPBarsDataContainer>("BarsDataContainer")
             CONTAINER_FUNCTIONS(QCPBarsDataContainer, QCPBarsData)
@@ -302,9 +273,6 @@ static void QcpBasic2Lua(lua_State* L, const char* ns)
           .addFunction("setPeriodic", &QCPColorGradient::setPeriodic)
         .endClass()
 
-//        .beginClass<QCPDataSelection>("DataSelection")
-//        .endClass()
-
         .beginClass<QCPItemAnchor>("ItemAnchor")
           .addFunction("name", &QCPItemAnchor::name)
           .addFunction("pixelPosition", &QCPItemAnchor::pixelPosition)
@@ -388,6 +356,12 @@ static void QcpBasic2Lua(lua_State* L, const char* ns)
         .endClass()
 
         .beginClass<QCPScatterStyle>("ScatterStyle")
+            .addConstructor<void(*)()>()
+            .addBuilder("fromShapeAndSize", &Builder<QCPScatterStyle>::from<QCPScatterStyle::ScatterShape, double>)
+            .addBuilder("fromShapePenBrushAndSize", &Builder<QCPScatterStyle>::from<QCPScatterStyle::ScatterShape, const QPen&, const QBrush&, double>)
+            .addBuilder("fromPainterPath", &Builder<QCPScatterStyle>::from<const QPainterPath&, const QPen&, const QBrush&, double>)
+            .addBuilder("fromPixmap", &Builder<QCPScatterStyle>::from<const QPixmap&>)
+
           .addFunction("brush", &QCPScatterStyle::brush)
           .addFunction("customPath", &QCPScatterStyle::customPath)
           .addFunction("pen", &QCPScatterStyle::pen)
@@ -405,22 +379,7 @@ static void QcpBasic2Lua(lua_State* L, const char* ns)
           .addFunction("size", &QCPScatterStyle::size)
           .addFunction("undefinePen", &QCPScatterStyle::undefinePen)
         .endClass()
-        .beginClass<ScatterStyleConstructor>("ScatterStyleConstructor")
-          .addStaticFunction("fromShapeAndSize", &ScatterStyleConstructor::fromShapeAndSize)
-          .addStaticFunction("fromShapePenBrushAndSize", &ScatterStyleConstructor::fromShapePenBrushAndSize)
-          .addStaticFunction("fromPainterPath", &ScatterStyleConstructor::fromPainterPath)
-          .addStaticFunction("fromPixmap", &ScatterStyleConstructor::fromPixmap)
-        .endClass()
-/*
-        .beginClass<QCPSelectionDecorator>("QCPSelectionDecorator")
-        .endClass()
 
-          .deriveClass<QCPSelectionDecoratorBracket, QCPSelectionDecorator>("QCPSelectionDecoratorBracket")
-          .endClass()
-
-        .beginClass<QCPVector2D>("QCPVector2D")
-        .endClass()
-*/
       .endNamespace()
     ;
 }
@@ -542,9 +501,6 @@ static void QcpLayerable2Lua(lua_State* L, const char* ns)
             .addFunction("subGridVisible", &QCPGrid::subGridVisible)
             .addFunction("zeroLinePen", &QCPGrid::zeroLinePen)
           .endClass()
-
-//          .deriveClass<QCPSelectionRect, QCPLayerable>("SelectionRect")
-//          .endClass()
 
       .endNamespace()
     ;
@@ -771,10 +727,6 @@ static void QcpPlottable2Lua(lua_State* L, const char* ns)
           .addStaticCFunction("pixelsToCoords", &AbstractPlottableHelper::pixelsToCoords)
           .addStaticCFunction("coordsToPixels", &AbstractPlottableHelper::coordsToPixels)
         .endClass()
-//        .beginNamespace("AbstractPlottableHelper")
-//          .addCFunction("pixelsToCoords", &CoordHelper<QCPAbstractPlottable>::pixelsToCoords)
-//          .addCFunction("coordsToPixels", &CoordHelper<QCPAbstractPlottable>::coordsToPixels)
-//        .endNamespace()
 
           .deriveClass<QCPColorMap, QCPAbstractPlottable>("ColorMap")
             .addFunction("colorScale", &QCPColorMap::colorScale)

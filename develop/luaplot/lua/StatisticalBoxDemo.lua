@@ -13,7 +13,7 @@ local qt=require("qcpplot.qt5")
 -- fp means function of plot
 function fp(plot)
   local statistical = plot:createStatisticalBox(plot.xAxis, plot.yAxis)
-  local boxBrush = luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(60, 60, 255, 100), qt.SolidPattern)
+  local boxBrush = luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(60, 60, 255, 100), qt.SolidPattern)
   boxBrush:setStyle(qt.Dense6Pattern)
   statistical:setBrush(boxBrush)
 

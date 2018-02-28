@@ -22,8 +22,8 @@ function fun4Plot(p)
   textLabel.position:setType(qcp.ItemPosition.ptAxisRectRatio);
   textLabel.position:setCoordsXY(0.5, 0); -- place position at center/top of axis rect
   textLabel:setText("Text Item Demo");
-  textLabel:setFont(luaplot.FontConstructor.fromFamily(p:font():family(), 16, -1, false)); -- make font a bit larger
-  textLabel:setPen(luaplot.PenConstructor.fromColor(luaplot.QColor.fromGlobal(qt.black))); -- show black border around text
+  textLabel:setFont(luaplot.QFont.fromFamily(p:font():family(), 16, -1, false)); -- make font a bit larger
+  textLabel:setPen(luaplot.QPen.fromColor(luaplot.QColor.fromGlobal(qt.black))); -- show black border around text
  
   -- add the arrow:
   local arrow = p:createItemLine(p);

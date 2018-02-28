@@ -12,12 +12,12 @@ local qt=require("qcpplot.qt5")
 
 -- fp means function of plot
 function fp(plot)
-  plot:setLocale(luaplot.LocaleConstructor.fromLanguageAndCountry(qt.Locale.English, qt.Locale.UnitedKingdom)); -- period as decimal separator and comma as thousand separator
+  plot:setLocale(luaplot.QLocale.fromLanguageAndCountry(qt.Locale.English, qt.Locale.UnitedKingdom)); -- period as decimal separator and comma as thousand separator
   plot.legend:setVisible(true);
-  local legendFont = luaplot.FontConstructor.fromFont(plot:font());  -- start out with MainWindow's font..
+  local legendFont = luaplot.QFont.fromAnother(plot:font());  -- start out with MainWindow's font..
   legendFont:setPointSize(9); -- and make a bit smaller for legend
   plot.legend:setFont(legendFont);
-  plot.legend:setBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(255,255,255,230), qt.SolidPattern));
+  plot.legend:setBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(255,255,255,230), qt.SolidPattern));
 
   -- by default, the legend is in the inset layout of the main axis rect. So this is how we access it to change legend placement:
   plot:axisRect(0):insetLayout():setInsetAlignment(0, qt.AlignBottom + qt.AlignRight);
@@ -25,26 +25,26 @@ function fp(plot)
   -- setup for graph 0: key axis left, value axis bottom
   -- will contain left maxwell-like function
   plot:addGraph(plot.yAxis, plot.xAxis);
-  plot:graph(0):setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromRGB(255, 100, 0, 255)));
-  plot:graph(0):setBrush(luaplot.BrushConstructor.fromPixmap(luaplot.PixmapConstructor.fromFile("./sun.png", nil, qt.AutoColor):scaledXY(32, 32, qt.IgnoreAspectRatio, qt.FastTransformation))); -- fill with texture of specified image
+  plot:graph(0):setPen(luaplot.QPen.fromColor(luaplot.QColor.fromRGB(255, 100, 0, 255)));
+  plot:graph(0):setBrush(luaplot.QBrush.fromPixmap(luaplot.QPixmap.fromFile("./sun.png", nil, qt.AutoColor):scaledXY(32, 32, qt.IgnoreAspectRatio, qt.FastTransformation))); -- fill with texture of specified image
   plot:graph(0):setLineStyle(qcp.Graph.lsLine);
-  plot:graph(0):setScatterStyle(luaplot.ScatterStyleConstructor.fromShapeAndSize(qcp.ScatterStyle.ssDisc, 5));
+  plot:graph(0):setScatterStyle(luaplot.ScatterStyle.fromShapeAndSize(qcp.ScatterStyle.ssDisc, 5));
   plot:graph(0):setName("Left maxwell function");
 
   -- setup for graph 1: key axis bottom, value axis left (those are the default axes)
   -- will contain bottom maxwell-like function with error bars
   plot:addGraph(nil, nil);
-  plot:graph(1):setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.red)));
-  plot:graph(1):setBrush(luaplot.BrushConstructor.fromPixmap(luaplot.PixmapConstructor.fromFile("./sun.png", nil, qt.AutoColor):scaledXY(16, 16, qt.IgnoreAspectRatio, qt.FastTransformation)));
+  plot:graph(1):setPen(luaplot.QPen.fromColor(luaplot.QColor.fromGlobal(qt.red)));
+  plot:graph(1):setBrush(luaplot.QBrush.fromPixmap(luaplot.QPixmap.fromFile("./sun.png", nil, qt.AutoColor):scaledXY(16, 16, qt.IgnoreAspectRatio, qt.FastTransformation)));
   plot:graph(1):setLineStyle(qcp.Graph.lsStepCenter);
   plot:graph(1):setScatterStyle(
-    luaplot.ScatterStyleConstructor.fromShapePenBrushAndSize(
+    luaplot.ScatterStyle.fromShapePenBrushAndSize(
       qcp.ScatterStyle.ssCircle,
-      luaplot.PenConstructor.fromColor(
-        luaplot.ColorConstructor.fromGlobal(qt.red)
+      luaplot.QPen.fromColor(
+        luaplot.QColor.fromGlobal(qt.red)
       ),
-      luaplot.BrushConstructor.fromColor(
-        luaplot.ColorConstructor.fromGlobal(qt.white),
+      luaplot.QBrush.fromColor(
+        luaplot.QColor.fromGlobal(qt.white),
         qt.SolidPattern
       ),
       7
@@ -58,14 +58,14 @@ function fp(plot)
   -- setup for graph 2: key axis top, value axis right
   -- will contain high frequency sine with low frequency beating:
   plot:addGraph(plot.xAxis2, plot.yAxis2);
-  plot:graph(2):setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.blue)));
+  plot:graph(2):setPen(luaplot.QPen.fromColor(luaplot.QColor.fromGlobal(qt.blue)));
   plot:graph(2):setName("High frequency sine");
 
   -- setup for graph 3: same axes as graph 2
   -- will contain low frequency beating envelope of graph 2
   plot:addGraph(plot.xAxis2, plot.yAxis2);
   local blueDotPen = luaplot.QPen();
-  blueDotPen:setColor(luaplot.ColorConstructor.fromRGB(30, 40, 255, 150));
+  blueDotPen:setColor(luaplot.QColor.fromRGB(30, 40, 255, 150));
   blueDotPen:setStyle(qt.DotLine);
   blueDotPen:setWidthF(4);
   plot:graph(3):setPen(blueDotPen);
@@ -74,9 +74,9 @@ function fp(plot)
   -- setup for graph 4: key axis right, value axis top
   -- will contain parabolically distributed data points with some random perturbance
   plot:addGraph(plot.yAxis2, plot.xAxis2);
-  plot:graph(4):setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromRGB(50, 50, 50, 255)));
+  plot:graph(4):setPen(luaplot.QPen.fromColor(luaplot.QColor.fromRGB(50, 50, 50, 255)));
   plot:graph(4):setLineStyle(qcp.Graph.lsNone);
-  plot:graph(4):setScatterStyle(luaplot.ScatterStyleConstructor.fromShapeAndSize(qcp.ScatterStyle.ssCircle, 4));
+  plot:graph(4):setScatterStyle(luaplot.ScatterStyle.fromShapeAndSize(qcp.ScatterStyle.ssCircle, 4));
   plot:graph(4):setName("Some random data around\na quadratic function");
 
   local x0, y0 = {}, {};
@@ -124,7 +124,7 @@ function fp(plot)
   local textElement = plot:createTextElement(
     plot, 
     "Way too many graphs in one plot", 
-    luaplot.FontConstructor.fromFamily("sans", 12, qt.Font.Bold)
+    luaplot.QFont.fromFamily("sans", 12, qt.Font.Bold)
   );
   plot:plotLayout():addElement(0, 0, textElement);
   -- set labels:

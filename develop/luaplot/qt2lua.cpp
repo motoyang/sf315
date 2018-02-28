@@ -1,119 +1,10 @@
 #include <lua.hpp>
-#include <QDebug>
 #include <iostream>
 #include "LuaBridge_cpp17/LuaBridge.h"
 #include "qcp/qcustomplot.h"
-#include "utilities.h"
-//#include "luaplot.h"
-#include "mainwindow.h"
 #include "type4stack.h"
+#include "mainwindow.h"
 #include "qt2lua.h"
-
-// --
-
-struct BrushConstructor
-{
-    static QBrush fromStyle(Qt::BrushStyle style) {
-        return QBrush(style);
-    }
-
-    static QBrush fromColor(const QColor &color,
-                            Qt::BrushStyle style = Qt::SolidPattern) {
-        return QBrush(color, style);
-    }
-
-    static QBrush fromGradient(const QGradient &gradient) {
-        return QBrush(gradient);
-    }
-
-    static QBrush fromPixmap(const QPixmap &pixmap) {
-        return QBrush(pixmap);
-    }
-};
-
-struct ColorConstructor
-{
-    static QColor fromString(const char* aname) {
-        return QColor(aname);
-    }
-
-    static QColor fromRGB(int r, int g, int b, int a = 255) {
-        return QColor(r, g, b, a);
-    }
-
-    static QColor fromGlobal(Qt::GlobalColor color) {
-        return QColor(color);
-    }
-};
-
-struct FontConstructor
-{
-    static QFont fromFont(const QFont& f) {
-        return QFont(f);
-    }
-
-    static QFont fromFamily(const QString &family, int pointSize = -1, int weight = -1, bool italic = false) {
-        return QFont(family, pointSize, weight, italic);
-    }
-};
-
-struct LinearGradientConstructor
-{
-    static QLinearGradient fromXY(qreal xStart, qreal yStart, qreal xFinalStop, qreal yFinalStop) {
-        return QLinearGradient(xStart, yStart, xFinalStop, yFinalStop);
-    }
-};
-
-struct LocaleConstructor
-{
-    static QLocale fromString(const QString &name) {
-        return QLocale(name);
-    }
-
-    static QLocale fromLanguageAndCountry(QLocale::Language language, QLocale::Country country = QLocale::AnyCountry) {
-        return QLocale(language, country);
-    }
-
-    static QLocale fromLanguageScriptAndCountry(QLocale::Language language, QLocale::Script script, QLocale::Country country) {
-        return QLocale(language, script, country);
-    }
-
-    static QLocale fromLocale(const QLocale &other) {
-        return QLocale(other);
-    }
-};
-
-struct PenConstructor
-{
-    static QPen fromColor(const QColor& c) {
-        return QPen(c);
-    }
-
-    static QPen fromStyle(Qt::PenStyle style) {
-        return QPen(style);
-    }
-
-    static QPen fromBrush(const QBrush &brush, qreal width,
-                          Qt::PenStyle style = Qt::SolidLine,
-                          Qt::PenCapStyle cap = Qt::SquareCap,
-                          Qt::PenJoinStyle join = Qt::BevelJoin) {
-        return QPen(brush, width, style, cap, join);
-    }
-};
-
-struct PixmapConstructor
-{
-    static QPixmap fromFile(const QString &fileName, const char *format = Q_NULLPTR, Qt::ImageConversionFlags flags = Qt::AutoColor) {
-        return QPixmap(fileName, format, flags);
-    }
-};
-
-struct RadialGradientConstructor
-{
-    static QRadialGradient fromXYRadius(qreal cx, qreal cy, qreal radius) {
-        return QRadialGradient(cx, cy, radius);
-    }
-};
 
 // --
 
@@ -131,6 +22,9 @@ static void QtCore2Lua(lua_State* L, const char* ns)
           .addConstructor<void(*)()>()
           .addBuilder("fromDate", &Builder<QDateTime>::from<const QDate&>)
           .addBuilder("fromDateAndTime", &Builder<QDateTime>::from<const QDate&, const QTime&, Qt::TimeSpec>)
+          .addBuilder("fromOffsetSecond", &Builder<QDateTime>::from<const QDate&, const QTime&, Qt::TimeSpec, int>)
+          .addBuilder("fromAnother", &Builder<QDateTime>::from<const QDateTime&>)
+
           .addFunction("setTimeSpec", &QDateTime::setTimeSpec)
           .addFunction("toTime_t", &QDateTime::toTime_t)
           .addStaticFunction("currentDateTime", &QDateTime::currentDateTime)
@@ -138,12 +32,10 @@ static void QtCore2Lua(lua_State* L, const char* ns)
 
         .beginClass<QLocale>("QLocale")
           .addConstructor<void(*)()>()
-        .endClass()
-        .beginClass<LocaleConstructor>("LocaleConstructor")
-          .addStaticFunction("fromString", &LocaleConstructor::fromString)
-          .addStaticFunction("fromLanguageAndCountry", &LocaleConstructor::fromLanguageAndCountry)
-          .addStaticFunction("fromLanguageScriptAndCountry", &LocaleConstructor::fromLanguageScriptAndCountry)
-          .addStaticFunction("fromLocale", &LocaleConstructor::fromLocale)
+            .addBuilder("fromString", &Builder<QLocale>::from<const QString&>)
+            .addBuilder("fromLanguageAndCountry", &Builder<QLocale>::from<QLocale::Language, QLocale::Country>)
+            .addBuilder("fromLanguageScriptAndCountry", &Builder<QLocale>::from<QLocale::Language, QLocale::Script, QLocale::Country>)
+            .addBuilder("fromLocale", &Builder<QLocale>::from<const QLocale&>)
         .endClass()
 
         .beginClass<QMetaObject::Connection>("QMetaObject_Connection")
@@ -155,6 +47,7 @@ static void QtCore2Lua(lua_State* L, const char* ns)
         .beginClass<QTime>("QTime")
           .addConstructor<void(*)()>()
           .addBuilder("fromHMSms", &Builder<QTime>::from<int, int, int, int>)
+
           .addStaticFunction("currentTime", &QTime::currentTime)
           .addFunction("elapsed", &QTime::elapsed)
         .endClass()
@@ -170,32 +63,28 @@ static void QtGui2Lua(lua_State* L, const char* ns)
 
         .beginClass<QBrush>("QBrush")
           .addConstructor<void(*)()>()
+          .addBuilder("fromStyle", &Builder<QBrush>::from<Qt::BrushStyle>)
+          .addBuilder("fromColor", &Builder<QBrush>::from<const QColor&, Qt::BrushStyle>)
+          .addBuilder("fromGradient", &Builder<QBrush>::from<const QGradient&>)
+          .addBuilder("fromPixmap", &Builder<QBrush>::from<const QPixmap&>)
+
           .addFunction("setStyle", &QBrush::setStyle)
-        .endClass()
-        .beginClass<BrushConstructor>("BrushConstructor")
-          .addStaticFunction("fromStyle", &BrushConstructor::fromStyle)
-          .addStaticFunction("fromColor", &BrushConstructor::fromColor)
-          .addStaticFunction("fromGradient", &BrushConstructor::fromGradient)
-          .addStaticFunction("fromPixmap", &BrushConstructor::fromPixmap)
         .endClass()
 
         .beginClass<QColor>("QColor")
           .addConstructor<void(*)()>()
-          .addBuilder("from", &Builder<QColor>::from<>)
           .addBuilder("fromGlobal", &Builder<QColor>::from<Qt::GlobalColor>)
           .addBuilder("fromRGB", &Builder<QColor>::from<int, int, int, int>)
           .addBuilder("fromString", &Builder<QColor>::from<const char*>)
 
           .addFunction("lighter", &QColor::lighter)
         .endClass()
-        .beginClass<ColorConstructor>("ColorConstructor")
-          .addStaticFunction("fromString", &ColorConstructor::fromString)
-          .addStaticFunction("fromRGB", &ColorConstructor::fromRGB)
-          .addStaticFunction("fromGlobal", &ColorConstructor::fromGlobal)
-        .endClass()
 
         .beginClass<QFont>("QFont")
           .addConstructor<void(*)()>()
+          .addBuilder("fromAnother", &Builder<QFont>::from<const QFont&>)
+          .addBuilder("fromFamily", &Builder<QFont>::from<const QString&, int, int, bool>)
+
           .addFunction("family", &QFont::family)
           .addFunction("pointSize", &QFont::pointSize)
           .addFunction("setStyleName", &QFont::setStyleName)
@@ -203,33 +92,28 @@ static void QtGui2Lua(lua_State* L, const char* ns)
           .addFunction("setPointSizeF", &QFont::setPointSizeF)
           .addFunction("styleName", &QFont::styleName)
         .endClass()
-        .beginClass<FontConstructor>("FontConstructor")
-          .addStaticFunction("fromFont", &FontConstructor::fromFont)
-          .addStaticFunction("fromFamily", &FontConstructor::fromFamily)
-        .endClass()
 
         .beginClass<QGradient>("QGradient")
             .addFunction("setColorAt", &QGradient::setColorAt)
         .endClass()
 
           .deriveClass<QRadialGradient, QGradient>("QRadialGradient")
-          .endClass()
-          .beginClass<RadialGradientConstructor>("RadialGradientConstructor")
-            .addStaticFunction("fromXYRadius", &RadialGradientConstructor::fromXYRadius)
+            .addConstructor<void(*)()>()
+            .addBuilder("fromXYRadius", &Builder<QRadialGradient>::from<qreal, qreal, qreal>)
           .endClass()
 
           .deriveClass<QLinearGradient, QGradient>("QLinearGradient")
             .addConstructor<void(*)()>()
+            .addBuilder("fromXY", &Builder<QLinearGradient>::from<qreal, qreal, qreal, qreal>)
+
             .addFunction("setColorAt", &QLinearGradient::setColorAt)
             .addFunction("setFinalStopXY", static_cast<void(QLinearGradient::*)(qreal, qreal)>(&QLinearGradient::setFinalStop))
             .addFunction("setStartXY", static_cast<void(QLinearGradient::*)(qreal, qreal)>(&QLinearGradient::setStart))
           .endClass()
-          .beginClass<LinearGradientConstructor>("LinearGradientConstructor")
-            .addStaticFunction("fromXY", &LinearGradientConstructor::fromXY)
-          .endClass()
 
         .beginClass<QMargins>("QMargins")
-          .addConstructor<void(*)(int, int, int, int)>()
+          .addConstructor<void(*)()>()
+          .addBuilder("from", &Builder<QMargins>::from<int, int, int, int>)
         .endClass()
 
         .beginClass<QPainterPath>("QPainterPath")
@@ -239,39 +123,43 @@ static void QtGui2Lua(lua_State* L, const char* ns)
 
         .beginClass<QPen>("QPen")
           .addConstructor<void(*)()>()
+          .addBuilder("fromColor", &Builder<QPen>::from<const QColor&>)
+          .addBuilder("fromStyle", &Builder<QPen>::from<Qt::PenStyle>)
+          .addBuilder("fromBrush", &Builder<QPen>::from<const QBrush&, qreal, Qt::PenStyle, Qt::PenCapStyle, Qt::PenJoinStyle>)
+
           .addFunction("setColor", &QPen::setColor)
           .addFunction("setStyle", &QPen::setStyle)
           .addFunction("setWidth", &QPen::setWidth)
           .addFunction("setWidthF", &QPen::setWidthF)
         .endClass()
-        .beginClass<PenConstructor>("PenConstructor")
-          .addStaticFunction("fromColor", &PenConstructor::fromColor)
-          .addStaticFunction("fromStyle", &PenConstructor::fromStyle)
-          .addStaticFunction("fromBrush", &PenConstructor::fromBrush)
-        .endClass()
 
         .beginClass<QPixmap>("QPixmap")
           .addConstructor<void(*)()>()
+          .addBuilder("fromFile", &Builder<QPixmap>::from<const QString&, const char*, Qt::ImageConversionFlags>)
+
           .addFunction("scaledXY", static_cast<QPixmap(QPixmap::*)(int, int, Qt::AspectRatioMode, Qt::TransformationMode)const>(&QPixmap::scaled))
-        .endClass()
-        .beginClass<PixmapConstructor>("PixmapConstructor")
-          .addStaticFunction("fromFile", &PixmapConstructor::fromFile)
         .endClass()
 
         .beginClass<QPointF>("QPointF")
-          .addConstructor<void(*)(double, double)>()
+          .addConstructor<void(*)()>()
+          .addBuilder("from", &Builder<QPointF>::from<double, double>)
+
           .addFunction("x", &QPointF::x)
           .addFunction("y", &QPointF::y)
         .endClass()
 
         .beginClass<QRect>("QRect")
-          .addConstructor<void(*)(int, int, int, int)>()
+          .addConstructor<void(*)()>()
+          .addBuilder("from", &Builder<QRect>::from<int, int, int, int>)
+
           .addFunction("width", &QRect::width)
           .addFunction("height", &QRect::height)
         .endClass()
 
         .beginClass<QSize>("QSize")
           .addConstructor<void(*)(int, int)>()
+          .addBuilder("from", &Builder<QSize>::from<int, int>)
+
           .addFunction("height", &QSize::height)
           .addFunction("width", &QSize::width)
           .addFunction("setHeight", &QSize::setHeight)

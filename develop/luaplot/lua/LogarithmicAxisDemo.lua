@@ -15,28 +15,28 @@ function fp(plot)
   plot:setNoAntialiasingOnDrag(true); -- more performance/responsiveness during dragging
   plot:addGraph(nil, nil);
   local pen = luaplot.QPen();
-  pen:setColor(luaplot.ColorConstructor.fromRGB(255, 170, 100, 255));
+  pen:setColor(luaplot.QColor.fromRGB(255, 170, 100, 255));
   pen:setWidth(2);
   pen:setStyle(qt.DotLine);
   plot:graph(0):setPen(pen);
   plot:graph(0):setName("x");
 
   plot:addGraph(nil, nil);
-  plot:graph(1):setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.red)));
-  plot:graph(1):setBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(255, 0, 0, 20), qt.SolidPattern));
+  plot:graph(1):setPen(luaplot.QPen.fromColor(luaplot.QColor.fromGlobal(qt.red)));
+  plot:graph(1):setBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(255, 0, 0, 20), qt.SolidPattern));
   plot:graph(1):setName("-sin(x)exp(x)");
 
   plot:addGraph(nil, nil);
-  plot:graph(2):setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.blue)));
-  plot:graph(2):setBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(0, 0, 255, 20), qt.SolidPattern));
+  plot:graph(2):setPen(luaplot.QPen.fromColor(luaplot.QColor.fromGlobal(qt.blue)));
+  plot:graph(2):setBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(0, 0, 255, 20), qt.SolidPattern));
   plot:graph(2):setName(" sin(x)exp(x)");
 
   plot:addGraph(nil, nil);
-  pen:setColor(luaplot.ColorConstructor.fromRGB(0,0,0,255));
+  pen:setColor(luaplot.QColor.fromRGB(0,0,0,255));
   pen:setWidth(1);
   pen:setStyle(qt.DashLine);
   plot:graph(3):setPen(pen);
-  plot:graph(3):setBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(0,0,0,15), qt.SolidPattern));
+  plot:graph(3):setBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(0,0,0,15), qt.SolidPattern));
   plot:graph(3):setLineStyle(qcp.Graph.lsStepCenter);
   plot:graph(3):setName("x!");
 
@@ -86,7 +86,7 @@ function fp(plot)
   luaplot.QObject.connect(plot.yAxis, qt.SIGNAL("rangeChanged(QCPRange)"), plot.yAxis2, qt.SLOT("setRange(QCPRange)"), qt.AutoConnection);
 
   plot.legend:setVisible(true);
-  plot.legend:setBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(255,255,255,150), qt.SolidPattern));
+  plot.legend:setBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(255,255,255,150), qt.SolidPattern));
   plot:axisRect(0):insetLayout():setInsetAlignment(0, qt.AlignLeft + qt.AlignTop); -- make legend align in top left corner or axis rect
 end
 

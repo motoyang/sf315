@@ -13,18 +13,18 @@ local qt=require("qcpplot.qt5")
 -- fp means function of plot
 function fp(plot)
   plot.legend:setVisible(true);
-  plot.legend:setFont(luaplot.FontConstructor.fromFamily("Helvetica",9,-1,false));
+  plot.legend:setFont(luaplot.QFont.fromFamily("Helvetica",9,-1,false));
   -- set locale to english, so we get english decimal separator:
-  plot:setLocale(luaplot.LocaleConstructor.fromLanguageAndCountry(qt.Locale.English, qt.Locale.UnitedKingdom));
+  plot:setLocale(luaplot.QLocale.fromLanguageAndCountry(qt.Locale.English, qt.Locale.UnitedKingdom));
   -- add confidence band graphs:
   plot:addGraph(nil, nil);
   local pen = luaplot.QPen();
   pen:setStyle(qt.DotLine);
   pen:setWidth(1);
-  pen:setColor(luaplot.ColorConstructor.fromRGB(180,180,180,255));
+  pen:setColor(luaplot.QColor.fromRGB(180,180,180,255));
   plot:graph(0):setName("Confidence Band 68%");
   plot:graph(0):setPen(pen);
-  plot:graph(0):setBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(255,50,30,20), qt.SolidPattern));
+  plot:graph(0):setBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(255,50,30,20), qt.SolidPattern));
   plot:addGraph(nil, nil);
   plot.legend:removeItemByIndex(plot.legend:itemCount()-1); -- don't show two confidence band graphs in legend
   plot:graph(1):setPen(pen);
@@ -34,20 +34,20 @@ function fp(plot)
   plot:addGraph(nil, nil);
   pen:setStyle(qt.DashLine);
   pen:setWidth(2);
-  pen:setColor(luaplot.ColorConstructor.fromGlobal(qt.red));
+  pen:setColor(luaplot.QColor.fromGlobal(qt.red));
   plot:graph(2):setPen(pen);
   plot:graph(2):setName("Theory Curve");
   -- add data point graph:
   plot:addGraph(nil, nil);
-  plot:graph(3):setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.blue)));
+  plot:graph(3):setPen(luaplot.QPen.fromColor(luaplot.QColor.fromGlobal(qt.blue)));
   plot:graph(3):setLineStyle(qcp.Graph.lsNone);
-  plot:graph(3):setScatterStyle(luaplot.ScatterStyleConstructor.fromShapeAndSize(qcp.ScatterStyle.ssCross, 4));
+  plot:graph(3):setScatterStyle(luaplot.ScatterStyle.fromShapeAndSize(qcp.ScatterStyle.ssCross, 4));
   -- add error bars:
   local errorBars = plot:createErrorBars(plot.xAxis, plot.yAxis);
   errorBars:removeFromLegend();
   errorBars:setAntialiased(false);
   errorBars:setDataPlottable(plot:graph(3));
-  errorBars:setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromRGB(180,180,180,255)));
+  errorBars:setPen(luaplot.QPen.fromColor(luaplot.QColor.fromRGB(180,180,180,255)));
   plot:graph(3):setName("Measurement");
 
   -- generate ideal sinc curve data and some randomly perturbed data for scatter plot:

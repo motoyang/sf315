@@ -108,13 +108,13 @@ function fp08(p)
   local r = qcp.Region:new{plot=p, yLower = -1.5, yUpper = 1.5, name="函数: y=sin(x), y=1.2*cos(x), y = -0.5x - 0.5"}
 
   local g1 = r:addFunction(math.sin)
-  g1:setBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(20, 20, 20, 20), qt.SolidPattern))
+  g1:setBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(20, 20, 20, 20), qt.SolidPattern))
 
   local g2 = r:addFunction(function (x) return -0.5*x - 0.5 end)
-  g2:setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.green)))
+  g2:setPen(luaplot.QPen.fromColor(luaplot.QColor.fromGlobal(qt.green)))
 
   local g3 = r:addFunction(function (x) return 1.2*math.cos(x) end)
-  g3:setBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(40, 40, 10, 20), qt.SolidPattern))
+  g3:setBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(40, 40, 10, 20), qt.SolidPattern))
 
   local curve = r:addEquation(
     function (x, y)
@@ -125,8 +125,8 @@ function fp08(p)
       return v, 0
     end
   )
-  curve:setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.red)))
-  curve:setScatterStyle(luaplot.ScatterStyleConstructor.fromShapeAndSize(qcp.ScatterStyle.ssCircle, 16))
+  curve:setPen(luaplot.QPen.fromColor(luaplot.QColor.fromGlobal(qt.red)))
+  curve:setScatterStyle(luaplot.ScatterStyle.fromShapeAndSize(qcp.ScatterStyle.ssCircle, 16))
 end
 qcp.startPlot(fp08)
 

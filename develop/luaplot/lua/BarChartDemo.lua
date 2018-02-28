@@ -14,11 +14,11 @@ local qt=require("qcpplot.qt5")
 function fp(plot)
 
   -- set dark background gradient:
-  local gradient = luaplot.LinearGradientConstructor.fromXY(0, 0, 0, 400)
-  gradient:setColorAt(0, luaplot.ColorConstructor.fromRGB(90, 90, 90, 255))
-  gradient:setColorAt(0.38, luaplot.ColorConstructor.fromRGB(105, 105, 105, 255))
-  gradient:setColorAt(1, luaplot.ColorConstructor.fromRGB(70, 70, 70, 255))
-  plot:setBackgroundByBrush(luaplot.BrushConstructor.fromGradient(gradient))
+  local gradient = luaplot.QLinearGradient.fromXY(0, 0, 0, 400)
+  gradient:setColorAt(0, luaplot.QColor.fromRGB(90, 90, 90, 255))
+  gradient:setColorAt(0.38, luaplot.QColor.fromRGB(105, 105, 105, 255))
+  gradient:setColorAt(1, luaplot.QColor.fromRGB(70, 70, 70, 255))
+  plot:setBackgroundByBrush(luaplot.QBrush.fromGradient(gradient))
 
   -- create empty bar chart objects:
   local regen = plot:createBars(plot.xAxis, plot.yAxis)
@@ -34,14 +34,14 @@ function fp(plot)
 
   -- set names and colors:
   fossil:setName("Fossil fuels");
-  fossil:setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromRGB(111, 9, 176, 255):lighter(170)))
-  fossil:setBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(111, 9, 176, 255), qt.SolidPattern))
+  fossil:setPen(luaplot.QPen.fromColor(luaplot.QColor.fromRGB(111, 9, 176, 255):lighter(170)))
+  fossil:setBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(111, 9, 176, 255), qt.SolidPattern))
   nuclear:setName("Nuclear")
-  nuclear:setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromRGB(250, 170, 20, 255):lighter(150)))
-  nuclear:setBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(250, 170, 20, 255), qt.SolidPattern))
+  nuclear:setPen(luaplot.QPen.fromColor(luaplot.QColor.fromRGB(250, 170, 20, 255):lighter(150)))
+  nuclear:setBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(250, 170, 20, 255), qt.SolidPattern))
   regen:setName("Regenerative");
-  regen:setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromRGB(0, 168, 140, 255):lighter(130)))
-  regen:setBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(0, 168, 140, 255), qt.SolidPattern))
+  regen:setPen(luaplot.QPen.fromColor(luaplot.QColor.fromRGB(0, 168, 140, 255):lighter(130)))
+  regen:setBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(0, 168, 140, 255), qt.SolidPattern))
   -- stack bars on top of each other:
   nuclear:moveAbove(fossil)
   regen:moveAbove(nuclear)
@@ -57,25 +57,25 @@ function fp(plot)
   plot.xAxis:setSubTicks(false)
   plot.xAxis:setTickLength(0, 4)
   plot.xAxis:setRange(0, 8)
-  plot.xAxis:setBasePen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.white)))
-  plot.xAxis:setTickPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.white)))
+  plot.xAxis:setBasePen(luaplot.QPen.fromColor(luaplot.QColor.fromGlobal(qt.white)))
+  plot.xAxis:setTickPen(luaplot.QPen.fromColor(luaplot.QColor.fromGlobal(qt.white)))
   plot.xAxis:grid():setVisible(true)
-  plot.xAxis:grid():setPen(luaplot.PenConstructor.fromBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(130, 130, 130, 255), qt.SolidPattern), 0, qt.DotLine, qt.SquareCap, qt.BevelJoin))
-  plot.xAxis:setTickLabelColor(luaplot.ColorConstructor.fromGlobal(qt.white))
-  plot.xAxis:setLabelColor(luaplot.ColorConstructor.fromGlobal(qt.white))
+  plot.xAxis:grid():setPen(luaplot.QPen.fromBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(130, 130, 130, 255), qt.SolidPattern), 0, qt.DotLine, qt.SquareCap, qt.BevelJoin))
+  plot.xAxis:setTickLabelColor(luaplot.QColor.fromGlobal(qt.white))
+  plot.xAxis:setLabelColor(luaplot.QColor.fromGlobal(qt.white))
 
   -- prepare y axis:
   plot.yAxis:setRange(0, 12.1)
   plot.yAxis:setPadding(5)    -- a bit more space to the left border
   plot.yAxis:setLabel("Power Consumption in\nKilowatts per Capita (2007)")
-  plot.yAxis:setBasePen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.white)))
-  plot.yAxis:setTickPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.white)))
-  plot.yAxis:setSubTickPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.white)))
+  plot.yAxis:setBasePen(luaplot.QPen.fromColor(luaplot.QColor.fromGlobal(qt.white)))
+  plot.yAxis:setTickPen(luaplot.QPen.fromColor(luaplot.QColor.fromGlobal(qt.white)))
+  plot.yAxis:setSubTickPen(luaplot.QPen.fromColor(luaplot.QColor.fromGlobal(qt.white)))
   plot.yAxis:grid():setSubGridVisible(true);
-  plot.yAxis:setTickLabelColor(luaplot.ColorConstructor.fromGlobal(qt.white))
-  plot.yAxis:setLabelColor(luaplot.ColorConstructor.fromGlobal(qt.white))
-  plot.yAxis:grid():setPen(luaplot.PenConstructor.fromBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(130, 130, 130, 255), qt.SolidPattern), 0, qt.DotLine, qt.SquareCap, qt.BevelJoin))
-  plot.yAxis:grid():setSubGridPen(luaplot.PenConstructor.fromBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(130, 130, 130, 255), qt.SolidPattern), 0, qt.DotLine, qt.SquareCap, qt.BevelJoin))
+  plot.yAxis:setTickLabelColor(luaplot.QColor.fromGlobal(qt.white))
+  plot.yAxis:setLabelColor(luaplot.QColor.fromGlobal(qt.white))
+  plot.yAxis:grid():setPen(luaplot.QPen.fromBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(130, 130, 130, 255), qt.SolidPattern), 0, qt.DotLine, qt.SquareCap, qt.BevelJoin))
+  plot.yAxis:grid():setSubGridPen(luaplot.QPen.fromBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(130, 130, 130, 255), qt.SolidPattern), 0, qt.DotLine, qt.SquareCap, qt.BevelJoin))
 
   -- Add data:
   local fossilData = {0.86*10.5, 0.83*5.5, 0.84*5.5, 0.52*5.8, 0.89*5.2, 0.90*4.2, 0.67*11.2}
@@ -88,10 +88,10 @@ function fp(plot)
   -- setup legend:
   plot.legend:setVisible(true)
   plot:axisRect(0):insetLayout():setInsetAlignment(0, qt.AlignTop + qt.AlignHCenter)
-  plot.legend:setBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(255, 255, 255, 100), qt.SolidPattern))
-  plot.legend:setBorderPen(luaplot.PenConstructor.fromStyle(qt.NoPen))
+  plot.legend:setBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(255, 255, 255, 100), qt.SolidPattern))
+  plot.legend:setBorderPen(luaplot.QPen.fromStyle(qt.NoPen))
   -- plot:font()返回的是const QFont，需要转换为QFont，否则setPointSize()不能调用
-  local legendFont = luaplot.FontConstructor.fromFont(plot:font())
+  local legendFont = luaplot.QFont.fromAnother(plot:font())
   legendFont:setPointSize(10)
   plot.legend:setFont(legendFont)
 

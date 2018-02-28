@@ -13,7 +13,7 @@ local qt=require("qcpplot.qt5")
 -- fp means function of plot
 function fp(plot)
     plot.legend:setVisible(true);
-    plot.legend:setFont(luaplot.FontConstructor.fromFamily("Helvetica", 9, -1, false));
+    plot.legend:setFont(luaplot.QFont.fromFamily("Helvetica", 9, -1, false));
     plot.legend:setRowSpacing(-3);
     local shapes = {
         qcp.ScatterStyle.ssCross, 
@@ -37,7 +37,7 @@ function fp(plot)
     -- add graphs with different scatter styles:
     for i=0, #shapes-1 do
       plot:addGraph(nil, nil);
-      pen:setColor(luaplot.ColorConstructor.fromRGB(math.floor(0.5+math.sin(i*0.3)*100+100), math.floor(0.5+math.sin(i*0.6+0.7)*100+100), math.floor(0.5+math.sin(i*0.4+0.6)*100+100), 255));
+      pen:setColor(luaplot.QColor.fromRGB(math.floor(0.5+math.sin(i*0.3)*100+100), math.floor(0.5+math.sin(i*0.6+0.7)*100+100), math.floor(0.5+math.sin(i*0.4+0.6)*100+100), 255));
 
       -- generate data:
       local x, y = {}, {};
@@ -54,17 +54,17 @@ function fp(plot)
 
       -- set scatter style:
       if (shapes[i+1] ~= qcp.ScatterStyle.ssCustom) then
-        plot:lastGraph():setScatterStyle(luaplot.ScatterStyleConstructor.fromShapeAndSize(shapes[i+1], 10));
+        plot:lastGraph():setScatterStyle(luaplot.ScatterStyle.fromShapeAndSize(shapes[i+1], 10));
       else
         local customScatterPath = luaplot.QPainterPath();
         for i=0, 3-1 do
           customScatterPath:cubicToXY(math.cos(2*math.pi*i/3.0)*9, math.sin(2*math.pi*i/3.0)*9, math.cos(2*math.pi*(i+0.9)/3.0)*9, math.sin(2*math.pi*(i+0.9)/3.0)*9, 0, 0);
         end
         plot:lastGraph():setScatterStyle(
-          luaplot.ScatterStyleConstructor.fromPainterPath(
+          luaplot.ScatterStyle.fromPainterPath(
             customScatterPath,
-            luaplot.PenConstructor.fromBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.black), qt.SolidPattern), 0, qt.SolidLine, qt.SquareCap, qt.BevelJoin),
-            luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(40, 70, 255, 50), qt.SolidPattern),
+            luaplot.QPen.fromBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromGlobal(qt.black), qt.SolidPattern), 0, qt.SolidLine, qt.SquareCap, qt.BevelJoin),
+            luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(40, 70, 255, 50), qt.SolidPattern),
             10
           )
         );

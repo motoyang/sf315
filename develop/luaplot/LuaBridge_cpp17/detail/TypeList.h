@@ -219,12 +219,13 @@ struct ArgList2<index, std::tuple<Head, Args...>>
     {
         return std::tuple_cat(std::make_tuple(_h), _t.tuple());
     }
-
+/*
     void print() const
     {
       std::cout << _h << ", ";
       _t.print();
     }
+*/
 };
 
 template <int index, typename Head, typename... Args>
@@ -258,11 +259,12 @@ struct ArgList2<index, std::tuple<Head>>
     {
         return std::make_tuple(_h);
     }
-
+/*
     void print() const
     {
       std::cout << _h << std::endl;
     }
+*/
 };
 
 template <int index, typename Head>

@@ -15,9 +15,9 @@ function fp(plot)
   -- add two graph into the plot
   plot:addGraph(nil, nil)
   plot:addGraph(nil, nil)
-  plot:graph(0):setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.blue)))
-  plot:graph(0):setBrush(luaplot.BrushConstructor.fromColor(luaplot.ColorConstructor.fromRGB(0, 0, 255, 20), qt.SolidPattern))
-  plot:graph(1):setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromGlobal(qt.red)))
+  plot:graph(0):setPen(luaplot.QPen.fromColor(luaplot.QColor.fromGlobal(qt.blue)))
+  plot:graph(0):setBrush(luaplot.QBrush.fromColor(luaplot.QColor.fromRGB(0, 0, 255, 20), qt.SolidPattern))
+  plot:graph(1):setPen(luaplot.QPen.fromColor(luaplot.QColor.fromGlobal(qt.red)))
 
   -- get data
   local x={}

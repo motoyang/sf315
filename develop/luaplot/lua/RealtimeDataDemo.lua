@@ -13,9 +13,9 @@ local qt=require("qcpplot.qt5")
 -- fp means function of plot
 local function fp(plot)
   plot:addGraph(nil, nil); -- blue line
-  plot:graph(0):setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromRGB(40, 110, 255, 255)));
+  plot:graph(0):setPen(luaplot.QPen.fromColor(luaplot.QColor.fromRGB(40, 110, 255, 255)));
   plot:addGraph(nil, nil); -- red line
-  plot:graph(1):setPen(luaplot.PenConstructor.fromColor(luaplot.ColorConstructor.fromRGB(255, 110, 40, 255)));
+  plot:graph(1):setPen(luaplot.QPen.fromColor(luaplot.QColor.fromRGB(255, 110, 40, 255)));
    
   local timeTicker = plot:createAxisTickerTime();
   timeTicker:setTimeFormat("%h:%m:%s");
