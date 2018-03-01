@@ -184,6 +184,9 @@ struct ArgList <TypeList <Head, Tail>, Start>
 #include <utility>
 #include <tuple>
 
+// --
+
+// be similar to std::apply()
 template<typename T, typename Function, typename Tuple, std::size_t... Index>
 decltype(auto) obj_invoke_impl(T* obj, Function&& func, Tuple&& t, std::index_sequence<Index...>)
 {
@@ -297,9 +300,10 @@ struct ArgList2<index, std::tuple<>>
     {
         return std::tuple<>();
     }
-
+/*
     void print() const
     {
     }
+*/
 };
 

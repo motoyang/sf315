@@ -1,0 +1,76 @@
+图形界面虚拟终端命令行窗口：
+
+Bash命令行的编辑模式：
+（1）有两种：emacs模式、vi模式。EMACS=Esc+Meta+Alt+Control+Shift VI=Visual+Interface。
+（2）emacs模式是默认的。
+（3）可以在选项中查看、修改输入模式：命令set -o查看，命令set -o vi/emacs修改。
+
+command completing
+	自动完成
+Tab 	自动补齐:$变量名; ~用户名; @主机名; 命令; 文件名
+Tab-Tab 	两次Tab 	列出所有的可能备选项
+Shift+Alt+/ 	Alt+? 	列出所有的可能备选项
+Alt+/ 	Alt+/ 	自动补齐文件名
+Shift+Alt+` 	Alt+~ 	自动补齐用户名
+Shift+Alt+4 	Alt+$ 	自动补齐变量名
+Shift+Alt+2 	Alt+@ 	自动补齐主机名
+Shift+Alt+1 	Alt+! 	自动补齐命令
+
+command history
+	查看已经使用过的命令的历史列表
+Ctrl+P 	UpArrow 	显示前一条命令(Previous)
+Ctrl+N 	DownArrow 	显示后一条命令(Next)
+Ctrl+R keyword 	向上增量搜索历史命令，回车执行
+Ctrl+S keyword 	向下增量搜索历史命令，回车执行
+Ctrl+G 	退出历史搜索，不执行命令
+Ctrl+O 	执行当前命令，并保留命令到下一行，忽略参数
+Alt+.或Shift+Alt+-(Alt+_) 	dot 	使用上一条命令的最后一个参数
+Ctrl+C 	取消本次命令输入或终止当前命令执行
+Ctrl+Z 	挂起命令
+
+Command line cursor moving
+	命令行光标移动
+Ctrl+A 	将光标移到当前行开始
+Ctrl+E 	将光标移到当前行结尾
+Ctrl+F 	RightArrow 	将光标右移一个字符(Forward)
+Ctrl+B 	LeftArrow 	将光标左移一个字符(Backward)
+Alt-F 	将光标移动到下一个单词字尾
+Alt-B 	将光标移动到当前或上一个单词字首
+Ctrl+xx 	光标在行首和当前位置切换
+
+Command line text changing
+	编辑命令
+Ctrl+U 	删除光标前的所有字符(不包括当前字符)
+Ctrl+K 	删除光标后的所有字符(包括当前字符)
+Ctrl+W 	Ctrl+Alt+H 	删除光标前的一个单词(删除参数项 如: –help)
+Alt+D 	删除光标后的一个单词
+Ctrl+D 	删除当前字符，注销当前会话，关闭终端
+Ctrl+H 	删除光标前一个字符
+Ctr+Shift+-或Ctrl+_或C-x C-u 	撤销操作
+Ctrl+Y 	粘贴最后由Ctrl+U，K，W，Alt+D删除的所有字符
+Alt+R 	还原当前行的所有修改操作
+Alt+C 	从光标处更改为首字母大写的单词
+Alt+U 	从光标处更改为全部大写的单词
+Alt+L 	从光标处更改为全部小写的单词
+Ctrl+T 	交换光标处和之前的字符
+Alt+T 	交换光标处和之前的单词
+Alt+Backspace 	删除光标前的一个单词(删除项 如: help -)
+gnome-terminal
+Ctrl+Shift+N 	打开新终端窗口
+Ctrl+Shift+Q 	关闭当前终端窗口
+Ctrl+Shift+T 	打开一个新标签页
+Ctrl+Shift+W 	关闭当前标签页
+Ctrl+PageUp 	切换至前一个标签页
+Ctrl+PageDown 	切换至后一个标签页
+Alt+number 	n=1, 2,3 	切换至第number个标签页
+Ctrl+Shift+PageUp 	向前移动标签页
+Ctrl+Shift+PageDown 	向后移动标签页
+Ctrl+Shift+Up   屏幕上移一行
+Ctrl+Shift+Down   屏幕下移一行 
+Shift+PageUp 屏幕上移一屏(屏幕向上翻页) 
+Shift+PageDown 屏幕下移一屏(屏幕向下翻页)
+Ctrl+Shift+C 复制(Copy)选中的块 
+Ctrl+Shift+V 粘贴(Paste)Ctrl+Shift+c复制的内容 
+Ctrl+L clear 清屏(Clear) 
+Ctrl+S 暂停屏幕输出 
+Ctrl+Q 继续屏幕输出

@@ -34,7 +34,7 @@ template <class T, typename Tuple>
 struct Constructor2
 {
 };
-
+/*
 template <class T>
 struct Constructor2 <T, std::tuple<>>
 {
@@ -47,7 +47,7 @@ struct Constructor2 <T, std::tuple<>>
     return new (mem) T;
   }
 };
-
+*/
 template <class T, typename... Args>
 struct Constructor2 <T, std::tuple<Args...>>
 {

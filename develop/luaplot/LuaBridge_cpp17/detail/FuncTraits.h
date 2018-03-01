@@ -55,13 +55,15 @@
     manually extended, or expanded to an arbitrary amount using C++11 features.
 */
 
+// -- begin of FuncTraits2
+
+// this is general template
 template <class MemFn, class D = MemFn>
 struct FuncTraits2
 {
 };
 
-/* Ordinary function pointers. */
-
+// for global and static member functions
 template<typename R, typename D, typename... Args>
 struct FuncTraits2<R(*)(Args...), D>
 {
@@ -77,16 +79,75 @@ struct FuncTraits2<R(*)(Args...), D>
 
 template<typename R, typename D, typename... Args>
 struct FuncTraits2<R(*)(Args...) noexcept, D>
+    : public FuncTraits2<R(*)(Args...), D>
+{};
+
+#ifdef LUABRIDGE_THROWSPEC
+template<typename R, typename D, typename... Args>
+struct FuncTraits2<R(*)(Args...) LUABRIDGE_THROWSPEC, D>
+    : public FuncTraits2<R(*)(Args...), D>
+{};
+#endif
+
+// for member functions
+template<typename T, typename R, typename D, typename... Args>
+struct FuncTraits2<R(T::*)(Args...), D>
 {
-    static bool const isMemberFunction = false;
+    static bool const isMemberFunction = true;
+    static bool const isConstMemberFunction = false;
     typedef D DeclType;
+    typedef T ClassType;
     typedef R ReturnType;
     typedef std::tuple<Args...> Params;
-    static R call (D fp, ArgList2<1, Params> tvl)
+    static R call (T* obj, D fp, ArgList2<2, Params>& tvl)
     {
-        return std::apply(fp, tvl.tuple());
+        return obj_apply(obj, fp, tvl.tuple());
     }
 };
+
+template<typename T, typename R, typename D, typename... Args>
+struct FuncTraits2<R(T::*)(Args...) noexcept, D>
+    : public FuncTraits2<R(T::*)(Args...), D>
+{};
+
+#ifdef LUABRIDGE_THROWSPEC
+template<typename T, typename R, typename D, typename... Args>
+struct FuncTraits2<R(T::*)(Args...) LUABRIDGE_THROWSPEC, D>
+    : public FuncTraits2<R(T::*)(Args...), D>
+{};
+#endif
+
+// for const member functions
+template<typename T, typename R, typename D, typename... Args>
+struct FuncTraits2<R(T::*)(Args...)const, D>
+{
+    static bool const isMemberFunction = true;
+    static bool const isConstMemberFunction = true;
+    typedef D DeclType;
+    typedef T ClassType;
+    typedef R ReturnType;
+    typedef std::tuple<Args...> Params;
+    static R call (T const* obj, D fp, ArgList2<2, Params> tvl)
+    {
+        return obj_apply(obj, fp, tvl.tuple());
+    }
+};
+
+template<typename T, typename R, typename D, typename... Args>
+struct FuncTraits2<R(T::*)(Args...)const noexcept, D>
+    : public FuncTraits2<R(T::*)(Args...)const, D>
+{};
+
+#ifdef LUABRIDGE_THROWSPEC
+template<typename T, typename R, typename D, typename... Args>
+struct FuncTraits2<R(T::*)(Args...)const LUABRIDGE_THROWSPEC, D>
+    : public FuncTraits2<R(T::*)(Args...) const, D>
+{};
+#endif
+
+// -- end of FuncTraits2
+
+/* Ordinary function pointers. */
 
 /*
 template <class R, class D>
@@ -207,52 +268,6 @@ struct FuncTraits <R (*) (P1, P2, P3, P4, P5, P6, P7, P8), D>
 };
 */
 /* Non-const member function pointers. */
-/*
-template<typename T, typename Function, typename Tuple, std::size_t... Index>
-decltype(auto) obj_invoke_impl(T* obj, Function&& func, Tuple&& t, std::index_sequence<Index...>)
-{
-//    auto f = std::bind(std::forward<Function>(func), obj, std::get<Index>(std::forward<Tuple>(t))...);
-//    return f();
-    return (obj->*func)(std::get<Index>(std::forward<Tuple>(t))...);
-}
-
-template<typename T, typename Function, typename Tuple>
-decltype(auto) apply_obj(T* obj, Function&& func, Tuple&& t)
-{
-    constexpr auto size = std::tuple_size<typename std::decay<Tuple>::type>::value;
-    return obj_invoke_impl(obj, std::forward<Function>(func), std::forward<Tuple>(t), std::make_index_sequence<size>{});
-}
-*/
-template<typename T, typename R, typename D, typename... Args>
-struct FuncTraits2<R(T::*)(Args...), D>
-{
-    static bool const isMemberFunction = true;
-    static bool const isConstMemberFunction = false;
-    typedef D DeclType;
-    typedef T ClassType;
-    typedef R ReturnType;
-    typedef std::tuple<Args...> Params;
-    static R call (T* obj, D fp, ArgList2<2, Params>& tvl)
-    {
-        return obj_apply(obj, fp, tvl.tuple());
-    }
-};
-
-template<typename T, typename R, typename D, typename... Args>
-struct FuncTraits2<R(T::*)(Args...) noexcept, D>
-{
-    static bool const isMemberFunction = true;
-    static bool const isConstMemberFunction = false;
-    typedef D DeclType;
-    typedef T ClassType;
-    typedef R ReturnType;
-    typedef std::tuple<Args...> Params;
-    static R call (T* obj, D fp, ArgList2<2, Params>& tvl)
-    {
-        return obj_apply(obj, fp, tvl.tuple());
-    }
-};
-
 /*
 template <class T, class R, class D>
 struct FuncTraits <R (T::*) (), D>
@@ -389,39 +404,7 @@ struct FuncTraits <R (T::*) (P1, P2, P3, P4, P5, P6, P7, P8), D>
   }
 };
 */
-
 /* Const member function pointers. */
-
-template<typename T, typename R, typename D, typename... Args>
-struct FuncTraits2<R(T::*)(Args...)const, D>
-{
-    static bool const isMemberFunction = true;
-    static bool const isConstMemberFunction = true;
-    typedef D DeclType;
-    typedef T ClassType;
-    typedef R ReturnType;
-    typedef std::tuple<Args...> Params;
-    static R call (T const* obj, D fp, ArgList2<2, Params> tvl)
-    {
-        return obj_apply(obj, fp, tvl.tuple());
-    }
-};
-
-template<typename T, typename R, typename D, typename... Args>
-struct FuncTraits2<R(T::*)(Args...)const noexcept, D>
-{
-    static bool const isMemberFunction = true;
-    static bool const isConstMemberFunction = true;
-    typedef D DeclType;
-    typedef T ClassType;
-    typedef R ReturnType;
-    typedef std::tuple<Args...> Params;
-    static R call (T const* obj, D fp, ArgList2<2, Params> tvl)
-    {
-        return obj_apply(obj, fp, tvl.tuple());
-    }
-};
-
 /*
 template <class T, class R, class D>
 struct FuncTraits <R (T::*) () const, D>
@@ -564,18 +547,6 @@ struct FuncTraits <R (T::*) (P1, P2, P3, P4, P5, P6, P7, P8) const, D>
 
 /* Ordinary function pointers. */
 
-template<typename R, typename D, typename... Args>
-struct FuncTraits2<R(*)(Args...) LUABRIDGE_THROWSPEC, D>
-{
-    static bool const isMemberFunction = false;
-    typedef D DeclType;
-    typedef R ReturnType;
-    typedef std::tuple<Args...> Params;
-    static R call (D fp, ArgList2<1, Params> tvl)
-    {
-        return std::apply(fp, tvl.tuple());
-    }
-};
 /*
 template <class R, class D>
 struct FuncTraits <R (*) () LUABRIDGE_THROWSPEC, D>
@@ -695,21 +666,6 @@ struct FuncTraits <R (*) (P1, P2, P3, P4, P5, P6, P7, P8) LUABRIDGE_THROWSPEC, D
 };
 */
 /* Non-const member function pointers with THROWSPEC. */
-
-template<typename T, typename R, typename D, typename... Args>
-struct FuncTraits2<R(T::*)(Args...), D>
-{
-    static bool const isMemberFunction = true;
-    static bool const isConstMemberFunction = false;
-    typedef D DeclType;
-    typedef T ClassType;
-    typedef R ReturnType;
-    typedef std::tuple<Args...> Params;
-    static R call (T* obj, D fp, ArgList2<2, Params>& tvl)
-    {
-        return obj_apply(obj, fp, tvl.tuple());
-    }
-};
 /*
 template <class T, class R, class D>
 struct FuncTraits <R (T::*) () LUABRIDGE_THROWSPEC, D>
@@ -847,21 +803,6 @@ struct FuncTraits <R (T::*) (P1, P2, P3, P4, P5, P6, P7, P8) LUABRIDGE_THROWSPEC
 };
 */
 /* Const member function pointers with THROWSPEC. */
-
-template<typename T, typename R, typename D, typename... Args>
-struct FuncTraits2<R(T::*)(Args...)const LUABRIDGE_THROWSPEC, D>
-{
-    static bool const isMemberFunction = true;
-    static bool const isConstMemberFunction = true;
-    typedef D DeclType;
-    typedef T ClassType;
-    typedef R ReturnType;
-    typedef std::tuple<Args...> Params;
-    static R call (T const* obj, D fp, ArgList2<2, Params> tvl)
-    {
-        return obj_apply(obj, fp, tvl.tuple());
-    }
-};
 /*
 template <class T, class R, class D>
 struct FuncTraits <R (T::*) () const LUABRIDGE_THROWSPEC, D>

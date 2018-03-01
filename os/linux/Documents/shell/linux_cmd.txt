@@ -169,7 +169,6 @@ $ dd if=./largefile of=/dev/null bs=8k
 dpkg -c xxx.deb // 安装前根据deb文件查看
 dpkg -L debname // 安装后根据包名查看
 
-
 # 安装deb包
 dpkg -i xxx.deb
 
@@ -177,16 +176,27 @@ dpkg -i xxx.deb
 # 移除deb包
 dpkg -r debname
 
-
 # 查看某个文件属于哪个deb包
 dpkg -S filepath
 
 # 释放安装内容到dirname目录中
 dpkg -X xxx.deb dirname
 
-
 # 释放控制信息到当前目录下的DEBIAN子目录中
 dpkg -e xxx.deb
+
+# 清除所有已删除包的残馀配置文件
+dpkg -l | grep ^rc| awk '{print $2}' | sudo xargs dpkg -P
+
+# 列出不包括当前内核版本的其它所有内核版本：
+# 输出的内容中可能会包括内核映像的如下三种状态：
+#    rc：表示已经被移除
+#    ii：表示符合移除条件（可移除）
+#    iU：已进入 apt 安装队列，但还未被安装（不可移除）
+dpkg -l | tail -n +6| grep -E 'linux-image-[0-9]+'| grep -Fv $(uname -r)
+
+# 移除状态为 ii 的旧版「linux-image-4.4.0-21-generic」内核，可以使用如下命令：
+sudo dpkg --purge linux-image-4.4.0-21-generic
 
 
 # --增加私有仓库--------------------
@@ -205,3 +215,8 @@ sudo apt-get install typora
 include ld.so.conf.d/*.conf
 # echo "/usr/local/lib" >> /etc/ld.so.conf
 # ldconfig
+
+
+# 在非KDE桌面环境下，如果安装了fcitx-module-kimpanel，可能会导致Fcitx输入中文时不显示候选词框，移除该组件，然后重启Fcixt。
+$ sudo apt remove fcitx-module-kimpanel
+

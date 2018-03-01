@@ -526,7 +526,7 @@ function M.Region:addFunction(f)
 
   local graph = self.plot:addGraph(nil, nil)
   graph:addVector(keys, values)
-  graph:setScatterStyle(luaplot.ScatterStyleConstructor.fromShapeAndSize(M.ScatterStyle.ssSquare, self.sizeOfScatter))
+  graph:setScatterStyle(luaplot.ScatterStyle.fromShapeAndSize(M.ScatterStyle.ssSquare, self.sizeOfScatter))
 
   return graph
 end
@@ -555,7 +555,7 @@ function M.Region:addLogic(f)
   local curve = self.plot:createCurve(self.plot.xAxis, self.plot.yAxis)
   curve:setVector2(keys, values)
   curve:setLineStyle(M.Curve.lsNone)
-  curve:setScatterStyle(luaplot.ScatterStyleConstructor.fromShapeAndSize(M.ScatterStyle.ssSquare, self.sizeOfScatter))
+  curve:setScatterStyle(luaplot.ScatterStyle.fromShapeAndSize(M.ScatterStyle.ssSquare, self.sizeOfScatter))
   
   return curve
 end
@@ -620,7 +620,7 @@ function M.Region:addEquation(e)
   local curve = self.plot:createCurve(self.plot.xAxis, self.plot.yAxis)
   curve:setVector2(keys, values)
   curve:setLineStyle(M.Curve.lsNone)
-  curve:setScatterStyle(luaplot.ScatterStyleConstructor.fromShapeAndSize(M.ScatterStyle.ssSquare, self.sizeOfScatter))
+  curve:setScatterStyle(luaplot.ScatterStyle.fromShapeAndSize(M.ScatterStyle.ssSquare, self.sizeOfScatter))
   
   return curve
 end

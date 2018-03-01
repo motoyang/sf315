@@ -29,6 +29,53 @@
 
 #pragma once
 
+// --
+
+// for integral type, include unsigned char, but except bool and char.
+template<typename T>
+struct Stack<T, typename std::enable_if_t<std::is_integral<T>::value
+        && !std::is_same<T, bool>::value && !std::is_same<T, char>::value > >
+{
+    static inline void push (lua_State* L, T value)
+    {
+      lua_pushinteger (L, static_cast <lua_Integer> (value));
+    }
+
+    static inline T get (lua_State* L, int index)
+    {
+      return static_cast <T> (luaL_checkinteger (L, index));
+    }
+};
+
+template<typename T>
+struct Stack<T const&, typename std::enable_if_t<std::is_integral<T>::value
+        && !std::is_same<T, bool>::value && !std::is_same<T, char>::value > >
+    : public Stack<T, typename std::enable_if_t<std::is_integral<T>::value
+        && !std::is_same<T, bool>::value && !std::is_same<T, char>::value > >
+{};
+
+// for float point type
+template<typename T>
+struct Stack<T, typename std::enable_if_t<std::is_floating_point<T>::value> >
+{
+    static inline void push (lua_State* L, T value)
+    {
+      lua_pushnumber (L, static_cast <lua_Number> (value));
+    }
+
+    static inline T get (lua_State* L, int index)
+    {
+      return static_cast <T> (luaL_checknumber (L, index));
+    }
+};
+
+template<typename T>
+struct Stack<T const&, typename std::enable_if_t<std::is_floating_point<T>::value> >
+    : public Stack<T, typename std::enable_if_t<std::is_floating_point<T>::value> >
+{};
+
+// --
+
 //------------------------------------------------------------------------------
 /**
     Receive the lua_State* as an argument.
@@ -64,6 +111,7 @@ struct Stack <lua_CFunction>
 /**
     Stack specialization for `int`.
 */
+/*
 template <>
 struct Stack <int>
 {
@@ -91,10 +139,12 @@ struct Stack <int const&>
     return static_cast <int > (luaL_checknumber (L, index));
   }
 };
+*/
 //------------------------------------------------------------------------------
 /**
     Stack specialization for `unsigned int`.
 */
+/*
 template <>
 struct Stack <unsigned int>
 {
@@ -122,11 +172,12 @@ struct Stack <unsigned int const&>
     return static_cast <unsigned int > (luaL_checknumber (L, index));
   }
 };
-
+*/
 //------------------------------------------------------------------------------
 /**
     Stack specialization for `unsigned char`.
 */
+/*
 template <>
 struct Stack <unsigned char>
 {
@@ -154,11 +205,12 @@ struct Stack <unsigned char const&>
     return static_cast <unsigned char> (luaL_checknumber (L, index));
   }
 };
-
+*/
 //------------------------------------------------------------------------------
 /**
     Stack specialization for `short`.
 */
+/*
 template <>
 struct Stack <short>
 {
@@ -186,11 +238,12 @@ struct Stack <short const&>
     return static_cast <short> (luaL_checknumber (L, index));
   }
 };
-
+*/
 //------------------------------------------------------------------------------
 /**
     Stack specialization for `unsigned short`.
 */
+/*
 template <>
 struct Stack <unsigned short>
 {
@@ -218,11 +271,12 @@ struct Stack <unsigned short const&>
     return static_cast <unsigned short> (luaL_checknumber (L, index));
   }
 };
-
+*/
 //------------------------------------------------------------------------------
 /**
     Stack specialization for `long`.
 */
+/*
 template <>
 struct Stack <long>
 {
@@ -250,11 +304,12 @@ struct Stack <long const&>
     return static_cast <long> (luaL_checknumber (L, index));
   }
 };
-
+*/
 //------------------------------------------------------------------------------
 /**
     Stack specialization for `unsigned long`.
 */
+/*
 template <>
 struct Stack <unsigned long>
 {
@@ -282,11 +337,12 @@ struct Stack <unsigned long const&>
     return static_cast <unsigned long> (luaL_checknumber (L, index));
   }
 };
-
+*/
 //------------------------------------------------------------------------------
 /**
     Stack specialization for `float`.
 */
+/*
 template <>
 struct Stack <float>
 {
@@ -314,11 +370,12 @@ struct Stack <float const&>
     return static_cast <float> (luaL_checknumber (L, index));
   }
 };
-
+*/
 //------------------------------------------------------------------------------
 /**
     Stack specialization for `double`.
 */
+/*
 template <> struct Stack <double>
 {
   static inline void push (lua_State* L, double value)
@@ -344,7 +401,7 @@ template <> struct Stack <double const&>
     return static_cast <double> (luaL_checknumber (L, index));
   }
 };
-
+*/
 //------------------------------------------------------------------------------
 /**
     Stack specialization for `bool`.

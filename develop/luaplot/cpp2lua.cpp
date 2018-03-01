@@ -4,8 +4,6 @@
 #include "LuaBridge_cpp17/LuaBridge.h"
 #include "qcp/qcustomplot.h"
 #include "utilities.h"
-//#include "luaplot.h"
-//#include "mainwindow.h"
 #include "type4stack.h"
 #include "qt2lua.h"
 #include "qcp2lua.h"

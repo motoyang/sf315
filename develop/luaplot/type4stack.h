@@ -438,6 +438,8 @@ struct Stack<QCPStatisticalBoxData>
     : public Stack<QCPStatisticalBoxData const&>
 {};
 
+#undef CONSTEXPR_STATIC_CONST_CHAR_POINTER
+
 }   // namespace luabridge end.
 
 #endif // TYPE4STACK_H
