@@ -20,7 +20,7 @@ sudo tar -g homeinfo -cJvPf home_diff_`date +%Y%m%d-%H%M%S`.tar.xz /home
 # --数据还原---------
 
 # 首先还原系统的完整备份
-sudo tar -g sysinfo --exclude=/run --exclude=/boot/efi -xJvPf sys_snapshot_20180125-235658.tar.xz -C /
+sudo tar -g sysinfo --exclude=/run --exclude=/boot/efi -xJvpPf sys_snapshot_20180125-235658.tar.xz -C /
 
 # 建立不需要备份的系统目录
 # 还要设置这些目录的权限
@@ -37,19 +37,19 @@ mkdir /boot/efi && chownd root:root /boot/efi && chmod 700 /boot/efi
 exit
 
 # 再还原增量备份的系统文件，-g参数可以使得在完整备份后删除的文件被删除
-sudo tar -g sysinfo -xJvPf sys_diff_20180203-213638.tar.xz -C /
+sudo tar -g sysinfo -xJvpPf sys_diff_20180203-213638.tar.xz -C /
 
 # 还原home目录
-sudo tar -g homeinfo -xJvPf home_snapshot_20180125-235658.tar.xz -C /home/xt
+sudo tar -g homeinfo -xJvpPf home_snapshot_20180125-235658.tar.xz -C /home/xt
 
 # 再还原增量备份的home目录
-sudo tar -g homeinfo -xJvPf home_diff_20180203-222618.tar.xz -C /home/xt
+sudo tar -g homeinfo -xJvpPf home_diff_20180203-222618.tar.xz -C /home/xt
 
 
 # --批量还原备份的文件---------------------------
 
-ls sys_diff_*.tar.xz | sort | xargs -n 1 -t tar -g sysinfo -xJvPf -C /
-ls home_diff_*.tar.xz | sort | xargs -n 1 -t tar -g homeinfo -xJvPf -C /home
+ls sys_diff_*.tar.xz | sort | xargs -n 1 -t tar -g sysinfo -xJvpPf -C /
+ls home_diff_*.tar.xz | sort | xargs -n 1 -t tar -g homeinfo -xJvpPf -C /home
 
 
 # --备份win10分区------------------------
@@ -57,6 +57,11 @@ ls home_diff_*.tar.xz | sort | xargs -n 1 -t tar -g homeinfo -xJvPf -C /home
 sudo tar -g win10info -cJvPf win10_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz /media/xt/Win10 --exclude /media/xt/Win10/hiberfil.sys
 
 sudo tar -g win10info -cJvPf win10_diff_`date +%Y%m%d-%H%M%S`.tar.xz /media/xt/Win10
+
+# parallel 并行压缩
+sudo tar -g win10info -cvpPf - /media/xt/Win10 --exclude=/media/xt/Win10/*.sys --exclude=/media/xt/Win10/games/World_of_warships 2>tar_err.txt | parallel --pipe --recend "" -k -j6 xz -zc > win10_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
+
+sudo tar -g win10info -cvpPf - /media/xt/Win10 --exclude=/media/xt/Win10/*.sys --exclude=/media/xt/Win10/games/World_of_warships 2>tar_err.txt | parallel --pipe --recend "" -k -j4 xz -zc > win10_diff_`date +%Y%m%d-%H%M%S`.tar.xz
 
 
 # --备份macOS分区------------------------
@@ -69,8 +74,8 @@ sudo tar -g macOSinfo -cvpPf - /mnt/macos 2>err.txt | parallel --pipe --recend "
 
 # --hfs分区的操作------------------------
 
-# 无法挂载或者只读挂载,需要装hfsprogs来支持hfs, 用fdisk  -l 命令查看磁盘
-sudo apt-get install hfsprogssudo   
+# 无法挂载或者只读挂载,需要装hfsprogs来支持hfs, 用fdisk -l 命令查看磁盘
+sudo apt-get install hfsprogs
 sudo fsck.hfsplus -f /dev/sda2
 
 # 挂载hfs+分区
@@ -96,12 +101,13 @@ pre_placehoder_5
 # 这时管道前面的不是作为参数，而是标准输入传给后面的命令
 cat my_large_log | parallel --pipe grep pattern 
 
-sudo tar -g sysinfo -cvpPf - /media/xt/win10 | parallel --pipe --recend "" -k -j4 xz -zc > win10.tar.xz
 sudo tar -g sysinfo -cvpPf - /usr | parallel --pipe --recend "" -j4 -k -j4 xz -zc > usr.tar.xz
 
 sudo tar -g sysinfo -cvpPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > sys_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
 
 sudo tar -g sysinfo -cvpPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz
+
+sudo tar -g homeinfo -cvpPf - /home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > home_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
 
 sudo tar -g homeinfo -cvpPf - /home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > home_diff_`date +%Y%m%d-%H%M%S`.tar.xz
 

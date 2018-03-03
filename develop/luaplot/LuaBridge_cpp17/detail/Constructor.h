@@ -34,23 +34,11 @@ template <class T, typename Tuple>
 struct Constructor2
 {
 };
-/*
-template <class T>
-struct Constructor2 <T, std::tuple<>>
-{
-  static T* call (ArgList2<2, std::tuple<>> const&)
-  {
-    return new T;
-  }
-  static T* call (void* mem, ArgList2<2, std::tuple<>> const&)
-  {
-    return new (mem) T;
-  }
-};
-*/
+
 template <class T, typename... Args>
 struct Constructor2 <T, std::tuple<Args...>>
 {
+private:
     static T* create(Args&&... args)
     {
         return new T(std::forward<Args>(args)...);
@@ -66,6 +54,7 @@ struct Constructor2 <T, std::tuple<Args...>>
         }
     };
 
+public:
   static T* call (const ArgList2<2, std::tuple<Args...>> &tvl)
   {
     return std::apply(create, tvl.tuple());
