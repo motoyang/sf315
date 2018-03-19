@@ -1,3 +1,121 @@
+
+# 安装新的debian系统
+# fdisk查看和分区
+
+swapon /dev/sda5
+mount /dev/sda1 /mnt/debinst
+tar -xf debootstrap_0.X.X_all.tar.gz
+/usr/sbin/debootstrap --arch amd64 stretch /mnt/debinst http://ftp2.cn.debian.org/debian
+     
+mount -t proc none /mnt/debinst/proc
+mount -o bind /dev /mnt/debinst/dev
+mount -t sysfs sys /mnt/debinst/sys
+chroot /mnt/debinst/ /bin/bash
+
+apt install linux-headers-`uname -r`
+apt install linux-image-`uname -r` net-tools
+
+apt install grub-pc
+# apt install grub-efi
+grub-install /dev/sda
+update-grub
+
+useradd xt -m
+passwd xt
+
+apt install sudo
+vi /etc/sudoers
+
+sync & reboot
+
+
+# 安装DHCP
+sudo apt-get install isc-dhcp-server
+
+# 配置DHCP
+# 1, 在/etc/default/dhcp-server文件中，设置dhcp请求的网卡
+INTERFACES="enp0s3"
+
+# 2, 在/etc/dhcp/dhcpd.conf文件中，设置dhcp网络：
+default-lease-time 600;
+max-lease-time 7200;
+
+subnet 192.168.1.0 netmask 255.255.255.0 {
+  range 192.168.1.21 192.168.1.240;
+  option subnet-mask 255.255.255.0;
+  option routers 192.168.1.20;
+  option broadcast-address 192.168.1.255;
+  filename "pxelinux.0";
+}
+
+# 重启DHCP服务
+sudo /etc/init.d/isc-dhcp-server start
+
+
+# 安装tftp服务器
+sudo apt-get install tftpd-hpa xinetd  
+
+# 1、更改tftpd-hpa服务器的根目录，修改/etc/default/tftpd-hpa，文件内容如下：
+# /etc/default/tftpd-hpa  
+TFTP_USERNAME="tftp"  
+TFTP_DIRECTORY="/data/tftpboot"    #更改这里，在这里指定根目录，我这里指定为/data/tftpboot目录  
+TFTP_ADDRESS="0.0.0.0:69"  
+TFTP_OPTIONS="--secure" 
+
+# 2、在/etc/xinetd.d目录下创建一个名叫tftp的文件，并在该文件中加入如下内容：
+service tftp  
+{  
+     socket_type     = dgram  
+     protocol        = udp  
+     wait            = yes  
+     user            = root  
+     server          = /usr/sbin/in.tftpd  
+     server_args     = -s /tftpboot    #TFTP的根目录，自己根据需要修改，这里需要注意目录权限  
+     disable         = no  
+     per_source      = 11  
+     cps             = 1002  
+     flags           = IPv4  
+}  
+
+# 3、重启tftp服务器
+sudo /etc/init.d/xinetd restart  
+sudo service tftpd-hpa restart  
+
+# 4、将debian的tftp启动文件放入/tftpboot目录中
+# For PXE booting, everything you should need is set up in the netboot/netboot.tar.gz tarball. Simply extract this tarball into the tftpd boot image directory.
+
+
+# 增加路由，连通内外网
+# 1. 修改/etc/sysctl.conf文件，ipv4、ipv6转发设置为1
+net.ipv4.ip_forward = 1
+net.ipv6.ip_forward = 1
+
+# 2. 增加一个文件在如下目录：/etc/network/if-pre-up.d/iptables，内容如下：
+#!/bin/bash
+/sbin/iptables -t nat -I POSTROUTING -o enp0s8 -j MASQUERADE
+
+
+# --Linux下的dd命令
+
+# 1. 制作软盘镜像文件diska.img
+dd if=/dev/zero of=diska.img bs=512 count=2880
+
+# 2. 复制boot.bin到boot.img中
+dd if=boot.bin of=boot.img bs=512 count=1
+
+# 3. 复制diska.img中从第512字节往后的内容添加到boot.img中（这是dd最出彩的部分）
+dd if=diska.img of=boot.img skip=1 seek=1 bs=512 count=2879
+
+# 挂载iso文件
+mount -o loop ~/CentOS-6.5-x86_64-bin-DVD1.iso ~/centos/
+
+# 制作iso启动镜像
+mkisofs -r -T -J -V "make iso " -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -v -o myiso.iso ./iso_boot
+
+# patch对源代码打补丁
+patch -p1 < patch_file -d src_dir
+
+
 # --系统备份------------------
 
 # 首先到备份目录中
