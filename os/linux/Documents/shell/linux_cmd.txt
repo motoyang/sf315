@@ -1,64 +1,167 @@
-
+# ------------------------------------------------------------------------------
 # 安装新的debian系统
-# fdisk查看和分区
 
-swapon /dev/sda5
-mount /dev/sda1 /mnt/debinst
+# fdisk分区
+Device     Boot    Start      End  Sectors  Size Id Type
+/dev/sdb1           2048   616447   614400  300M  c W95 FAT32 (LBA)
+/dev/sdb2         616448 17393663 16777216    8G 83 Linux
+/dev/sdb3       17393664 20971519  3577856  1.7G 82 Linux swap / Solaris
+
+# 格式化分区
+sudo mkdosfs /dev/sdb1
+sudo mke2fs -t ext4 /dev/sdb2
+sudo mkswap /dev/sdb3
+
+sudo sync
+sudo swapon /dev/sdb3
+sudo mount /dev/sdb2 /mnt/debinst
+
+# get到debootstrap
+wget http://mirrors.163.com/debian/pool/main/d/debootstrap/debootstrap_1.0.93.tar.gz
 tar -xf debootstrap_0.X.X_all.tar.gz
-/usr/sbin/debootstrap --arch amd64 stretch /mnt/debinst http://ftp2.cn.debian.org/debian
-     
-mount -t proc none /mnt/debinst/proc
-mount -o bind /dev /mnt/debinst/dev
-mount -t sysfs sys /mnt/debinst/sys
-chroot /mnt/debinst/ /bin/bash
+sudo debootstrap --arch amd64 stretch /mnt/debinst http://ftp2.cn.debian.org/debian
+# sudo debootstrap --arch amd64 stretch /mnt/debinst http://mirrors.163.com/debian
 
+# mount 必要的文件系统     
+sudo mount -t proc none /mnt/debinst/proc
+sudo mount -o bind /dev /mnt/debinst/dev
+sudo mount -t sysfs sys /mnt/debinst/sys
+
+# chroot到新的文件系统
+LANG=C.UTF-8 sudo chroot /mnt/debinst/ /bin/bash
+
+# 编辑fstab文件
+# /etc/fstab: static file system information.
+#
+# file system    mount point   type    options                  dump pass
+/dev/sdb2        /             ext4    defaults                 0    1
+/dev/sdb3        none          swap    sw                       0    0
+proc             /proc         proc    defaults                 0    0
+
+/dev/fd0         /media/floppy auto    noauto,rw,sync,user,exec 0    0
+/dev/cdrom       /media/cdrom  iso9660 noauto,ro,user,exec      0    0
+
+vi /etc/fstab 
+mount -a
+
+# 设置时区，/etc/adjtime文件内容如下：
+# /etc/adjtime
+0.0 0 0.0
+0
+UTC
+
+vi /etc/adjtime
+dpkg-reconfigure tzdata
+
+# 配置网络
+# 1, 先配置网卡，在/etc/network/interfaces文件中配置，内容如下：
+######################################################################
+# /etc/network/interfaces -- configuration file for ifup(8), ifdown(8)
+# See the interfaces(5) manpage for information on what options are
+# available.
+######################################################################
+
+# We always want the loopback interface.
+#
+auto lo
+iface lo inet loopback
+
+# To use dhcp:
+#
+auto enp0s8
+iface enp0s8 inet dhcp
+
+# An example static IP setup: (broadcast and gateway are optional)
+#
+auto enp0s3
+iface enp0s3 inet static
+     address 192.168.0.1
+     network 192.168.0.0
+     netmask 255.255.255.0
+     broadcast 192.168.0.255
+#     gateway 192.168.0.1
+
+# 2, 配置nameserver，在/etc/resolv.conf文件中，内容如下：
+nameserver 192.168.1.1
+# nameserver fe80::1%enp0s8
+
+# 3, 在/etc/hostname中，设置hostname，内容如下：
+# /etc/hostname
+pxe_1
+
+# 4, 在/etc/hosts中，内容如下：
+# /etc/hosts
+127.0.0.1       localhost
+127.0.0.1       pxe_1
+::1             localhost ip6-localhost ip6-loopback
+ff02::1         ip6-allnodes
+ff02::2         ip6-allrouters
+
+
+# 安装内核
 apt install linux-headers-`uname -r`
-apt install linux-image-`uname -r` net-tools
+apt install linux-image-`uname -r`
 
+# 配置locales
+apt install locales
+dpkg-reconfigure locales
+
+# 安装grub
 apt install grub-pc
 # apt install grub-efi
-grub-install /dev/sda
-update-grub
+# grub-install /dev/sda
+# update-grub
 
+# 增加用户，设置秘密，修改用户的登录shell，增加sudo权限
 useradd xt -m
 passwd xt
-
-apt install sudo
+vi /etc/passwd
 vi /etc/sudoers
 
+# 安装必要的软件
+apt install net-tools sudo ssh
 sync & reboot
 
+# end of 安装新的debian系统
+# ------------------------------------------------------------------------------
 
+
+
+# ------------------------------------------------------------------------------
 # 安装DHCP
 sudo apt-get install isc-dhcp-server
 
 # 配置DHCP
-# 1, 在/etc/default/dhcp-server文件中，设置dhcp请求的网卡
+# 1, 在/etc/default/isc-dhcp-server文件中，设置dhcp请求的网卡
 INTERFACES="enp0s3"
 
 # 2, 在/etc/dhcp/dhcpd.conf文件中，设置dhcp网络：
 default-lease-time 600;
 max-lease-time 7200;
 
-subnet 192.168.1.0 netmask 255.255.255.0 {
-  range 192.168.1.21 192.168.1.240;
-  option subnet-mask 255.255.255.0;
-  option routers 192.168.1.20;
-  option broadcast-address 192.168.1.255;
-  filename "pxelinux.0";
-}
+subnet 192.168.0.0 netmask 255.255.255.0 { 
+  range 192.168.0.21 192.168.0.240; 
+  option subnet-mask 255.255.255.0; 
+  option routers 192.168.0.1; 
+  option broadcast-address 192.168.0.255; 
+  filename "pxelinux.0"; 
+} 
 
 # 重启DHCP服务
 sudo /etc/init.d/isc-dhcp-server start
 
+# end of 安装DHCP
+# ------------------------------------------------------------------------------
 
+
+# ------------------------------------------------------------------------------
 # 安装tftp服务器
 sudo apt-get install tftpd-hpa xinetd  
 
 # 1、更改tftpd-hpa服务器的根目录，修改/etc/default/tftpd-hpa，文件内容如下：
 # /etc/default/tftpd-hpa  
 TFTP_USERNAME="tftp"  
-TFTP_DIRECTORY="/data/tftpboot"    #更改这里，在这里指定根目录，我这里指定为/data/tftpboot目录  
+TFTP_DIRECTORY="/srv/tftp"  
 TFTP_ADDRESS="0.0.0.0:69"  
 TFTP_OPTIONS="--secure" 
 
@@ -70,7 +173,7 @@ service tftp
      wait            = yes  
      user            = root  
      server          = /usr/sbin/in.tftpd  
-     server_args     = -s /tftpboot    #TFTP的根目录，自己根据需要修改，这里需要注意目录权限  
+     server_args     = -s /srv/tftp    #TFTP的根目录，自己根据需要修改，这里需要注意目录权限  
      disable         = no  
      per_source      = 11  
      cps             = 1002  
@@ -84,8 +187,14 @@ sudo service tftpd-hpa restart
 # 4、将debian的tftp启动文件放入/tftpboot目录中
 # For PXE booting, everything you should need is set up in the netboot/netboot.tar.gz tarball. Simply extract this tarball into the tftpd boot image directory.
 
+# end of 安装tftp服务器
+# ------------------------------------------------------------------------------
 
+
+
+# ------------------------------------------------------------------------------
 # 增加路由，连通内外网
+
 # 1. 修改/etc/sysctl.conf文件，ipv4、ipv6转发设置为1
 net.ipv4.ip_forward = 1
 net.ipv6.ip_forward = 1
@@ -93,6 +202,9 @@ net.ipv6.ip_forward = 1
 # 2. 增加一个文件在如下目录：/etc/network/if-pre-up.d/iptables，内容如下：
 #!/bin/bash
 /sbin/iptables -t nat -I POSTROUTING -o enp0s8 -j MASQUERADE
+
+# end of 增加路由，连通内外网
+# ------------------------------------------------------------------------------
 
 
 # --Linux下的dd命令
