@@ -97,6 +97,16 @@ pxe_1
 ff02::1         ip6-allnodes
 ff02::2         ip6-allrouters
 
+# 配置debian的源
+# /etc/apt/sources.list
+deb http://mirrors.163.com/debian/ stretch main non-free contrib
+deb http://mirrors.163.com/debian/ stretch-updates main non-free contrib
+deb http://mirrors.163.com/debian/ stretch-backports main non-free contrib
+deb-src http://mirrors.163.com/debian/ stretch main non-free contrib
+deb-src http://mirrors.163.com/debian/ stretch-updates main non-free contrib
+deb-src http://mirrors.163.com/debian/ stretch-backports main non-free contrib
+deb http://mirrors.163.com/debian-security/ stretch/updates main non-free contrib
+deb-src http://mirrors.163.com/debian-security/ stretch/updates main non-free contrib
 
 # 安装内核
 apt install linux-headers-`uname -r`
@@ -119,7 +129,8 @@ vi /etc/passwd
 vi /etc/sudoers
 
 # 安装必要的软件
-apt install net-tools sudo ssh
+apt install net-tools sudo ssh man-db less dosfstools vim parallel
+
 sync & reboot
 
 # end of 安装新的debian系统
@@ -207,6 +218,39 @@ net.ipv6.ip_forward = 1
 # ------------------------------------------------------------------------------
 
 
+
+# ------------------------------------------------------------------------------
+# 安装ftp服务器
+sudo apt install vsftpd
+
+# 1. 修改/etc/vsftpd.conf文件，设置如下行：
+listen=YES
+local_enable=YES
+write_enable=YES
+local_umask=022
+dirmessage_enable=YES
+use_localtime=YES
+utf8_filesystem=YES
+
+# 2. 增加一个.message文件在用户的home目录：内容如下就是一些欢迎信息，如下：
+welcome to the ftp!
+
+# 3. 重启ftp服务
+/etc/init.d/vsftpd restart
+
+# 4. 在客户端，使用ftp命令链接ftp server的ip地址，登陆用户必须是ftp server上的用户
+ftp 192.168.1.9
+help
+binary
+put
+get
+
+# end of 安装ftp服务器
+# ------------------------------------------------------------------------------
+
+
+
+# ------------------------------------------------------------------------------
 # --Linux下的dd命令
 
 # 1. 制作软盘镜像文件diska.img
@@ -221,6 +265,9 @@ dd if=diska.img of=boot.img skip=1 seek=1 bs=512 count=2879
 # 挂载iso文件
 mount -o loop ~/CentOS-6.5-x86_64-bin-DVD1.iso ~/centos/
 
+# end of Linux下的dd命令
+# ------------------------------------------------------------------------------
+
 # 制作iso启动镜像
 mkisofs -r -T -J -V "make iso " -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -v -o myiso.iso ./iso_boot
 
@@ -228,6 +275,8 @@ mkisofs -r -T -J -V "make iso " -b isolinux/isolinux.bin -c isolinux/boot.cat -n
 patch -p1 < patch_file -d src_dir
 
 
+
+# ------------------------------------------------------------------------------
 # --系统备份------------------
 
 # 首先到备份目录中
@@ -236,81 +285,85 @@ cd backup_dir/
 # 备份系统的命令，需要sudo执行
 
 # 完整备份整个系统，但不包括/home等目录
-sudo tar -g sysinfo -cJvPf sys_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz / --exclude=/proc --exclude=/lost+found --exclude=/mnt --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home
+sudo tar -C / -g sysinfo -cJvpf sys_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz . --exclude=./proc --exclude=./lost+found --exclude=./mnt --exclude=./sys --exclude=./run --exclude=./boot/efi --exclude=./tmp --exclude=./media --exclude=./home
 
 # 在前面完整备份的基础上，增量备份整个系统，但不包括/home等目录
-sudo tar -g sysinfo -cJvPf sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz / --exclude=/proc --exclude=/lost+found --exclude=/mnt --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home
+sudo tar -C / -g sysinfo -cJvpf sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz . --exclude=./proc --exclude=./lost+found --exclude=./mnt --exclude=./sys --exclude=./run --exclude=./boot/efi --exclude=./tmp --exclude=./media --exclude=./home
 
 # 完整备份home目录
-sudo tar -g homeinfo -cJvPf home_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz /home
+sudo tar -C /home -g homeinfo -cJvpf home_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz .
 
 # 在前面完整备份的基础上，增量备份home目录
-sudo tar -g homeinfo -cJvPf home_diff_`date +%Y%m%d-%H%M%S`.tar.xz /home
+sudo tar -C /home -g homeinfo -cJvPf home_diff_`date +%Y%m%d-%H%M%S`.tar.xz .
 
 # --数据还原---------
 
 # 首先还原系统的完整备份
-sudo tar -g sysinfo --exclude=/run --exclude=/boot/efi -xJvpPf sys_snapshot_20180125-235658.tar.xz -C /
+sudo tar -C /mnt/sdb2 -g sysinfo --exclude=/run --exclude=/boot/efi -xJvpf sys_snapshot_20180125-235658.tar.xz
 
-# 建立不需要备份的系统目录
-# 还要设置这些目录的权限
-
-sudo su
-mkdir /proc && chownd root:root /proc && chmod 555 /proc
-mkdir /lost+found && chownd root:root /proc && chmod 700 /lost+found
-mkdir /mnt && chownd root:root /proc && chmod 755 /mnt
-mkdir /sys && chownd root:root /proc && chmod 555 /sys
-mkdir /tmp && chownd root:root /proc && chmod 777 /tmp
-mkdir /media && chownd root:root /proc && chmod 755 /mnt
-mkdir /home && chownd root:root /proc && chmod 755 /home
-mkdir /boot/efi && chownd root:root /boot/efi && chmod 700 /boot/efi
-exit
+# 建立不需要备份的系统目录，设置这些目录的权限
+cd /mnt/sdb2
+mkdir ./proc && chown root:root ./proc && chmod 555 ./proc
+mkdir ./run && chown root:root ./run && chmod 755 ./run
+mkdir ./lost+found && chown root:root ./lost+found && chmod 700 ./lost+found
+mkdir ./mnt && chown root:root ./mnt && chmod 755 ./mnt
+mkdir ./sys && chown root:root ./sys && chmod 555 ./sys
+mkdir ./tmp && chown root:root ./tmp && chmod 777 ./tmp
+mkdir ./media && chown root:root ./media && chmod 755 ./media
+mkdir ./home && chown root:root ./home && chmod 755 ./home
+# mkdir ./boot/efi && chown root:root ./boot/efi && chmod 700 ./boot/efi
 
 # 再还原增量备份的系统文件，-g参数可以使得在完整备份后删除的文件被删除
-sudo tar -g sysinfo -xJvpPf sys_diff_20180203-213638.tar.xz -C /
+sudo tar -C /mnt/sdb2 -g sysinfo -xJvpf sys_diff_20180203-213638.tar.xz
 
 # 还原home目录
-sudo tar -g homeinfo -xJvpPf home_snapshot_20180125-235658.tar.xz -C /home/xt
+sudo tar -C /mnt/sdb2/home -g homeinfo -xJvpf home_snapshot_20180125-235658.tar.xz
 
 # 再还原增量备份的home目录
-sudo tar -g homeinfo -xJvpPf home_diff_20180203-222618.tar.xz -C /home/xt
+sudo tar -C /mnt/sdb2/home -g homeinfo -xJvpPf home_diff_20180203-222618.tar.xz
+
+# !!!!!!
+# 如果是在新分区还原，需要修改/etc/fstab文件中的内容，uuid要与新分区匹配。
+# 如果是在新硬盘的新分区还原，还有安装grub到新硬盘，并且执行update-grub2命令更新grub启动信息。
+# !!!!!!
 
 
 # --批量还原备份的文件---------------------------
 
-ls sys_diff_*.tar.xz | sort | xargs -n 1 -t tar -g sysinfo -xJvpPf -C /
-ls home_diff_*.tar.xz | sort | xargs -n 1 -t tar -g homeinfo -xJvpPf -C /home
+ls sys_diff_*.tar.xz | sort | xargs -n 1 -t tar -C /mnt/sdb2 -g sysinfo -xJvpf
+ls home_diff_*.tar.xz | sort | xargs -n 1 -t tar -C /mnt/sdb2/home -g homeinfo -xJvpf
 
 
 # --备份win10分区------------------------
 
-sudo tar -g win10info -cJvPf win10_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz /media/xt/Win10 --exclude /media/xt/Win10/hiberfil.sys
+sudo tar -C /media/xt/Win10 -g win10info -cJvpf win10_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz . --exclude=./hiberfil.sys --exclude=./pagefile.sys --exclude=./swapfile.sys --exclude=./Windows/Temp --exclude=./$Recycle.Bin
 
-sudo tar -g win10info -cJvPf win10_diff_`date +%Y%m%d-%H%M%S`.tar.xz /media/xt/Win10
+sudo tar -C /media/xt/Win10 -g win10info -cJvpf win10_diff_`date +%Y%m%d-%H%M%S`.tar.xz . --exclude=./hiberfil.sys --exclude=./pagefile.sys --exclude=./swapfile.sys --exclude=./Windows/Temp --exclude=./$Recycle.Bin
 
 # parallel 并行压缩
-sudo tar -g win10info -cvpPf - /media/xt/Win10 --exclude=/media/xt/Win10/*.sys --exclude=/media/xt/Win10/games/World_of_warships 2>tar_err.txt | parallel --pipe --recend "" -k -j6 xz -zc > win10_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
+sudo tar -C /media/xt/Win10 -g win10info -cvpf - . --exclude=./hiberfil.sys --exclude=./pagefile.sys --exclude=./swapfile.sys --exclude=./Windows/Temp --exclude=./$Recycle.Bin --exclude=./games 2>tar_err.txt | parallel --pipe --recend "" -k -j6 xz -zc > win10_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
 
-sudo tar -g win10info -cvpPf - /media/xt/Win10 --exclude=/media/xt/Win10/*.sys --exclude=/media/xt/Win10/games/World_of_warships 2>tar_err.txt | parallel --pipe --recend "" -k -j4 xz -zc > win10_diff_`date +%Y%m%d-%H%M%S`.tar.xz
-
+sudo tar -C /media/xt/Win10 -g win10info -cvpf - . --exclude=./hiberfil.sys --exclude=./pagefile.sys --exclude=./swapfile.sys --exclude=./Windows/Temp --exclude=./$Recycle.Bin --exclude=./games 2>tar_err.txt | parallel --pipe --recend "" -k -j4 xz -zc > win10_diff_`date +%Y%m%d-%H%M%S`.tar.xz
 
 # --备份macOS分区------------------------
 
-sudo tar -g macOSinfo -cJvPf macOS_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz /mnt/macos
+sudo tar -C /mnt/macos -g macOSinfo -cJvpf macOS_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz .
 
-sudo tar -g macOSinfo -cJvPf macOS_diff_`date +%Y%m%d-%H%M%S`.tar.xz /mnt/macos
+sudo tar -C /mnt/macos -g macOSinfo -cJvpf macOS_diff_`date +%Y%m%d-%H%M%S`.tar.xz .
 
-sudo tar -g macOSinfo -cvpPf - /mnt/macos 2>err.txt | parallel --pipe --recend "" -k -j4 xz -zc > macOS_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
+sudo tar -C /mnt/macos -g macOSinfo -cvpf - . 2>err.txt | parallel --pipe --recend "" -k -j4 xz -zc > macOS_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
+
+sudo tar -C /mnt/macos -g macOSinfo -cvpf - . 2>err.txt | parallel --pipe --recend "" -k -j4 xz -zc > macOS_diff_`date +%Y%m%d-%H%M%S`.tar.xz
 
 # --hfs分区的操作------------------------
 
 # 无法挂载或者只读挂载,需要装hfsprogs来支持hfs, 用fdisk -l 命令查看磁盘
 sudo apt-get install hfsprogs
-sudo fsck.hfsplus -f /dev/sda2
+sudo fsck.hfsplus -f /dev/sdb2
 
 # 挂载hfs+分区
-sudo mkdir /media/mac
-sudo mount -t hfsplus -o force,rw /dev/sda2 /media/mac/
+sudo mkdir /mnt/mac
+sudo mount -t hfsplus -o force,rw /dev/sda2 /mnt/mac/
 sudo mount -t hfsplus -o force,ro /dev/nvme0n1p2 /mnt/macos
 
 # 挂载efi分区
@@ -331,15 +384,21 @@ pre_placehoder_5
 # 这时管道前面的不是作为参数，而是标准输入传给后面的命令
 cat my_large_log | parallel --pipe grep pattern 
 
-sudo tar -g sysinfo -cvpPf - /usr | parallel --pipe --recend "" -j4 -k -j4 xz -zc > usr.tar.xz
+sudo tar -C / -g sysinfo -cvpf - ./usr | parallel --pipe --recend "" -j4 -k -j4 xz -zc > usr.tar.xz
 
-sudo tar -g sysinfo -cvpPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > sys_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
+# 备份整个文件系统
+sudo tar -C / -g sysinfo -cvpf - . --exclude=./proc --exclude=./lost+found --exclude=./mnt --exclude=./sys --exclude=./run --exclude=./boot/efi --exclude=./tmp --exclude=./media --exclude=./home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > sys_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
 
-sudo tar -g sysinfo -cvpPf - / --exclude=/proc --exclude=/lost+found --exclude=/mnt --exclude=/sys --exclude=/run --exclude=/boot/efi --exclude=/tmp --exclude=/media --exclude=/home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz
+sudo tar -C / -g sysinfo -cvpf - . --exclude=./proc --exclude=./lost+found --exclude=./mnt --exclude=./sys --exclude=./run --exclude=./boot/efi --exclude=./tmp --exclude=./media --exclude=./home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz
 
-sudo tar -g homeinfo -cvpPf - /home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > home_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
+# 备份/home目录
+sudo tar -C /home -g homeinfo -cvpf - . 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > home_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
 
-sudo tar -g homeinfo -cvpPf - /home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > home_diff_`date +%Y%m%d-%H%M%S`.tar.xz
+sudo tar -C /home -g homeinfo -cvpf - . 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > home_diff_`date +%Y%m%d-%H%M%S`.tar.xz
+
+# end of 系统备份
+# ------------------------------------------------------------------------------
+
 
 # --输出重定向--------------------
 
