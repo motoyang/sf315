@@ -24,8 +24,14 @@ sudo debootstrap --arch amd64 stretch /mnt/debinst http://ftp2.cn.debian.org/deb
 
 # mount 必要的文件系统     
 sudo mount -t proc none /mnt/debinst/proc
-sudo mount -o bind /dev /mnt/debinst/dev
 sudo mount -t sysfs sys /mnt/debinst/sys
+
+# 对于/dev，可以如此：
+sudo mount -o bind /dev /mnt/debinst/dev
+# 也可以这样，推荐这种方式：
+apt install makedev
+cd /dev
+MAKEDEV generic
 
 # chroot到新的文件系统
 LANG=C.UTF-8 sudo chroot /mnt/debinst/ /bin/bash
@@ -108,6 +114,8 @@ deb-src http://mirrors.163.com/debian/ stretch-backports main non-free contrib
 deb http://mirrors.163.com/debian-security/ stretch/updates main non-free contrib
 deb-src http://mirrors.163.com/debian-security/ stretch/updates main non-free contrib
 
+apt update
+
 # 安装内核
 apt install linux-headers-`uname -r`
 apt install linux-image-`uname -r`
@@ -126,10 +134,13 @@ apt install grub-pc
 useradd xt -m
 passwd xt
 vi /etc/passwd
-vi /etc/sudoers
 
 # 安装必要的软件
-apt install net-tools sudo ssh man-db less dosfstools vim parallel
+apt install net-tools sudo ssh man-db less dosfstools vim parallel build-essential bash-completion
+vi /etc/sudoers
+
+# 如果要安装更多的软件，可以如下：
+tasksel install standard
 
 sync & reboot
 
@@ -285,10 +296,10 @@ cd backup_dir/
 # 备份系统的命令，需要sudo执行
 
 # 完整备份整个系统，但不包括/home等目录
-sudo tar -C / -g sysinfo -cJvpf sys_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz . --exclude=./proc --exclude=./lost+found --exclude=./mnt --exclude=./sys --exclude=./run --exclude=./boot/efi --exclude=./tmp --exclude=./media --exclude=./home
+sudo tar -C / --exclude=./var/run --exclude=./var/tmp --exclude=./var/cache --exclude=./proc --exclude=./lost+found --exclude=./mnt --exclude=./sys --exclude=./run --exclude=./boot/efi --exclude=./tmp --exclude=./media --exclude=./home -g sysinfo -cJvpf sys_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz .
 
 # 在前面完整备份的基础上，增量备份整个系统，但不包括/home等目录
-sudo tar -C / -g sysinfo -cJvpf sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz . --exclude=./proc --exclude=./lost+found --exclude=./mnt --exclude=./sys --exclude=./run --exclude=./boot/efi --exclude=./tmp --exclude=./media --exclude=./home
+sudo tar -C / --exclude=./var/run --exclude=./var/tmp --exclude=./var/cache --exclude=./proc --exclude=./lost+found --exclude=./mnt --exclude=./sys --exclude=./run --exclude=./boot/efi --exclude=./tmp --exclude=./media --exclude=./home -g sysinfo -cJvpf sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz .
 
 # 完整备份home目录
 sudo tar -C /home -g homeinfo -cJvpf home_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz .
@@ -299,19 +310,36 @@ sudo tar -C /home -g homeinfo -cJvPf home_diff_`date +%Y%m%d-%H%M%S`.tar.xz .
 # --数据还原---------
 
 # 首先还原系统的完整备份
-sudo tar -C /mnt/sdb2 -g sysinfo --exclude=/run --exclude=/boot/efi -xJvpf sys_snapshot_20180125-235658.tar.xz
+sudo tar -C /mnt/sdb2 --exclude=./run --exclude=./boot/efi -g sysinfo -xJvpf sys_snapshot_20180125-235658.tar.xz
 
+#--------------------------------------
 # 建立不需要备份的系统目录，设置这些目录的权限
-cd /mnt/sdb2
-mkdir ./proc && chown root:root ./proc && chmod 555 ./proc
-mkdir ./run && chown root:root ./run && chmod 755 ./run
-mkdir ./lost+found && chown root:root ./lost+found && chmod 700 ./lost+found
-mkdir ./mnt && chown root:root ./mnt && chmod 755 ./mnt
-mkdir ./sys && chown root:root ./sys && chmod 555 ./sys
-mkdir ./tmp && chown root:root ./tmp && chmod 777 ./tmp
-mkdir ./media && chown root:root ./media && chmod 755 ./media
-mkdir ./home && chown root:root ./home && chmod 755 ./home
-# mkdir ./boot/efi && chown root:root ./boot/efi && chmod 700 ./boot/efi
+#!/bin/bash
+
+# usage:
+# root_fs /mnt/sdb2
+
+create_dir() {
+  for ((i=4; i<=$#; i++)); do
+    eval a=\$$i
+    local DIR=$1/$a
+#   echo $DIR $2 $3
+    mkdir -p $DIR && chown $2 $DIR && chmod $3 $DIR
+  done;
+}
+
+# 恢复备份时不需要备份的目录
+C_OWN=root:root
+create_dir $1 $C_OWN 555 proc sys
+create_dir $1 $C_OWN 755 run mnt media home var/cache var/tmp 
+create_dir $1 $C_OWN 777 tmp 
+create_dir $1 $C_OWN 700 boot/efi
+
+ln -s $1/run $1/var/run
+
+# end of 建立不需要备份的系统目录，设置这些目录的权限
+#--------------------------------------
+
 
 # 再还原增量备份的系统文件，-g参数可以使得在完整备份后删除的文件被删除
 sudo tar -C /mnt/sdb2 -g sysinfo -xJvpf sys_diff_20180203-213638.tar.xz
@@ -323,8 +351,20 @@ sudo tar -C /mnt/sdb2/home -g homeinfo -xJvpf home_snapshot_20180125-235658.tar.
 sudo tar -C /mnt/sdb2/home -g homeinfo -xJvpPf home_diff_20180203-222618.tar.xz
 
 # !!!!!!
-# 如果是在新分区还原，需要修改/etc/fstab文件中的内容，uuid要与新分区匹配。
-# 如果是在新硬盘的新分区还原，还有安装grub到新硬盘，并且执行update-grub2命令更新grub启动信息。
+# 如果是在新分区还原，首先修改/etc/fstab文件中的内容，uuid要与新分区匹配。
+# 再chroot到新系统，用mount -a检测/etc/fstab正确无误。执行update-grub2命令更新grub启动信息。
+# 如果是在新硬盘的新分区还原，要安装grub到新硬盘。
+
+# chroot前，必须mount 必要的文件系统     
+sudo mount -t proc none /mnt/sdb2/proc
+sudo mount -t sysfs sys /mnt/sdb2/sys
+sudo mount -o bind /dev /mnt/sdb2/dev
+
+# chroot到新的文件系统
+LANG=C.UTF-8 sudo chroot /mnt/sdb2 /bin/bash
+
+grub-install /dev/sdb
+update-grub2
 # !!!!!!
 
 
@@ -336,14 +376,14 @@ ls home_diff_*.tar.xz | sort | xargs -n 1 -t tar -C /mnt/sdb2/home -g homeinfo -
 
 # --备份win10分区------------------------
 
-sudo tar -C /media/xt/Win10 -g win10info -cJvpf win10_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz . --exclude=./hiberfil.sys --exclude=./pagefile.sys --exclude=./swapfile.sys --exclude=./Windows/Temp --exclude=./$Recycle.Bin
+sudo tar -C /media/xt/Win10 --exclude=./hiberfil.sys --exclude=./pagefile.sys --exclude=./swapfile.sys --exclude=./Windows/Temp --exclude=./$Recycle.Bin -g win10info -cJvpf win10_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz .
 
-sudo tar -C /media/xt/Win10 -g win10info -cJvpf win10_diff_`date +%Y%m%d-%H%M%S`.tar.xz . --exclude=./hiberfil.sys --exclude=./pagefile.sys --exclude=./swapfile.sys --exclude=./Windows/Temp --exclude=./$Recycle.Bin
+sudo tar -C /media/xt/Win10 --exclude=./hiberfil.sys --exclude=./pagefile.sys --exclude=./swapfile.sys --exclude=./Windows/Temp --exclude=./$Recycle.Bin -g win10info -cJvpf win10_diff_`date +%Y%m%d-%H%M%S`.tar.xz .
 
 # parallel 并行压缩
-sudo tar -C /media/xt/Win10 -g win10info -cvpf - . --exclude=./hiberfil.sys --exclude=./pagefile.sys --exclude=./swapfile.sys --exclude=./Windows/Temp --exclude=./$Recycle.Bin --exclude=./games 2>tar_err.txt | parallel --pipe --recend "" -k -j6 xz -zc > win10_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
+sudo tar -C /media/xt/Win10 --exclude=./hiberfil.sys --exclude=./pagefile.sys --exclude=./swapfile.sys --exclude=./Windows/Temp --exclude=./$Recycle.Bin --exclude=./games -g win10info -cvpf - . 2>tar_err.txt | parallel --pipe --recend "" -k -j6 xz -zc > win10_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
 
-sudo tar -C /media/xt/Win10 -g win10info -cvpf - . --exclude=./hiberfil.sys --exclude=./pagefile.sys --exclude=./swapfile.sys --exclude=./Windows/Temp --exclude=./$Recycle.Bin --exclude=./games 2>tar_err.txt | parallel --pipe --recend "" -k -j4 xz -zc > win10_diff_`date +%Y%m%d-%H%M%S`.tar.xz
+sudo tar -C /media/xt/Win10 --exclude=./hiberfil.sys --exclude=./pagefile.sys --exclude=./swapfile.sys --exclude=./Windows/Temp --exclude=./$Recycle.Bin --exclude=./games -g win10info -cvpf - . 2>tar_err.txt | parallel --pipe --recend "" -k -j4 xz -zc > win10_diff_`date +%Y%m%d-%H%M%S`.tar.xz
 
 # --备份macOS分区------------------------
 
@@ -387,9 +427,9 @@ cat my_large_log | parallel --pipe grep pattern
 sudo tar -C / -g sysinfo -cvpf - ./usr | parallel --pipe --recend "" -j4 -k -j4 xz -zc > usr.tar.xz
 
 # 备份整个文件系统
-sudo tar -C / -g sysinfo -cvpf - . --exclude=./proc --exclude=./lost+found --exclude=./mnt --exclude=./sys --exclude=./run --exclude=./boot/efi --exclude=./tmp --exclude=./media --exclude=./home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > sys_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
+sudo tar -C / --exclude=./var/run --exclude=./var/tmp --exclude=./var/cache --exclude=./proc --exclude=./lost+found --exclude=./mnt --exclude=./sys --exclude=./run --exclude=./boot/efi --exclude=./tmp --exclude=./media --exclude=./home -g sysinfo -cvpf - . 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > sys_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
 
-sudo tar -C / -g sysinfo -cvpf - . --exclude=./proc --exclude=./lost+found --exclude=./mnt --exclude=./sys --exclude=./run --exclude=./boot/efi --exclude=./tmp --exclude=./media --exclude=./home 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz
+sudo tar -C / --exclude=./var/run --exclude=./var/tmp --exclude=./var/cache --exclude=./proc --exclude=./lost+found --exclude=./mnt --exclude=./sys --exclude=./run --exclude=./boot/efi --exclude=./tmp --exclude=./media --exclude=./home -g sysinfo -cvpf - . 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > sys_diff_`date +%Y%m%d-%H%M%S`.tar.xz
 
 # 备份/home目录
 sudo tar -C /home -g homeinfo -cvpf - . 2>tar.err.txt | parallel --pipe --recend "" -k -j4 xz -zc > home_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
