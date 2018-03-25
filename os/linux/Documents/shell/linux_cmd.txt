@@ -1,3 +1,21 @@
+你可以通过下面命令建立软件包和 debconf 选择状态的本地副本。
+
+# dpkg --get-selections '*' > selection.dpkg
+# debconf-get-selections    > selection.debconf
+
+这里，“*” 使 “selection.dpkg” 也包含 “purge” 的软件包。
+
+你可以将这两个文件移动到另一个电脑，并通过下列命令安装它们。
+
+# dselect update
+# debconf-set-selections < myselection.debconf
+# dpkg --set-selections  < myselection.dpkg
+# apt-get -u dselect-upgrade    # or dselect install
+
+如果你需要管理一个集群中的许多服务器，并且它们的配置几乎相同，你应该考虑使用专门的软件包，例如 fai 来管理整个系统。
+
+
+
 # ------------------------------------------------------------------------------
 # 安装新的debian系统
 
