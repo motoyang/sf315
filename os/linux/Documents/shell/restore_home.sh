@@ -1,9 +1,17 @@
 #!/bin/bash
 
-# 脚本需要root用户权限
+# usage:
+# restore_home.sh /mnt/sdb2/home homeinfo home_snapshot_20180321-190424.tar.xz home_diff_*.tar.xz
+if [ $# -lt 3 ]; then
+  echo -e "Usage: \n  restore_home.sh /mnt/sdb2/home homeinfo home_snapshot_20180321-190424.tar.xz home_diff_*.tar.xz"
+  exit 1
+fi
 
 # 首先还原home的完整备份
-sudo tar -g homeinfo -xJvPf $1 -C /home
+sudo tar -C $1 -g $2 -xJvpf $3
 
-# 恢复增量备份的home文件，可以使用通配符，按照文件名的顺序恢复
-sudo ls $2 | sort | xargs -n 1 -t tar -g homeinfo -xJvPf -C /home
+# 逐个恢复增量备份的home文件
+for ((i=4; i<=$#; i++)); do
+  eval a=\$$i
+  tar -C $1 -g $2 -xJvpf $a
+done;

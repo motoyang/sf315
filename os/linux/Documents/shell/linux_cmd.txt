@@ -14,6 +14,30 @@
 
 如果你需要管理一个集群中的许多服务器，并且它们的配置几乎相同，你应该考虑使用专门的软件包，例如 fai 来管理整个系统。
 
+--------------------------------------------------------------------------------
+
+安装前的备份：
+
+1、备份已安装软件包列表：
+sudo dpkg --get-selections > /home/user/package.selections
+
+2、备份Home下的用户文件夹
+这个文件夹类似于Windows下的Documents And Settings，包含了用户数据和软件个性化设定。如果你已经将Home放在额外的分区，这一步就不必了。复制所有用户文件夹下的所有内容到另外的分区，注意要包含隐藏文件（Ctrl Hide）
+
+3、备份软件源列表
+将/etc/apt/文件夹下的sources.list拷贝出来保存即可。
+
+安装后的恢复：
+
+1、还原软件源列表
+复制备份的Sources.list文件到新系统的/etc/apt/目录，覆盖原文件，并替换（Ctrl H）文档中的intrepid为jaunty。然后更新软件源（sudo apt-get update）。
+
+2、重新下载安装之前系统中的软件，如果你安装的软件数量比较多，可能会花费较长时间。
+sudo dpkg --set-selections selections && sudo apt-get dselect-upgrade
+
+3、最后将备份的主文件夹（/home/用户名）粘贴并覆盖现有主文件夹。
+
+用这个方法我们可以基本在不丢失现有系统和软件设置的情况下使用全新的Ubuntu。
 
 
 # ------------------------------------------------------------------------------
@@ -381,8 +405,19 @@ sudo mount -o bind /dev /mnt/sdb2/dev
 # chroot到新的文件系统
 LANG=C.UTF-8 sudo chroot /mnt/sdb2 /bin/bash
 
+# 更新其中的UUID
+vi /etc/fstab
+
+# 用swap的UUID更新RESUME
+vi /etc/initramfs-tools/conf.d 
+
+# 重新配置kernel
+dpkg-reconfigure linux-image-`uname -r`
+ 
+# 安装和更新grub
 grub-install /dev/sdb
 update-grub2
+
 # !!!!!!
 
 
