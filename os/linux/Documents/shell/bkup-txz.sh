@@ -1,17 +1,28 @@
-#~/bin/bash
+#!/bin/bash
 
 # define some functions
 
+function do_clean() {
+	[ -f $1 ] && rm $1 &>/dev/null
+}
+
 # do_tar srcdir exclude_string infoname errout tarname
 function do_tar() {
-	sudo tar -C $1 $2 -g $3 -cvpf - . 2>$4 | parallel --no-notice --pipe --recend "" -k -j4 xz -zc > $5
+	tar -C $1 $2 -g $3 -cvpf - . 2>$4 | parallel --no-notice --pipe --recend "" -k -j4 xz -zc > $5
+
+	[ $? -ne 0 ] && exit 1
 }
 
 # do_sys infoname errout tarname date tempname
 function do_sys() {
 	local SYSDIR=/
 
-	cat >> $5 <<-EOF
+	TEMPNAME=$(mktemp t.XXXXXX)
+
+	# clean the temp files
+	trap "do_clean ${TEMPNAME}" EXIT
+
+	cat >> $TEMPNAME <<-EOF
 		proc
 		run
 		sys
@@ -26,8 +37,10 @@ function do_sys() {
 		lost+found
 	EOF
 
-	local EXCLUDE_STRING="-X $5"
+	local EXCLUDE_STRING="-X $TEMPNAME"
   do_tar $SYSDIR "$EXCLUDE_STRING" "$1" "$2" "$3"
+	rm ${TEMPNAME}
+
 	tar -cJf ${1}_${4}.tar.xz ${1}
 }
 
@@ -79,11 +92,9 @@ while getopts o:s:t: OPT
 do
 	case "$OPT" in
 		o)	ONAME=$OPTARG
-#				echo "Found the -g option, with value $OPTARG"
 				;;
 
 		s)	SNAME=$OPTARG
-#				echo "Found the -s option, with value $OPTARG"
 				;;
 
 		*)	echo "Unknown option: $opt"
@@ -99,7 +110,6 @@ if [ -z $ONAME ] || [ -z $SNAME ]; then
 	exit
 fi
 
-TEMPNAME=$(mktemp t.XXXXXX)
 DATE=`date +%Y%m%d-%H%M%S`
 INFONAME="${ONAME}_info"
 ERROUT="${ONAME}_err.txt"
@@ -110,14 +120,11 @@ if [ -f "$INFONAME" ]; then
 fi
 TARNAME="${ONAME}_${TARNAME}_${DATE}.tar.xz"
 
-# clean the temp files
-trap "rm ${TEMPNAME}" EXIT
-
 case $SNAME in
 	sys)		read -n 1 -p "Backup the system to a tar file named ${TARNAME}. [y/n]?"
 					echo ""
 					if [ $REPLY = "y" ]; then
-						do_sys "$INFONAME" "$ERROUT" "$TARNAME" "$DATE" "$TEMPNAME"
+						do_sys "$INFONAME" "$ERROUT" "$TARNAME" "$DATE"
 					fi
 					;;
 
@@ -136,7 +143,7 @@ case $SNAME in
 					fi
 					;;
 
-	*)			read -n 1 -p "Backup the $SNAME directory. [y/n]?"
+	*)			read -n 1 -p "Backup the $SNAME directory to ${TARNAME}. [y/n]?"
 					echo ""
 					if [ $REPLY = "y" ]; then
 						do_other "$SNAME" "$INFONAME" "$ERROUT" "$TARNAME" "$DATE"
@@ -145,4 +152,5 @@ case $SNAME in
 
 esac
 
+echo "Done. Everything is OK."
 
