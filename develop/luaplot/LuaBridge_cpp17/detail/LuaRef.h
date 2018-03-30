@@ -403,6 +403,15 @@ private:
       return get_length (m_L, -1);
     }
 
+    template<typename... Args>
+    LuaRef const operator() (Args&&... args) const
+    {
+        int count = sizeof...(Args);
+        push(m_L);
+        ((Stack<Args>::push(args)), ...);
+        LuaException::pcall(m_L, count, 1);
+        return LuaRef(m_L, FromStack());
+    }
     //--------------------------------------------------------------------------
     /**
         Call Lua code.
@@ -412,6 +421,7 @@ private:
         If an error occurs, a LuaException is thrown.
     */
     /** @{ */
+/*
     LuaRef const operator() () const
     {
       push (m_L);
@@ -518,6 +528,7 @@ private:
       LuaException::pcall (m_L, 8, 1);
       return LuaRef (m_L, FromStack ());
     }
+*/
     /** @} */
 
     //==========================================================================
@@ -995,6 +1006,15 @@ public:
     return Proxy (m_L, m_ref);
   }
 
+  template<typename... Args>
+  LuaRef const operator() (Args&&... args) const
+  {
+      int count = sizeof...(Args);
+      push(m_L);
+      ((Stack<Args>::push(args)), ...);
+      LuaException::pcall(m_L, count, 1);
+      return LuaRef(m_L, FromStack());
+  }
   //----------------------------------------------------------------------------
   /**
       Call Lua code.
@@ -1004,6 +1024,7 @@ public:
       If an error occurs, a LuaException is thrown.
   */
   /** @{ */
+/*
   LuaRef const operator() () const
   {
     push (m_L);
@@ -1110,6 +1131,7 @@ public:
     LuaException::pcall (m_L, 8, 1);
     return LuaRef (m_L, FromStack ());
   }
+  */
   /** @} */
 
   //============================================================================

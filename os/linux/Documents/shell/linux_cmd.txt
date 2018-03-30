@@ -1,3 +1,51 @@
+--------------------------------------------------------------------------------
+
+systemctl命令是系统服务管理器指令，它实际上将 service 和 chkconfig 这两个命令组合到一起。
+任务 	              旧指令 	                        新指令
+使某服务自动启动 	    chkconfig --level 3 httpd on 	  systemctl enable httpd.service
+使某服务不自动启动 	  chkconfig --level 3 httpd off 	systemctl disable httpd.service
+检查服务状态 	        service httpd status 	          systemctl status httpd.service （服务详细信息） systemctl is-active httpd.service （仅显示是否 Active)
+显示所有已启动的服务 	  chkconfig --list 	              systemctl list-units --type=service
+启动某服务 	          service httpd start 	          systemctl start httpd.service
+停止某服务 	          service httpd stop 	            systemctl stop httpd.service
+重启某服务 	          service httpd restart 	        systemctl restart httpd.service
+
+
+实例
+
+1.启动nfs服务
+systemctl start nfs-server.service
+
+2.设置开机自启动
+systemctl enable nfs-server.service
+
+3.停止开机自启动
+systemctl disable nfs-server.service
+
+4.查看服务当前状态
+systemctl status nfs-server.service
+
+5.重新启动某服务
+systemctl restart nfs-server.service
+
+6.查看所有已启动的服务
+systemctl list -units --type=service
+
+开启防火墙22端口
+iptables -I INPUT -p tcp --dport 22 -j accept
+
+如果仍然有问题，就可能是SELinux导致的
+关闭SElinux：
+修改/etc/selinux/config文件中的SELINUX=””为disabled，然后重启。
+
+彻底关闭防火墙：
+sudo systemctl status firewalld.service
+sudo systemctl stop firewalld.service          
+sudo systemctl disable firewalld.service
+
+
+--------------------------------------------------------------------------------
+
 你可以通过下面命令建立软件包和 debconf 选择状态的本地副本。
 
 # dpkg --get-selections '*' > selection.dpkg
@@ -38,6 +86,7 @@ sudo dpkg --set-selections selections && sudo apt-get dselect-upgrade
 3、最后将备份的主文件夹（/home/用户名）粘贴并覆盖现有主文件夹。
 
 用这个方法我们可以基本在不丢失现有系统和软件设置的情况下使用全新的Ubuntu。
+
 
 
 # ------------------------------------------------------------------------------
@@ -192,6 +241,103 @@ sync & reboot
 
 
 # ------------------------------------------------------------------------------
+# 配置debian系统的网络
+
+# --使用ifconfig和route命令------
+# 关闭网络接口。
+ifconfig enp0s3 inet down
+
+# 启动 eth0 并给予其新的 IP 地址和路由。
+ifconfig enp0s3 inet up 192.168.0.111 netmask 255.255.255.0 broadcast 192.168.0.255
+route add -net 10.0.0.0 netmask 255.0.0.0 gw 192.168.0.1 dev enp0s3
+
+# 更新后的路由表如下：
+route
+  Kernel IP routing table
+  Destination  Gateway      Genmask        Flags Metric Ref Use Iface
+  192.168.0.0  *            255.255.255.0  U     0      0     0 eth0
+  10.0.0.0     192.168.0.1  255.0.0.0      UG    0      0     0 eth0
+
+# --ip 和先前的 ifconfig 和 route 有相同功能的命令如下：-------
+ip link show
+ip route list
+ip link set eth0 down
+ip addr del dev eth0 local 192.168.0.3
+ip addr add dev eth0 local 192.168.0.111/24 broadcast 192.168.0.255
+ip link set eth0 up
+ip route add dev eth0 to 10.0.0.0/8 src 192.168.0.111 via 192.168.0.1
+
+# 运行的时候使用 help 参数，能让 ip 打印出命令的语法。 例如，ip link help 打印出：
+     Usage: ip link set DEVICE { up | down | arp { on | off } |
+                          dynamic { on | off } |
+                          multicast { on | off } | txqueuelen PACKETS |
+                          name NEWNAME |
+                          address LLADDR | broadcast LLADDR |
+                          mtu MTU }
+            ip link show [ DEVICE ]
+
+# --域名解析-------
+# 域名解析器的工作是查找某个域名所对应的 IP 地址。大部分常用的域名解析器是 GNU C Library 中的 resovler 提供的功能(resolver(3))。另一个是由 libfiredns 软件包提供的 FireDNS resolver，还有其他的。
+
+# GNU LIBC 的域名解析器对域名的解析是由 /etc/nsswitch.conf 中的 hosts 这一行配置决定的。该行列出了解析域名用的服务：例如 dns、files、nis、nisplus。参阅 nsswitch.conf(5)。 在使用 files 的情况下，域名解析器的行为是由 /etc/hosts 这个配置文件控制的。
+
+# 在使用 dns 服务的情况下，域名解释器的行为也是由 /etc/resolv.conf 这个配置文件控制的。参阅 resolv.conf(5)。resolv.conf 的一个重要功能就是提供一个域名服务器的 IP 地址列表，通过查询这些服务器来获得域名解析。
+
+# 如果你的域名服务器响应速度非常慢，你可能需要使用 nscd 来缓存域名解析器 libc6 查询到的结果。
+sudo apt install nscd
+
+# --使用 ifupdown 进行高级网络设置---------
+# 为了让网络设置更加简单，Debian 提供了一个标准的高级网络设置工具，包含 ifup 和 ifdown 程序和 /etc/network/interfaces 文件。 [56] 如果你选择用 ifupdown 来配置你的网络，那么就不要同时使用底层工具去配置。这也意味着你不应该用其他高级配置工具，如 whereami、divine、intuitively 等。他们调用的也是底层配置工具。ifupdown 程序在设计的时候，是假设仅有这样一个程序会被用来设置网络接口的。
+
+# 更新接口设置是执行：
+ifdown eth0
+editor /etc/network/interfaces  # 做你需要的调整
+ifup eth0
+
+# 假设你要配置一个以太网接口，使其拥有一个固定的 IP 地址 192.168.0.111。这个 IP 地址以 192.168.0 为开头，所以它肯定在一个 LAN 内。进一步假设 192.168.0.1 是 LAN 上面 Internet 网关的地址。编辑 /etc/network/interfaces，使其包含类似下面这段的内容：
+iface eth0 inet static
+       address 192.168.0.111
+       netmask 255.255.255.0
+       gateway 192.168.0.1
+
+# 在接口被激活或是在激活之前，你都可以配置接口的其他部分或者进行其他操作。只要你在"up"和"down"那几行中设置合适的命令。
+iface eth0 inet static
+       address 192.168.0.111
+       netmask 255.255.255.0
+       gateway 192.168.0.1
+       up route add -net 10.0.0.0 netmask 255.0.0.0 gw 192.168.0.2 dev $IFACE
+       down route del -net 10.0.0.0 netmask 255.0.0.0 gw 192.168.0.2 dev $IFACE
+       up echo Interface $IFACE going up | /usr/bin/logger -t ifup
+       down echo Interface $IFACE Going down | /usr/bin/logger -t ifdown
+
+# 你也可以选择把命令插入到 /etc/network/if-up.d 和 /etc/network/if-down.d 目录下的脚本中。这些脚本也能执行扩展的选项。详情参阅 interfaces(5)。例如，软件包 resolvconf 包含的脚本允许你在接口被激活的同时，往 /etc/resolv.conf 添加指定的 DNS 信息：
+iface eth0 inet static
+       address 192.168.0.111
+       netmask 255.255.255.0
+       gateway 192.168.0.1
+       dns-search somedomain.org
+       dns-nameservers 195.238.2.21 195.238.2.22
+
+dns-search 选项的参数 somedomain.org 符合 resolv.conf(5) 中所说的 search 选项的参数。 dns-nameservers 选项的参数 195.238.2.21 和 195.238.2.22 符合选项 nameserver 的参数。其他可以识别的选项是 dns-domain 和 dns-sortlist。参阅管理域名服务器信息 – resolvconf, 第 10.4.2 节。 
+
+# --网卡多个ip地址----------
+# 使用虚拟接口，你可以设置一个以太网卡使其成为拥有很多 IP 子网的接口。例如，假设你的主机在 LAN 网络上(192.168.0.x/24)。你想要让主机连接到互联网，并用已经存在的以太网卡通过 DHCP 来获得公网 IP 地址。编辑 /etc/network/interfaces 使其包含如下一段内容：
+iface eth0 inet static
+       address 192.168.0.1
+       netmask 255.255.255.0
+       network 192.168.0.0
+       broadcast 192.168.0.255
+       
+iface eth0:0 inet dhcp
+
+# eth0:0 接口是一个虚拟的接口。当它被激活的时候，它的真实硬件 eth0 也会被激活。 
+
+# end of配置debian系统的网络
+# ------------------------------------------------------------------------------
+
+
+
+# ------------------------------------------------------------------------------
 # 安装DHCP
 sudo apt-get install isc-dhcp-server
 
@@ -216,6 +362,7 @@ sudo /etc/init.d/isc-dhcp-server start
 
 # end of 安装DHCP
 # ------------------------------------------------------------------------------
+
 
 
 # ------------------------------------------------------------------------------
@@ -397,19 +544,24 @@ sudo tar -C /mnt/sdb2/home -g homeinfo -xJvpPf home_diff_20180203-222618.tar.xz
 # 再chroot到新系统，用mount -a检测/etc/fstab正确无误。执行update-grub2命令更新grub启动信息。
 # 如果是在新硬盘的新分区还原，要安装grub到新硬盘。
 
-# chroot前，必须mount 必要的文件系统     
+# chroot前，必须mount必要的文件系统     
 sudo mount -t proc none /mnt/sdb2/proc
 sudo mount -t sysfs sys /mnt/sdb2/sys
-sudo mount -o bind /dev /mnt/sdb2/dev
 
 # chroot到新的文件系统
 LANG=C.UTF-8 sudo chroot /mnt/sdb2 /bin/bash
 
-# 更新其中的UUID
+# 建立新系统的/dev
+apt install makedev
+cd /dev
+MAKEDEV generic
+
+# 更新/etc/fstab中的UUID
 vi /etc/fstab
 
-# 用swap的UUID更新RESUME
-vi /etc/initramfs-tools/conf.d 
+# 用swap的UUID更新RESUME，内容如下：
+vi /etc/initramfs-tools/conf.d/resume
+RESUME=UUID=907e9d49-5d28-4769-a020-089abe811e35
 
 # 重新配置kernel
 dpkg-reconfigure linux-image-`uname -r`
@@ -492,6 +644,8 @@ sudo tar -C /home -g homeinfo -cvpf - . 2>tar.err.txt | parallel --pipe --recend
 # end of 系统备份
 # ------------------------------------------------------------------------------
 
+# 价格man bash输出为pdf文件
+man -t bash|ps2pdf - bash.pdf
 
 # --输出重定向--------------------
 
