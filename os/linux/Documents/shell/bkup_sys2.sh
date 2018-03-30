@@ -27,8 +27,8 @@ function do_sys() {
 	EOF
 
 	local EXCLUDE_STRING="-X $5"
-  $(do_tar $SYSDIR "$EXCLUDE_STRING" "$1" "$2" "$3")
-	tar -cJvf ${1}_${4}.tar.xz ${1}
+  do_tar $SYSDIR "$EXCLUDE_STRING" "$1" "$2" "$3"
+	tar -cJf ${1}_${4}.tar.xz ${1}
 }
 
 # getusers /home
@@ -58,13 +58,18 @@ function do_home() {
 		done
 	done
 	
-	$(do_tar "$HOMEDIR" "$EXCLUDE_STRING" "$1" "$2" "$3")
-	tar -cJvf ${1}_${4}.tar.xz ${1}
+	do_tar "$HOMEDIR" "$EXCLUDE_STRING" "$1" "$2" "$3"
+	tar -cJf ${1}_${4}.tar.xz ${1}
 }
 
 function do_other() {
-	$(do_tar $1 "" "$2" "$3" "$4")
-	tar -cJvf ${2}_${5}.tar.xz ${2}
+	do_tar $1 "" "$2" "$3" "$4"
+	tar -cJf ${2}_${5}.tar.xz ${2}
+}
+
+function usage() {
+	local N=$(basename $0)
+	echo "Usage: $N -s SNAME -o ONAME"
 }
 
 # start the program
@@ -73,18 +78,24 @@ function do_other() {
 while getopts o:s:t: OPT
 do
 	case "$OPT" in
-		o) ONAME=$OPTARG
-			echo "Found the -g option, with value $OPTARG" ;;
-		s) SNAME=$OPTARG
-			echo "Found the -s option, with value $OPTARG" ;;
+		o)	ONAME=$OPTARG
+#				echo "Found the -g option, with value $OPTARG"
+				;;
+
+		s)	SNAME=$OPTARG
+#				echo "Found the -s option, with value $OPTARG"
+				;;
+
 		*)	echo "Unknown option: $opt"
+				usage $0
 				exit
 				;;
+
 	esac
 done
 
 if [ -z $ONAME ] || [ -z $SNAME ]; then
-	echo "Usage: $0 -s SNAME -o ONAME"
+	usage $0
 	exit
 fi
 
@@ -103,24 +114,35 @@ TARNAME="${ONAME}_${TARNAME}_${DATE}.tar.xz"
 trap "rm ${TEMPNAME}" EXIT
 
 case $SNAME in
-	sys)		echo "do sys"
-					do_sys "$INFONAME" "$ERROUT" "$TARNAME" "$DATE" "$TEMPNAME"
+	sys)		read -n 1 -p "Backup the system to a tar file named ${TARNAME}. [y/n]?"
+					echo ""
+					if [ $REPLY = "y" ]; then
+						do_sys "$INFONAME" "$ERROUT" "$TARNAME" "$DATE" "$TEMPNAME"
+					fi
 					;;
 
-	home)		echo "do home"
-					do_home "$INFONAME" "$ERROUT" "$TARNAME" "$DATE"
+	home)		read -n 1 -p "Backup the home directory to a tar file named ${TARNAME}. [y/n]?"
+					echo ""
+					if [ $REPLY = "y" ]; then
+						do_home "$INFONAME" "$ERROUT" "$TARNAME" "$DATE"
+					fi
 					;;
 					
-	all)		echo "all"
-					$(do_sys "$INFONAME" "$ERROUT" "$TARNAME" "$DATE" "$TEMPNAME")
-					$(do_home "$INFONAME" "$ERROUT" "$TARNAME" "$DATE")
+	all)		read -n 1 -p "Backup the system and home. [y/n]?"
+					echo ""
+					if [ $REPLY = "y" ]; then
+						do_sys "$INFONAME" "$ERROUT" "$TARNAME" "$DATE" "$TEMPNAME"
+						do_home "$INFONAME" "$ERROUT" "$TARNAME" "$DATE"
+					fi
 					;;
 
-	*)			echo "do other"
-					$(do_other "$SNAME" "$INFONAME" "$ERROUT" "$TARNAME" "$DATE");;
+	*)			read -n 1 -p "Backup the $SNAME directory. [y/n]?"
+					echo ""
+					if [ $REPLY = "y" ]; then
+						do_other "$SNAME" "$INFONAME" "$ERROUT" "$TARNAME" "$DATE"
+					fi
+					;;
 
 esac
 
-sleep 3
-echo "rm $TEMPNAME"
-# rm $TEMPNAME
+
