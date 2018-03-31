@@ -1,5 +1,22 @@
 #!/bin/bash
 
+# usage:
+
+# 备份系统，-s参数必须为sys，-o参数可以自定义文件名。
+# 如果-o参数给出的文件名是第一次备份，就输出s_snapshot_20180203-010101.tar.xz。如果-o参数给出的文件名已经存在了，就进行增量备份，输出的文件名为s_diff_20180210-111122.tar.xz
+# bkup-txz.sh -s sys -o s
+
+# 备份home目录，-s参数必须为home，-o参数可以自定义文件名。
+# 如果-o参数给出的文件名是第一次备份，就输出h_snapshot_20180203-010101.tar.xz。如果-o参数给出的文件名已经存在了，就进行增量备份，输出的文件名为h_diff_20180210-111122.tar.xz
+# bkup-txz.sh -s home -o h
+
+# 备份具体的目录，目录名由-s参数给出。-o参数可以自定义文件名。
+# bkup-txz.sh -s /usr -o u
+# bkup-txz.sh -s /boot -o b
+
+# end of usage
+
+
 # define some functions
 
 function do_clean() {
@@ -88,8 +105,7 @@ function usage() {
 # start the program
 
 # get option and parameters
-while getopts o:s:t: OPT
-do
+while getopts o:s: OPT; do
 	case "$OPT" in
 		o)	ONAME=$OPTARG
 				;;
@@ -125,6 +141,8 @@ case $SNAME in
 					echo ""
 					if [ $REPLY = "y" ]; then
 						do_sys "$INFONAME" "$ERROUT" "$TARNAME" "$DATE"
+					else
+						exit 1
 					fi
 					;;
 
@@ -132,21 +150,17 @@ case $SNAME in
 					echo ""
 					if [ $REPLY = "y" ]; then
 						do_home "$INFONAME" "$ERROUT" "$TARNAME" "$DATE"
+					else
+						exit 1
 					fi
 					;;
 					
-	all)		read -n 1 -p "Backup the system and home. [y/n]?"
-					echo ""
-					if [ $REPLY = "y" ]; then
-						do_sys "$INFONAME" "$ERROUT" "$TARNAME" "$DATE" "$TEMPNAME"
-						do_home "$INFONAME" "$ERROUT" "$TARNAME" "$DATE"
-					fi
-					;;
-
-	*)			read -n 1 -p "Backup the $SNAME directory to ${TARNAME}. [y/n]?"
+	*)			read -n 1 -p "Backup the $SNAME directory to $TARNAME. [y/n]?"
 					echo ""
 					if [ $REPLY = "y" ]; then
 						do_other "$SNAME" "$INFONAME" "$ERROUT" "$TARNAME" "$DATE"
+					else
+						exit 1
 					fi
 					;;
 

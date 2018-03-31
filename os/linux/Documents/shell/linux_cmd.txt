@@ -110,12 +110,16 @@ sudo mount /dev/sdb2 /mnt/debinst
 # get到debootstrap
 wget http://mirrors.163.com/debian/pool/main/d/debootstrap/debootstrap_1.0.93.tar.gz
 tar -xf debootstrap_0.X.X_all.tar.gz
-sudo debootstrap --arch amd64 stretch /mnt/debinst http://ftp2.cn.debian.org/debian
+sudo debootstrap --arch amd64 stretch /mnt/debinst http://mirrors.tuna.tsinghua.edu.cn/debian
+# sudo debootstrap --arch amd64 stretch /mnt/debinst http://ftp2.cn.debian.org/debian
 # sudo debootstrap --arch amd64 stretch /mnt/debinst http://mirrors.163.com/debian
 
 # mount 必要的文件系统     
 sudo mount -t proc none /mnt/debinst/proc
 sudo mount -t sysfs sys /mnt/debinst/sys
+
+# chroot到新的文件系统
+LANG=C.UTF-8 sudo chroot /mnt/debinst/ /bin/bash
 
 # 对于/dev，可以如此：
 sudo mount -o bind /dev /mnt/debinst/dev
@@ -123,9 +127,6 @@ sudo mount -o bind /dev /mnt/debinst/dev
 apt install makedev
 cd /dev
 MAKEDEV generic
-
-# chroot到新的文件系统
-LANG=C.UTF-8 sudo chroot /mnt/debinst/ /bin/bash
 
 # 编辑fstab文件
 # /etc/fstab: static file system information.
@@ -211,9 +212,12 @@ apt update
 apt install linux-headers-`uname -r`
 apt install linux-image-`uname -r`
 
-# 配置locales
-apt install locales
-dpkg-reconfigure locales
+# 用swap的UUID更新resume文件，内容如下：
+vi /etc/initramfs-tools/conf.d/resume
+RESUME=UUID=907e9d49-5d28-4769-a020-089abe811e35
+
+# 重新配置kernel
+dpkg-reconfigure linux-image-`uname -r`
 
 # 安装grub
 apt install grub-pc
@@ -221,13 +225,17 @@ apt install grub-pc
 # grub-install /dev/sda
 # update-grub
 
+# 配置locales
+apt install locales
+dpkg-reconfigure locales
+
 # 增加用户，设置秘密，修改用户的登录shell，增加sudo权限
 useradd xt -m
 passwd xt
 vi /etc/passwd
 
 # 安装必要的软件
-apt install net-tools sudo ssh man-db less dosfstools vim parallel build-essential bash-completion
+apt install net-tools sudo ssh man-db less dosfstools vim parallel build-essential bash-completion screen
 vi /etc/sudoers
 
 # 如果要安装更多的软件，可以如下：
@@ -559,7 +567,7 @@ MAKEDEV generic
 # 更新/etc/fstab中的UUID
 vi /etc/fstab
 
-# 用swap的UUID更新RESUME，内容如下：
+# 用swap的UUID更新resume文件，内容如下：
 vi /etc/initramfs-tools/conf.d/resume
 RESUME=UUID=907e9d49-5d28-4769-a020-089abe811e35
 
