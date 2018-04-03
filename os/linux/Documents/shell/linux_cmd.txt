@@ -576,7 +576,7 @@ dpkg-reconfigure linux-image-`uname -r`
  
 # 安装和更新grub
 grub-install /dev/sdb
-update-grub2
+# update-grub2
 
 # !!!!!!
 
@@ -770,3 +770,7 @@ include ld.so.conf.d/*.conf
 # 在非KDE桌面环境下，如果安装了fcitx-module-kimpanel，可能会导致Fcitx输入中文时不显示候选词框，移除该组件，然后重启Fcixt。
 $ sudo apt remove fcitx-module-kimpanel
 
+# --wget命令参考-----------------------
+
+# 下载website的整个内容，保存在~/tmp/目录中
+wget -r -p -np -k -P ~/tmp/ http://www.qtiplot.com/doc/manual-en
