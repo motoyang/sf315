@@ -53,7 +53,6 @@ struct Stack;
 
 #include "detail/LuaHelpers.h"
 
-#include "detail/TypeTraits.h"
 #include "detail/TypeList.h"
 #include "detail/FuncTraits.h"
 #include "detail/Constructor.h"

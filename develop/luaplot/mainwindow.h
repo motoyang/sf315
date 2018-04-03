@@ -11,7 +11,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
     LuaPlot* m_plot;
-    void init(LuaPlot* customPlot);
+//    void init(LuaPlot* customPlot);
 
 public:
     explicit MainWindow(QWidget *parent = 0);
@@ -21,8 +21,8 @@ public:
     void showOnStatusBar(const QString& msg);
     void initToolbar();
 
-public slots:
-    void bracketDataSlot();
+//public slots:
+//    void bracketDataSlot();
 
 protected:
 

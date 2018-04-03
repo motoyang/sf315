@@ -172,3 +172,26 @@ struct ArgList <TypeList <Head, Tail>, Start>
   {
   }
 };
+
+
+template <typename Head, typename Tail, int Start>
+struct ArgList <TypeList <Head&, Tail>, Start>
+  : public TypeListValues <TypeList <Head&, Tail> >
+{
+  ArgList (lua_State* L)
+    : TypeListValues <TypeList <Head&, Tail> > (Stack <Head>::get (L, Start),
+                                            ArgList <Tail, Start + 1> (L))
+  {
+  }
+};
+
+template <typename Head, typename Tail, int Start>
+struct ArgList <TypeList <Head const&, Tail>, Start>
+  : public TypeListValues <TypeList <Head const&, Tail> >
+{
+  ArgList (lua_State* L)
+    : TypeListValues <TypeList <Head const&, Tail> > (Stack <Head>::get (L, Start),
+                                            ArgList <Tail, Start + 1> (L))
+  {
+  }
+};

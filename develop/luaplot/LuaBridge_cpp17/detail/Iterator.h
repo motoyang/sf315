@@ -28,6 +28,7 @@
 
 /** Allows table iteration.
 */
+
 class Iterator
 {
 private:
@@ -109,6 +110,6 @@ public:
 
 private:
   // Don't use postfix increment, it is less efficient
-  Iterator operator++ (int);
+  Iterator operator++ (int) = delete;
 };
 

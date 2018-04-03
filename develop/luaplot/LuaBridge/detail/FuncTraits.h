@@ -850,3 +850,279 @@ struct FuncTraits <R (T::*) (P1, P2, P3, P4, P5, P6, P7, P8) const LUABRIDGE_THR
 };
 
 #endif
+
+// --
+
+template <class T, class R, class D>
+struct FuncTraits <R (T::*) () noexcept, D>
+{
+  static bool const isMemberFunction = true;
+  static bool const isConstMemberFunction = false;
+  typedef D DeclType;
+  typedef T ClassType;
+  typedef R ReturnType;
+  typedef None Params;
+  static R call (T* obj, D fp, TypeListValues <Params> const&)
+  {
+    return (obj->*fp)();
+  }
+};
+
+template <class T, class R, class P1, class D>
+struct FuncTraits <R (T::*) (P1) noexcept, D>
+{
+  static bool const isMemberFunction = true;
+  static bool const isConstMemberFunction = false;
+  typedef D DeclType;
+  typedef T ClassType;
+  typedef R ReturnType;
+  typedef TypeList <P1> Params;
+  static R call (T* obj, D fp, TypeListValues <Params> tvl)
+  {
+    return (obj->*fp)(tvl.hd);
+  }
+};
+
+template <class T, class R, class P1, class P2, class D>
+struct FuncTraits <R (T::*) (P1, P2) noexcept, D>
+{
+  static bool const isMemberFunction = true;
+  static bool const isConstMemberFunction = false;
+  typedef D DeclType;
+  typedef T ClassType;
+  typedef R ReturnType;
+  typedef TypeList <P1, TypeList <P2> > Params;
+  static R call (T* obj, D fp, TypeListValues <Params> tvl)
+  {
+    return (obj->*fp)(tvl.hd, tvl.tl.hd);
+  }
+};
+
+template <class T, class R, class P1, class P2, class P3, class D>
+struct FuncTraits <R (T::*) (P1, P2, P3) noexcept, D>
+{
+  static bool const isMemberFunction = true;
+  static bool const isConstMemberFunction = false;
+  typedef D DeclType;
+  typedef T ClassType;
+  typedef R ReturnType;
+  typedef TypeList <P1, TypeList <P2, TypeList <P3> > > Params;
+  static R call (T* obj, D fp, TypeListValues <Params> tvl)
+  {
+    return (obj->*fp)(tvl.hd, tvl.tl.hd, tvl.tl.tl.hd);
+  }
+};
+
+template <class T, class R, class P1, class P2, class P3, class P4, class D>
+struct FuncTraits <R (T::*) (P1, P2, P3, P4) noexcept, D>
+{
+  static bool const isMemberFunction = true;
+  static bool const isConstMemberFunction = false;
+  typedef D DeclType;
+  typedef T ClassType;
+  typedef R ReturnType;
+  typedef TypeList <P1, TypeList <P2, TypeList <P3, TypeList <P4> > > > Params;
+  static R call (T* obj, D fp, TypeListValues <Params> tvl)
+  {
+    return (obj->*fp)(tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd);
+  }
+};
+
+template <class T, class R, class P1, class P2, class P3, class P4, class P5, class D>
+struct FuncTraits <R (T::*) (P1, P2, P3, P4, P5) noexcept, D>
+{
+  static bool const isMemberFunction = true;
+  static bool const isConstMemberFunction = false;
+  typedef D DeclType;
+  typedef T ClassType;
+  typedef R ReturnType;
+  typedef TypeList <P1, TypeList <P2, TypeList <P3, TypeList <P4, TypeList <P5> > > > > Params;
+  static R call (T* obj, D fp, TypeListValues <Params> tvl)
+  {
+    return (obj->*fp)(tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.hd);
+  }
+};
+
+template <class T, class R, class P1, class P2, class P3, class P4, class P5, class P6, class D>
+struct FuncTraits <R (T::*) (P1, P2, P3, P4, P5, P6) noexcept, D>
+{
+  static bool const isMemberFunction = true;
+  static bool const isConstMemberFunction = false;
+  typedef D DeclType;
+  typedef T ClassType;
+  typedef R ReturnType;
+  typedef TypeList <P1, TypeList <P2, TypeList <P3, TypeList <P4, TypeList <P5, TypeList <P6> > > > > > Params;
+  static R call (T* obj, D fp, TypeListValues <Params> tvl)
+  {
+    return (obj->*fp)(tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.hd);
+  }
+};
+
+template <class T, class R, class P1, class P2, class P3, class P4, class P5, class P6, class P7, class D>
+struct FuncTraits <R (T::*) (P1, P2, P3, P4, P5, P6, P7) noexcept, D>
+{
+  static bool const isMemberFunction = true;
+  static bool const isConstMemberFunction = false;
+  typedef D DeclType;
+  typedef T ClassType;
+  typedef R ReturnType;
+  typedef TypeList <P1, TypeList <P2, TypeList <P3, TypeList <P4, TypeList <P5, TypeList <P6, TypeList <P7> > > > > > > Params;
+  static R call (T* obj, D fp, TypeListValues <Params> tvl)
+  {
+    return (obj->*fp)(tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.tl.hd);
+  }
+};
+
+template <class T, class R, class P1, class P2, class P3, class P4, class P5, class P6, class P7, class P8, class D>
+struct FuncTraits <R (T::*) (P1, P2, P3, P4, P5, P6, P7, P8) noexcept, D>
+{
+  static bool const isMemberFunction = true;
+  static bool const isConstMemberFunction = false;
+  typedef D DeclType;
+  typedef T ClassType;
+  typedef R ReturnType;
+  typedef TypeList <P1, TypeList <P2, TypeList <P3, TypeList <P4, TypeList <P5, TypeList <P6, TypeList <P7, TypeList <P8> > > > > > > > Params;
+  static R call (T* obj, D fp, TypeListValues <Params> tvl)
+  {
+    return (obj->*fp)(tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.tl.tl.hd);
+  }
+};
+
+/* Const member function pointers with THROWSPEC. */
+
+template <class T, class R, class D>
+struct FuncTraits <R (T::*) () const noexcept, D>
+{
+  static bool const isMemberFunction = true;
+  static bool const isConstMemberFunction = true;
+  typedef D DeclType;
+  typedef T ClassType;
+  typedef R ReturnType;
+  typedef None Params;
+  static R call (T const* obj, D fp, TypeListValues <Params>)
+  {
+    return (obj->*fp)();
+  }
+};
+
+template <class T, class R, class P1, class D>
+struct FuncTraits <R (T::*) (P1) const noexcept, D>
+{
+  static bool const isMemberFunction = true;
+  static bool const isConstMemberFunction = true;
+  typedef D DeclType;
+  typedef T ClassType;
+  typedef R ReturnType;
+  typedef TypeList <P1> Params;
+  static R call (T const* obj, D fp, TypeListValues <Params> tvl)
+  {
+    return (obj->*fp)(tvl.hd);
+  }
+};
+
+template <class T, class R, class P1, class P2, class D>
+struct FuncTraits <R (T::*) (P1, P2) const noexcept, D>
+{
+  static bool const isMemberFunction = true;
+  static bool const isConstMemberFunction = true;
+  typedef D DeclType;
+  typedef T ClassType;
+  typedef R ReturnType;
+  typedef TypeList <P1, TypeList <P2> > Params;
+  static R call (T const* obj, D fp, TypeListValues <Params> tvl)
+  {
+    return (obj->*fp)(tvl.hd, tvl.tl.hd);
+  }
+};
+
+template <class T, class R, class P1, class P2, class P3, class D>
+struct FuncTraits <R (T::*) (P1, P2, P3) const noexcept, D>
+{
+  static bool const isMemberFunction = true;
+  static bool const isConstMemberFunction = true;
+  typedef D DeclType;
+  typedef T ClassType;
+  typedef R ReturnType;
+  typedef TypeList <P1, TypeList <P2, TypeList <P3> > > Params;
+  static R call (T const* obj, D fp, TypeListValues <Params> tvl)
+  {
+    return (obj->*fp)(tvl.hd, tvl.tl.hd, tvl.tl.tl.hd);
+  }
+};
+
+template <class T, class R, class P1, class P2, class P3, class P4, class D>
+struct FuncTraits <R (T::*) (P1, P2, P3, P4) const noexcept, D>
+{
+  static bool const isMemberFunction = true;
+  static bool const isConstMemberFunction = true;
+  typedef D DeclType;
+  typedef T ClassType;
+  typedef R ReturnType;
+  typedef TypeList <P1, TypeList <P2, TypeList <P3, TypeList <P4> > > > Params;
+  static R call (T const* obj, D fp, TypeListValues <Params> tvl)
+  {
+    return (obj->*fp)(tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd);
+  }
+};
+
+template <class T, class R, class P1, class P2, class P3, class P4, class P5, class D>
+struct FuncTraits <R (T::*) (P1, P2, P3, P4, P5) const noexcept, D>
+{
+  static bool const isMemberFunction = true;
+  static bool const isConstMemberFunction = true;
+  typedef D DeclType;
+  typedef T ClassType;
+  typedef R ReturnType;
+  typedef TypeList <P1, TypeList <P2, TypeList <P3, TypeList <P4, TypeList <P5> > > > > Params;
+  static R call (T const* obj, D fp, TypeListValues <Params> tvl)
+  {
+    return (obj->*fp)(tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd,
+      tvl.tl.tl.tl.tl.hd);
+  }
+};
+
+template <class T, class R, class P1, class P2, class P3, class P4, class P5, class P6, class D>
+struct FuncTraits <R (T::*) (P1, P2, P3, P4, P5, P6) const noexcept, D>
+{
+  static bool const isMemberFunction = true;
+  static bool const isConstMemberFunction = true;
+  typedef D DeclType;
+  typedef T ClassType;
+  typedef R ReturnType;
+  typedef TypeList <P1, TypeList <P2, TypeList <P3, TypeList <P4, TypeList <P5, TypeList <P6> > > > > > Params;
+  static R call (T const* obj, D fp, TypeListValues <Params> tvl)
+  {
+    return (obj->*fp)(tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.hd);
+  }
+};
+
+template <class T, class R, class P1, class P2, class P3, class P4, class P5, class P6, class P7, class D>
+struct FuncTraits <R (T::*) (P1, P2, P3, P4, P5, P6, P7) const noexcept, D>
+{
+  static bool const isMemberFunction = true;
+  static bool const isConstMemberFunction = true;
+  typedef D DeclType;
+  typedef T ClassType;
+  typedef R ReturnType;
+  typedef TypeList <P1, TypeList <P2, TypeList <P3, TypeList <P4, TypeList <P5, TypeList <P6, TypeList <P7> > > > > > > Params;
+  static R call (T const* obj, D fp, TypeListValues <Params> tvl)
+  {
+    return (obj->*fp)(tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.tl.hd);
+  }
+};
+
+template <class T, class R, class P1, class P2, class P3, class P4, class P5, class P6, class P7, class P8, class D>
+struct FuncTraits <R (T::*) (P1, P2, P3, P4, P5, P6, P7, P8) const noexcept, D>
+{
+  static bool const isMemberFunction = true;
+  static bool const isConstMemberFunction = true;
+  typedef D DeclType;
+  typedef T ClassType;
+  typedef R ReturnType;
+  typedef TypeList <P1, TypeList <P2, TypeList <P3, TypeList <P4, TypeList <P5, TypeList <P6, TypeList <P7, TypeList <P8> > > > > > > > Params;
+  static R call (T const* obj, D fp, TypeListValues <Params> tvl)
+  {
+    return (obj->*fp)(tvl.hd, tvl.tl.hd, tvl.tl.tl.hd, tvl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.tl.hd, tvl.tl.tl.tl.tl.tl.tl.tl.hd);
+  }
+};
+

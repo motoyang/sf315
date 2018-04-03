@@ -630,6 +630,16 @@ private:
 
     //--------------------------------------------------------------------------
     /**
+      Add or replace a builder function which used to construct a object.
+    */
+    template <class FP>
+    Class <T>& addBuilder (char const* name, FP const fp)
+    {
+      return addStaticFunction(name, fp);
+    }
+
+    //--------------------------------------------------------------------------
+    /**
       Add or replace a lua_CFunction.
     */
     Class <T>& addStaticCFunction (char const* name, int (*const fp)(lua_State*))

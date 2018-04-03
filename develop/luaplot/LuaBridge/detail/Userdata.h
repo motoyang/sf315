@@ -654,7 +654,7 @@ struct StackHelper <T, false>
 /**
   Lua stack conversions for class objects passed by value.
 */
-template <class T>
+template <class T, class Enable>
 struct Stack
 {
 public:

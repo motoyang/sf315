@@ -158,10 +158,15 @@ function f1(plot)
   end
 end
 
-qcp.startPlot(fun4Plot, "f1")
+qs1=luaplot.getQString("qs1", 1, 3.3)
+print("qs1=", qs1)
+print(luaplot.getString("s1"))
+
+
+--qcp.startPlot(fun4Plot, "f1")
 
 qcp.startMainWindow(fun4MW, "f1")
 
-qcp.startPlot(fun4Plot, "f1")
+--qcp.startPlot(fun4Plot, "f1")
 
 

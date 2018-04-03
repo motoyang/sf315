@@ -27,19 +27,9 @@ struct Stack<T, typename std::enable_if_t<
         Stack<typename T::Int>::push(L, v);
     }
     static T get (lua_State* L, int index) {
-        return T(Stack<typename T::enum_type>::get(L, index));
+        return T(Stack<typename T::Int>::get(L, index));
     }
 };
-
-// 针对QFlags<enum> const&类型的stack
-template<typename T>
-struct Stack<T const&, typename std::enable_if_t<
-    std::is_same<T, QFlags<typename T::enum_type>>::value &&
-        std::is_enum<typename T::enum_type>::value>>
-    : public Stack<T, typename std::enable_if_t<
-        std::is_same<T, QFlags<typename T::enum_type>>::value &&
-            std::is_enum<typename T::enum_type>::value>>
-{};
 
 // --
 
@@ -68,7 +58,7 @@ struct TablePushAndGet
 // --
 
 template <>
-struct Stack<QString const&>
+struct Stack<QString>
 {
     static void push (lua_State* L, QString const& s)
     {
@@ -81,15 +71,10 @@ struct Stack<QString const&>
     }
 };
 
-template <>
-struct Stack<QString>
-    : public Stack<QString const&>
-{};
-
 // --
 
 template <typename T>
-struct Stack<QSharedPointer<T> const&>
+struct Stack<QSharedPointer<T>>
 {
     static void push (lua_State* L, QSharedPointer<T> const& s)
     {
@@ -101,15 +86,10 @@ struct Stack<QSharedPointer<T> const&>
     }
 };
 
-template <typename T>
-struct Stack <QSharedPointer<T>>
-    : public Stack<QSharedPointer<T> const&>
-{};
-
 // --
 
 template <typename T>
-struct Stack<QList<T*> const&>
+struct Stack<QList<T*>>
 {
     static void push (lua_State* L, QList<T*> const& v)
     {
@@ -136,15 +116,10 @@ struct Stack<QList<T*> const&>
     }
 };
 
-template <typename T>
-struct Stack<QList<T*>>
-    : public Stack <QList<T*> const&>
-{};
-
 // --
 
 template <typename T>
-struct Stack<QVector<T> const&>
+struct Stack<QVector<T>>
 {
     static void push (lua_State* L, QVector<T> const& v)
     {
@@ -173,24 +148,17 @@ struct Stack<QVector<T> const&>
     }
 };
 
-template <typename T>
-struct Stack<QVector<T>>
-    : public Stack<QVector<T> const&>
-{};
-
 // --
 
 #define CONSTEXPR_STATIC_CONST_CHAR_POINTER(s)  \
     constexpr static const char* s = #s;
 
 template <>
-struct Stack<QCPBarsData const&>
+struct Stack<QCPBarsData>
     : public TablePushAndGet
 {
     CONSTEXPR_STATIC_CONST_CHAR_POINTER(key)
     CONSTEXPR_STATIC_CONST_CHAR_POINTER(value)
-//    constexpr static const char* key = "key";
-//    constexpr static const char* value = "value";
 
     static void push (lua_State* L, QCPBarsData const& v)
     {
@@ -212,21 +180,14 @@ struct Stack<QCPBarsData const&>
     }
 };
 
-template <>
-struct Stack<QCPBarsData>
-    : public Stack<QCPBarsData const&>
-{};
-
 // --
 
 template <>
-struct Stack<QCPErrorBarsData const&>
+struct Stack<QCPErrorBarsData>
     : public TablePushAndGet
 {
     CONSTEXPR_STATIC_CONST_CHAR_POINTER(errorMinus)
     CONSTEXPR_STATIC_CONST_CHAR_POINTER(errorPlus)
-//    constexpr static const char* errorMinus = "errorMinus";
-//    constexpr static const char* errorPlus = "errorPlus";
 
     static void push (lua_State* L, QCPErrorBarsData const& v)
     {
@@ -248,15 +209,10 @@ struct Stack<QCPErrorBarsData const&>
     }
 };
 
-template <>
-struct Stack<QCPErrorBarsData>
-    : public Stack<QCPErrorBarsData const&>
-{};
-
 // --
 
 template <>
-struct Stack<QCPFinancialData const&>
+struct Stack<QCPFinancialData>
     : public TablePushAndGet
 {
     CONSTEXPR_STATIC_CONST_CHAR_POINTER(key)
@@ -264,12 +220,6 @@ struct Stack<QCPFinancialData const&>
     CONSTEXPR_STATIC_CONST_CHAR_POINTER(high)
     CONSTEXPR_STATIC_CONST_CHAR_POINTER(low)
     CONSTEXPR_STATIC_CONST_CHAR_POINTER(close)
-
-//    constexpr static const char* key = "key";
-//    constexpr static const char* open = "open";
-//    constexpr static const char* high = "high";
-//    constexpr static const char* low = "low";
-//    constexpr static const char* close = "close";
 
     static void push (lua_State* L, QCPFinancialData const& v)
     {
@@ -297,24 +247,15 @@ struct Stack<QCPFinancialData const&>
     }
 };
 
-template <>
-struct Stack<QCPFinancialData>
-    : public Stack<QCPFinancialData const&>
-{};
-
 // --
 
 template <>
-struct Stack<QCPCurveData const&>
+struct Stack<QCPCurveData>
     : public TablePushAndGet
 {
     CONSTEXPR_STATIC_CONST_CHAR_POINTER(t)
     CONSTEXPR_STATIC_CONST_CHAR_POINTER(key)
     CONSTEXPR_STATIC_CONST_CHAR_POINTER(value)
-
-//    constexpr static const char* t = "t";
-//    constexpr static const char* key = "key";
-//    constexpr static const char* value = "value";
 
     static void push (lua_State* L, QCPCurveData const& v)
     {
@@ -339,22 +280,14 @@ struct Stack<QCPCurveData const&>
 
 };
 
-template <>
-struct Stack<QCPCurveData>
-    : public Stack<QCPCurveData const&>
-{};
-
 // --
 
 template <>
-struct Stack<QCPGraphData const&>
+struct Stack<QCPGraphData>
     : public TablePushAndGet
 {
     CONSTEXPR_STATIC_CONST_CHAR_POINTER(key)
     CONSTEXPR_STATIC_CONST_CHAR_POINTER(value)
-
-//    constexpr static const char* key = "key";
-//    constexpr static const char* value = "value";
 
     static void push (lua_State* L, QCPGraphData const& v)
     {
@@ -376,15 +309,10 @@ struct Stack<QCPGraphData const&>
     }
 };
 
-template <>
-struct Stack<QCPGraphData>
-    : public Stack<QCPGraphData const&>
-{};
-
 // --
 
 template <>
-struct Stack<QCPStatisticalBoxData const&>
+struct Stack<QCPStatisticalBoxData>
     : public TablePushAndGet
 {
     CONSTEXPR_STATIC_CONST_CHAR_POINTER(key)
@@ -394,14 +322,6 @@ struct Stack<QCPStatisticalBoxData const&>
     CONSTEXPR_STATIC_CONST_CHAR_POINTER(upperQuartile)
     CONSTEXPR_STATIC_CONST_CHAR_POINTER(maximum)
     CONSTEXPR_STATIC_CONST_CHAR_POINTER(outliers)
-
-//    constexpr static const char* key = "key";
-//    constexpr static const char* minimum = "minimum";
-//    constexpr static const char* lowerQuartile = "lowerQuartile";
-//    constexpr static const char* median = "median";
-//    constexpr static const char* upperQuartile = "upperQuartile";
-//    constexpr static const char* maximum = "maximum";
-//    constexpr static const char* outliers = "outliers";
 
     static void push (lua_State* L, QCPStatisticalBoxData const& v)
     {
@@ -432,11 +352,6 @@ struct Stack<QCPStatisticalBoxData const&>
         return d;
     }
 };
-
-template <>
-struct Stack<QCPStatisticalBoxData>
-    : public Stack<QCPStatisticalBoxData const&>
-{};
 
 #undef CONSTEXPR_STATIC_CONST_CHAR_POINTER
 

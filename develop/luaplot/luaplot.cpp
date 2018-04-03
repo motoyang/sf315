@@ -1,5 +1,5 @@
 #include "lua.hpp"
-#include "LuaBridge/LuaBridge.h"
+#include "LuaBridge_cpp17/LuaBridge.h"
 #include "ver.h"
 #include "mainwindow.h"
 #include "luaplot.h"

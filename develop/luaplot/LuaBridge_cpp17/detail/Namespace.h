@@ -359,20 +359,6 @@ private:
       }
     }
 
-    //==========================================================================
-    /**
-      lua_CFunction to construct a class object wrapped in a container.
-    */
-    template <class Params, class C>
-    static int ctorContainerProxy (lua_State* L)
-    {
-      typedef typename ContainerTraits <C>::Type T;
-      ArgList2 <2, Params> args (L);
-      T* const p = Constructor2 <T, Params>::call (args);
-      UserdataSharedHelper <C, false>::push (L, p);
-      return 1;
-    }
-
     //--------------------------------------------------------------------------
     /**
       lua_CFunction to construct a class object in-place in the userdata.
@@ -380,7 +366,6 @@ private:
     template <class Params, class T>
     static int ctorPlacementProxy (lua_State* L)
     {
-//      ArgList <Params, 2> args (L);
       ArgList2<2, Params> args(L);
       void * p = UserdataValue <T>::place (L);
       Constructor2 <T, Params>::call (p, args);
@@ -781,7 +766,7 @@ private:
     }
 
     // read-only
-    template <class TG, class TS>
+    template <class TG>
     Class <T>& addProperty (char const* name, TG (*get) (T const*))
     {
       // Add to __propget in class and const tables.
@@ -837,27 +822,6 @@ private:
       lua_pushvalue (L, -1);
       rawsetfield (L, -5, name); // const table
       rawsetfield (L, -3, name); // class table
-
-      return *this;
-    }
-
-    //--------------------------------------------------------------------------
-    /**
-      Add or replace a primary Constructor.
-
-      The primary Constructor is invoked when calling the class type table
-      like a function.
-
-      The template parameter should be a function pointer type that matches
-      the desired Constructor (since you can't take the address of a Constructor
-      and pass it as an argument).
-    */
-    template <class MemFn, class C>
-    Class <T>& addConstructor ()
-    {
-      lua_pushcclosure (L,
-        &ctorContainerProxy <typename FuncTraits2 <MemFn>::Params, C>, 0);
-      rawsetfield(L, -2, "__call");
 
       return *this;
     }

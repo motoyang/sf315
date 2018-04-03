@@ -18,7 +18,13 @@ QVector<double> getQVector(const QVector<double>& v)
     return r;
 }
 
-QString getQString(const QString& s)
+QString getQString(const QString& s, const int i, const double& d)
+{
+    return s + " + " + s + QString(", r=%1").arg(i + d);
+}
+
+
+std::string getString(const std::string& s)
 {
     return s + " + " + s;
 }
@@ -48,6 +54,7 @@ static void Tester2Lua(lua_State* L, const char* ns)
 
         .addFunction("getQVector", getQVector)
         .addFunction("getQString", getQString)
+        .addFunction("getString", getString)
         .addFunction("getStatisticalBoxData", getStatisticalBoxData)
 
 //        .beginClass<aaa>("aaa")

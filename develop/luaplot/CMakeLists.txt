@@ -95,7 +95,3 @@ add_custom_command(TARGET ${VER_LIB}
   WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
   COMMENT "This command will be executed before building target ${VER_LIB}"
   )
-
-#add_custom_target(Test1 ALL
-#  COMMAND date > Test1
-#  DEPENDS luaplot.cpp)

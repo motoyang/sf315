@@ -332,8 +332,8 @@ template <class T>
 class UserdataValue : public Userdata
 {
 private:
-  UserdataValue <T> (UserdataValue <T> const&);
-  UserdataValue <T> operator= (UserdataValue <T> const&);
+  UserdataValue <T> (UserdataValue <T> const&) = delete;
+  UserdataValue <T> operator= (UserdataValue <T> const&) = delete;
 
   char m_storage [sizeof (T)];
 
@@ -396,8 +396,8 @@ public:
 class UserdataPtr : public Userdata
 {
 private:
-  UserdataPtr (UserdataPtr const&);
-  UserdataPtr operator= (UserdataPtr const&);
+  UserdataPtr (UserdataPtr const&) = delete;
+  UserdataPtr operator= (UserdataPtr const&) = delete;
 
 private:
   /** Push non-const pointer to object using metatable key.
@@ -470,185 +470,6 @@ public:
   }
 };
 
-//============================================================================
-/**
-  Wraps a container thet references a class object.
-
-  The template argument C is the container type, ContainerTraits must be
-  specialized on C or else a compile error will result.
-*/
-template <class C>
-class UserdataShared : public Userdata
-{
-private:
-  UserdataShared (UserdataShared <C> const&);
-  UserdataShared <C>& operator= (UserdataShared <C> const&);
-
-  typedef typename TypeTraits::removeConst <
-    typename ContainerTraits <C>::Type>::Type T;
-
-  C m_c;
-
-private:
-  ~UserdataShared ()
-  {
-  }
-
-public:
-  /**
-    Construct from a container to the class or a derived class.
-  */
-  template <class U>
-  explicit UserdataShared (U const& u) : m_c (u)
-  {
-    m_p = const_cast <void*> (reinterpret_cast <void const*> (
-        (ContainerTraits <C>::get (m_c))));
-  }
-
-  /**
-    Construct from a pointer to the class or a derived class.
-  */
-  template <class U>
-  explicit UserdataShared (U* u) : m_c (u)
-  {
-    m_p = const_cast <void*> (reinterpret_cast <void const*> (
-        (ContainerTraits <C>::get (m_c))));
-  }
-};
-
-//----------------------------------------------------------------------------
-//
-// SFINAE helpers.
-//
-
-// non-const objects
-template <class C, bool makeObjectConst>
-struct UserdataSharedHelper
-{
-  typedef typename TypeTraits::removeConst <
-    typename ContainerTraits <C>::Type>::Type T;
-
-  static void push (lua_State* L, C const& c)
-  {
-    if (ContainerTraits <C>::get (c) != 0)
-    {
-      new (lua_newuserdata (L, sizeof (UserdataShared <C>))) UserdataShared <C> (c);
-      lua_rawgetp (L, LUA_REGISTRYINDEX, ClassInfo <T>::getClassKey ());
-      // If this goes off it means the class T is unregistered!
-      assert (lua_istable (L, -1));
-      lua_setmetatable (L, -2);
-    }
-    else
-    {
-      lua_pushnil (L);
-    }
-  }
-
-  static void push (lua_State* L, T* const t)
-  {
-    if (t)
-    {
-      new (lua_newuserdata (L, sizeof (UserdataShared <C>))) UserdataShared <C> (t);
-      lua_rawgetp (L, LUA_REGISTRYINDEX, ClassInfo <T>::getClassKey ());
-      // If this goes off it means the class T is unregistered!
-      assert (lua_istable (L, -1));
-      lua_setmetatable (L, -2);
-    }
-    else
-    {
-      lua_pushnil (L);
-    }
-  }
-};
-
-// const objects
-template <class C>
-struct UserdataSharedHelper <C, true>
-{
-  typedef typename TypeTraits::removeConst <
-    typename ContainerTraits <C>::Type>::Type T;
-
-  static void push (lua_State* L, C const& c)
-  {
-    if (ContainerTraits <C>::get (c) != 0)
-    {
-      new (lua_newuserdata (L, sizeof (UserdataShared <C>))) UserdataShared <C> (c);
-      lua_rawgetp (L, LUA_REGISTRYINDEX, ClassInfo <T>::getConstKey ());
-      // If this goes off it means the class T is unregistered!
-      assert (lua_istable (L, -1));
-      lua_setmetatable (L, -2);
-    }
-    else
-    {
-      lua_pushnil (L);
-    }
-  }
-
-  static void push (lua_State* L, T* const t)
-  {
-    if (t)
-    {
-      new (lua_newuserdata (L, sizeof (UserdataShared <C>))) UserdataShared <C> (t);
-      lua_rawgetp (L, LUA_REGISTRYINDEX, ClassInfo <T>::getConstKey ());
-      // If this goes off it means the class T is unregistered!
-      assert (lua_istable (L, -1));
-      lua_setmetatable (L, -2);
-    }
-    else
-    {
-      lua_pushnil (L);
-    }
-  }
-};
-
-/**
-  Pass by container.
-
-  The container controls the object lifetime. Typically this will be a
-  lifetime shared by C++ and Lua using a reference count. Because of type
-  erasure, containers like std::shared_ptr will not work. Containers must
-  either be of the intrusive variety, or in the style of the RefCountedPtr
-  type provided by LuaBridge (that uses a global hash table).
-*/
-template <class C, bool byContainer>
-struct StackHelper
-{
-  static inline void push (lua_State* L, C const& c)
-  {
-    UserdataSharedHelper <C,
-      TypeTraits::isConst <typename ContainerTraits <C>::Type>::value>::push (L, c);
-  }
-
-  typedef typename TypeTraits::removeConst <
-    typename ContainerTraits <C>::Type>::Type T;
-
-  static inline C get (lua_State* L, int index)
-  {
-    return Userdata::get <T> (L, index, true);
-  }
-};
-
-/**
-  Pass by value.
-
-  Lifetime is managed by Lua. A C++ function which accesses a pointer or
-  reference to an object outside the activation record in which it was
-  retrieved may result in undefined behavior if Lua garbage collected it.
-*/
-template <class T>
-struct StackHelper <T, false>
-{
-  static inline void push (lua_State* L, T const& t)
-  {
-    UserdataValue <T>::push (L, t);
-  }
-
-  static inline T const& get (lua_State* L, int index)
-  {
-    return *Userdata::get <T> (L, index, true);
-  }
-};
-
 //==============================================================================
 
 /**
@@ -660,25 +481,16 @@ struct Stack
 public:
   static inline void push (lua_State* L, T const& t)
   {
-    StackHelper <T,
-      TypeTraits::isContainer <T>::value>::push (L, t);
+    static_assert(std::is_class<std::remove_reference_t<std::remove_cv_t<T>>>::value);
+    UserdataValue <T>::push (L, t);
   }
 
   static inline T get (lua_State* L, int index)
   {
-    return StackHelper <T,
-      TypeTraits::isContainer <T>::value>::get (L, index);
+    static_assert(std::is_class<std::remove_reference_t<std::remove_cv_t<T>>>::value);
+    return *Userdata::get <T> (L, index, true);
   }
 };
-
-//------------------------------------------------------------------------------
-/**
-  Lua stack conversions for pointers and references to class objects.
-
-  Lifetime is managed by C++. Lua code which remembers a reference to the
-  value may result in undefined behavior if C++ destroys the object. The
-  handling of the const and volatile qualifiers happens in UserdataPtr.
-*/
 
 // pointer
 template <class T>
@@ -758,60 +570,21 @@ struct Stack <T&>
   }
 };
 
-template <class C, bool byContainer>
-struct RefStackHelper
-{
-  typedef C return_type;  
-	
-  static inline void push (lua_State* L, C const& t)
-  {
-    UserdataSharedHelper <C,
-      TypeTraits::isConst <typename ContainerTraits <C>::Type>::value>::push (L, t);
-  }
-
-  typedef typename TypeTraits::removeConst <
-    typename ContainerTraits <C>::Type>::Type T;
-
-  static return_type get (lua_State* L, int index)
-  {
-    return Userdata::get <T> (L, index, true);
-  }
-};
-
+// reference to const
 template <class T>
-struct RefStackHelper <T, false>
+struct Stack <T const&>
 {
-  typedef T const& return_type;  
-	
-	static inline void push (lua_State* L, T const& t)
-	{
-	  UserdataPtr::push (L, &t);
-	}
+  static inline void push (lua_State* L, T const& t)
+  {
+    UserdataPtr::push (L, &t);
+  }
 
-  static return_type get (lua_State* L, int index)
+  static T const& get (lua_State* L, int index)
   {
     T const* const t = Userdata::get <T> (L, index, true);
 
     if (!t)
       luaL_error (L, "nil passed to reference");
     return *t;
-  }
-    
-};
-
-// reference to const
-template <class T>
-struct Stack <T const&>
-{
-  typedef RefStackHelper <T, TypeTraits::isContainer <T>::value> helper_t;
-  
-  static inline void push (lua_State* L, T const& t)
-  {
-    helper_t::push (L, t);
-  }
-
-  static typename helper_t::return_type get (lua_State* L, int index)
-  {
-    return helper_t::get (L, index);
   }
 };
