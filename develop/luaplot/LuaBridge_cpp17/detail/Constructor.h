@@ -1,39 +1,7 @@
-//------------------------------------------------------------------------------
-/*
-  https://github.com/vinniefalco/LuaBridge
-  
-  Copyright 2012, Vinnie Falco <vinnie.falco@gmail.com>
-  Copyright 2007, Nathan Reed
-
-  License: The MIT License (http://www.opensource.org/licenses/mit-license.php)
-
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files (the "Software"), to deal
-  in the Software without restriction, including without limitation the rights
-  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-  copies of the Software, and to permit persons to whom the Software is
-  furnished to do so, subject to the following conditions:
-
-  The above copyright notice and this permission notice shall be included in all
-  copies or substantial portions of the Software.
-
-  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-  SOFTWARE.
-*/
-//==============================================================================
-
-#ifndef LUABRIDGE_CONSTRUCTOR_HEADER
-#define LUABRIDGE_CONSTRUCTOR_HEADER
+#pragma once
 
 template <class T, typename Tuple>
-struct Constructor2
-{
-};
+struct Constructor2;
 
 template <class T, typename... Args>
 struct Constructor2 <T, std::tuple<Args...>>
@@ -44,10 +12,10 @@ private:
         return new T(std::forward<Args>(args)...);
     }
 
-    struct Create
+    struct Creater
     {
         void* mem;
-        Create(void* p) : mem(p) {}
+        Creater(void* p) : mem(p) {}
         T* createWithPointer( Args&&... args)
         {
             return new (mem) T(std::forward<Args>(args)...);
@@ -62,9 +30,7 @@ public:
 
   static T* call (void* mem, const ArgList2<2, std::tuple<Args...>> &tvl)
   {
-      Create c(mem);
-      return obj_apply(&c, &Create::createWithPointer, tvl.tuple());
+      Creater c(mem);
+      return obj_apply(&c, &Creater::createWithPointer, tvl.tuple());
   }
 };
-
-#endif

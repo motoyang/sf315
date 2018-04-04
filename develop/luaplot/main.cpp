@@ -2,7 +2,6 @@
 #include <lua.hpp>
 #include <QApplication>
 #include "mainwindow.h"
-#include "expressionwidget.h"
 #include "cpp2lua.h"
 
 // --
@@ -49,7 +48,7 @@ int main(int argc, char *argv[])
     // QApp start
     QApplication a(argc, argv);
 
-    // Open Lua and register cpp functions and class to Lua
+    // Open Lua and register cpp functions and classes to Lua
     lua_State* L = openLua();
     Cpp2Lua(L, a.applicationName().toUtf8().constData());
 
