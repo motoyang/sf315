@@ -1,6 +1,7 @@
 #include <iostream>
 #include <sstream>
 #include <cassert>
+#include <thread>
 #include <lua.hpp>
 #include "utilities.h"
 
@@ -81,3 +82,41 @@ void dumpStack(const char* where,
 }
 
 // --
+
+// 返回为空，The execution of the next instruction is delayed an implementation specific
+// amount of time. The instruction does not modify the architectural state. This intrinsic
+// provides especially significant performance gain
+extern void _mm_pause(void);
+
+Spin_lock::Spin_lock()
+{
+  d_atomic_bool.store( false, std::memory_order_relaxed );
+  return;
+}
+
+void Spin_lock::lock( void )
+{
+  while( d_atomic_bool.exchange( true, std::memory_order_acquire ) ) {
+    while( 1 ) {
+      _mm_pause();         // pause指令 延迟时间大约是12纳秒
+      if( !d_atomic_bool.load( std::memory_order_relaxed ) ) break;
+      std::this_thread::yield();         // 在无其他线程等待执行的情况下，延迟时间113纳秒
+      // 在有其他线程等待执行情况下，将切换线程
+      if( !d_atomic_bool.load( std::memory_order_relaxed ) ) break;
+      continue;
+    }
+    continue;
+  }
+  return;
+}
+
+bool Spin_lock::try_lock( void )
+{
+  return !d_atomic_bool.exchange( true, std::memory_order_acquire );
+}
+
+void Spin_lock::unlock( void )
+{
+  d_atomic_bool.store( false, std::memory_order_release ); // 设置为false
+  return;
+}

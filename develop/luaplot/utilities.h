@@ -5,6 +5,26 @@ void stackindex_stdcout(lua_State *ls, int idx);
 void dumpStack(const char* where, lua_State* L, void(*f)(lua_State*, int) = stackindex_stdcout);
 
 // --
+
+class Spin_lock
+{
+public:
+  Spin_lock( void );
+  void lock( void );
+  bool try_lock( void );
+  void unlock( void );
+
+protected:
+  Spin_lock(const Spin_lock&) = delete;
+  Spin_lock& operator =(const Spin_lock&) = delete;
+  Spin_lock(Spin_lock&&) = delete;
+  Spin_lock& operator =(Spin_lock&&) = delete;
+
+private:
+  std::atomic<bool> d_atomic_bool;
+};
+
+// --
 /*
 #include <utility>
 #include <tuple>

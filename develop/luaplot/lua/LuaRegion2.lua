@@ -10,78 +10,88 @@ local qcp=require("qcpplot.qcp")
 local qt=require("qcpplot.qt5")
 
 --------------------
-
-qcp.startPlot(
-  function(p)
-    local r = qcp.Region:new{plot=p, name="密集恐惧曲线1：y=cos(1/x)", xLower=-1.2, xUpper=1.2, yLower=-0.3, yUpper=0.3, }
-    r:addFunction(
-		  function (x)
-			  return math.cos(1/x)
-		  end
-    )
-  end
-)
-
---------------------
-
 function fp01(p)
-  local r = qcp.Region:new{plot=p, name="密集恐惧曲线2：y=x*sin(x^2)", xLower=-10, xUpper=10, yLower=-10, yUpper=10, }
-  r:addFunction(
-		function (x)
-			return x * math.sin(x ^ 2)
-		end
+  local r = qcp.Region:new{plot=p, name="函数原型：sin(x^2 + y^2) = cos(xy)"}
+  r:addEquation(
+    function (x, y) 
+      local left = math.sin(x*x + y*y)
+      local right = math.cos(x*y)
+      return left, right
+    end
   )
 end
 qcp.startPlot(fp01)
 
---------------------
-
 function fp02(p)
-  local r = qcp.Region:new{plot=p, name="爱心曲线：y=sqrt(1-(abs(x)-1)^2) || y=acos(1-abs(x))-pi", xLower=-3.5, xUpper=3.5, yLower=-3.5, yUpper=1.5, }
-  r:addFunction(
-		function (x)
-			return math.sqrt(1-(math.abs(x)-1)^2)
-		end
-  )
-  r:addFunction(
-		function (x)
-			return math.acos(1-math.abs(x))-math.pi
-		end
+  local r = qcp.Region:new{plot=p, name="函数原型：|sin(x^2 + 2xy)| = sin(x - 2y)"}
+  r:addEquation(
+    function (x, y) 
+      local left = math.abs(math.sin(x*x+2*x*y))
+      local right = math.sin(x-2*y)
+      return left, right
+    end
   )
 end
 qcp.startPlot(fp02)
 
---------------------
---[[
-qcp.startPlot(
-  function (p)
-    local r = qcp.Region:new{plot=p, name="爱心曲线：x*x+(y-(x*x)^(1/3))^2=1", xLower=-2, xUpper=2, yLower=-1.5, yUpper=2, }
-    r:addEquation(
-      function (x, y)
-        local r = 1
-        local l = x*x + (y - (x*x)^(1/3))^2
-        return l, r
-      end
-    )
-  end
-)
---]]
---------------------
+function fp03(p)
+  local r = qcp.Region:new{plot=p, name="函数原型：sin(sin(x) + cos(y)) = cos(sin(xy) + cos(x))"}
+  r:addEquation(
+    function (x, y) 
+      local left = math.sin(math.sin(x) + math.cos(y))
+      local right = math.cos(math.sin(x*y)+math.cos(x))
+      return left, right
+    end
+  )
+end
+qcp.startPlot(fp03)
 
-qcp.startPlot(
-  function (p)
-    local r = qcp.Region:new{plot=p, name=" 污污污曲线：y=x^(sin(x^cosx))", xLower=-20, xUpper=20, yLower=-20, yUpper=20, }
-    r:addFunction(
-      function (x)
-        return x^math.sin(x^math.cos(x))
-      end
-    )
-  end
-)
+function fp04(p)
+  local r = qcp.Region:new{plot=p, name="函数原型：|sin(x^2-y^2)|=sin(x+y)+cos(xy)"}
+  r:addEquation(
+    function (x, y) 
+      local left = math.abs(math.sin(x*x-y*y))
+      local right = math.sin(x+y)+math.cos(x*y)
+      return left, right
+    end
+  )
+end
+qcp.startPlot(fp04)
 
 --------------------
 
---[[
+function fp05(p)
+  local r = qcp.Region:new{plot=p, xLower=-100, xUpper=100, yLower=-100, yUpper=100, name="函数原型：(x^2 + y^2) % 80 > 5",}
+  r:addLogic(
+		function (x, y)
+      local left1 = (x*x+y*y)%80
+      local right1 = 5
+    
+      if (left1 < right1) 
+      then return true end
+      return false
+		end
+  )
+end
+qcp.startPlot(fp05)
+
+--------------------
+
+function fp06(p)
+  local r = qcp.Region:new{plot=p, name="函数原型：cos(cos(min(sin(x)+y,x+sin(y)))) - cos(sin(max(sin(y)+x,y+sin(x)))) > 0",}
+  r:addLogic(
+		function (x, y)
+      local l1 = math.cos(math.cos(math.min(math.sin(x)+y, x+math.sin(y))))
+      local l2 = math.cos(math.sin(math.max(math.sin(y)+x, y+math.sin(x))))
+    	if (l1 - l2 > 0) then return true end
+    	return false
+		end
+  )
+end
+qcp.startPlot(fp06)
+
+--------------------
+
 function fp07(p)
   local r = qcp.Region:new{plot=p, name="温柔曲线：y=3*x*log(x)-1.0/36*exp(-(36.0*x-36.0/exp(1))**4)", xLower=0, xUpper=1.2, yLower=-1.5, yUpper=0, }
   r:addFunction(
@@ -160,4 +170,41 @@ function fp3(p)
     end
   )
 end
---]]
+
+--------------------
+
+function fp10(p)
+  local r = qcp.Region:new{plot=p,}
+  r:addEquation(
+    function (x, y) 
+      local left = math.exp(math.sin(x)+math.cos(y))
+      local right = math.sin(math.exp(x+y))
+      return left, right
+    end
+  )
+end
+qcp.startPlot(fp10)
+
+--------------------
+
+function fp11(p)
+  local r = qcp.Region:new{plot=p, name="函数原型：x/sin(x) +- y/sin(y) = +- x*y/sin(xy)",}
+  r:addEquation(
+    function (x, y) 
+      -- 函数原型：x/sin(x) +- y/sin(y) = +- x*y/sin(xy)
+      local l1 = x/math.sin(x)
+      local l2 = y/math.sin(y)
+      local r = x*y/math.sin(x*y)
+ 
+      local minV = math.abs(l1+l2 - r)
+      minV = math.min(minV, math.abs(l1+l2 + r))
+      minV = math.min(minV, math.abs(l1-l2 - r))
+      minV = math.min(minV, math.abs(l1-l2 + r))
+
+      return minV, 0
+    end
+  )
+end
+qcp.startPlot(fp11)
+
+--------------------

@@ -1,5 +1,13 @@
 --------------------------------------------------------------------------------
 
+国外趴好几天终于搞定hd4600 dp 4k 60hz 并成功开启hdpi！
+clover config 添加kextstopath
+name：AppleIntelFramebufferAzul
+Find  :  0300220d 00030303 00000002 00003001
+Replace: 0300220d 00030303 00000004 00000003
+
+--------------------------------------------------------------------------------
+
 systemctl命令是系统服务管理器指令，它实际上将 service 和 chkconfig 这两个命令组合到一起。
 任务 	              旧指令 	                        新指令
 使某服务自动启动 	    chkconfig --level 3 httpd on 	  systemctl enable httpd.service

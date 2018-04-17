@@ -14,7 +14,7 @@ struct FuncTraits2<R(*)(Args...), D>
     typedef D DeclType;
     typedef R ReturnType;
     typedef std::tuple<Args...> Params;
-    static R call (D fp, ArgList2<1, Params> tvl)
+    static R call (D fp, const ArgList2<1, Params>& tvl)
     {
         return std::apply(fp, tvl.tuple());
     }
@@ -35,7 +35,7 @@ struct FuncTraits2<R(T::*)(Args...), D>
     typedef T ClassType;
     typedef R ReturnType;
     typedef std::tuple<Args...> Params;
-    static R call (T* obj, D fp, ArgList2<2, Params>& tvl)
+    static R call (T* obj, D fp, const ArgList2<2, Params>& tvl)
     {
         return obj_apply(obj, fp, tvl.tuple());
     }
@@ -56,7 +56,7 @@ struct FuncTraits2<R(T::*)(Args...)const, D>
     typedef T ClassType;
     typedef R ReturnType;
     typedef std::tuple<Args...> Params;
-    static R call (T const* obj, D fp, ArgList2<2, Params> tvl)
+    static R call (T const* obj, D fp, const ArgList2<2, Params>& tvl)
     {
         return obj_apply(obj, fp, tvl.tuple());
     }

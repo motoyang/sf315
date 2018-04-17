@@ -8,7 +8,7 @@ local M = {}
 _G[modname]=M
 package.loaded[modname] = M  
 
-function M.linespace(start, stop, count, end_point)
+function M.linspace(start, stop, count, end_point)
   -- end_point缺省值为true
   if(type(end_point)== "nil") then end_point = true end
 
