@@ -29,7 +29,7 @@ const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
 // camera
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+Camera camera(glm::vec3(3.0f, 4.0f, 5.0f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -46,13 +46,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     return;
   switch (key)
   {
-  case GLFW_KEY_R:
-    if (mods & GLFW_MOD_SHIFT) {
-      g_r->sendEvent('R');
-    } else {
-      g_r->sendEvent('r');
-    }
+  case GLFW_KEY_ESCAPE:
+    glfwSetWindowShouldClose(window, true);
     break;
+
   case GLFW_KEY_L:
     if (mods & GLFW_MOD_SHIFT) {
       g_r->sendEvent('L');
@@ -60,11 +57,39 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
       g_r->sendEvent('l');
     }
     break;
-  case GLFW_KEY_T:
+  case GLFW_KEY_R:
     if (mods & GLFW_MOD_SHIFT) {
-      g_r->sendEvent('T');
+      g_r->sendEvent('R');
     } else {
-      g_r->sendEvent('t');
+      g_r->sendEvent('r');
+    }
+    break;
+  case GLFW_KEY_F:
+    if (mods & GLFW_MOD_SHIFT) {
+      g_r->sendEvent('F');
+    } else {
+      g_r->sendEvent('f');
+    }
+    break;
+  case GLFW_KEY_B:
+    if (mods & GLFW_MOD_SHIFT) {
+      g_r->sendEvent('B');
+    } else {
+      g_r->sendEvent('b');
+    }
+    break;
+  case GLFW_KEY_U:
+    if (mods & GLFW_MOD_SHIFT) {
+      g_r->sendEvent('U');
+    } else {
+      g_r->sendEvent('u');
+    }
+    break;
+  case GLFW_KEY_D:
+    if (mods & GLFW_MOD_SHIFT) {
+      g_r->sendEvent('D');
+    } else {
+      g_r->sendEvent('d');
     }
     break;
   default:
@@ -72,13 +97,8 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
   }
 }
 
-void print_vec3(const glm::vec3& v)
-{
-  std::cout << "glm::vec3=[" << v.x << ", " << v.y << ", " << v.z << "]" << std::endl;
-}
-
 // lighting
-glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
+//glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
 
 int main()
 {
@@ -125,16 +145,15 @@ int main()
 
     // build and compile our shader zprogram
     // ------------------------------------
-    Shader lightingShader("rublk.vs", "rublk.fs");
+    Shader shader("rublk.vs", "rublk.fs");
 
+    // 创建rublk cube
     Rublk rbulk(3);
     g_r = &rbulk;
-//    rbulk.roate();
 
     // load textures (we now use a utility function to keep the code more organized)
     // -----------------------------------------------------------------------------
-    unsigned int diffuseMap = loadTexture(FileSystem::getPath("resources/textures/rublk.png").c_str());
-//    unsigned int diffuseMap = loadTexture(FileSystem::getPath("resources/textures/container2.png").c_str());
+    unsigned int skin = loadTexture("textures/rublk.png");
 
     // render loop
     // -----------
@@ -156,45 +175,25 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // be sure to activate shader when setting uniforms/drawing objects
-        lightingShader.use();
+        shader.use();
 
         // view/projection transformations
         glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
         glm::mat4 view = camera.GetViewMatrix();
-        lightingShader.setMat4("projection", projection);
-        lightingShader.setMat4("view", view);
+        shader.setMat4("projection", projection);
+        shader.setMat4("view", view);
 
-        // bind diffuse map
+        // bind skin
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, diffuseMap);
+        glBindTexture(GL_TEXTURE_2D, skin);
 
-        rbulk.render(lightingShader);
+        rbulk.render(shader);
 
-/*
-        // render containers
-        glBindVertexArray(cubeVAO);
-        for (const glm::vec3& v: cubePositions) {
-            // calculate the model matrix for each object and pass it to shader before drawing
-            glm::mat4 model;
-//            float angle = 20.0f;
-//            model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.0f, 0.0f));
-            model = glm::translate(model, v);
-            lightingShader.setMat4("model", model);
-
-            glDrawArrays(GL_TRIANGLES, 0, 36);
-        }
-*/
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
-
-    // optional: de-allocate all resources once they've outlived their purpose:
-    // ------------------------------------------------------------------------
-//    glDeleteVertexArrays(1, &cubeVAO);
-////    glDeleteVertexArrays(1, &lightVAO);
-//    glDeleteBuffers(1, &VBO);
 
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
@@ -206,22 +205,14 @@ int main()
 // ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow *window)
 {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
-
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        camera.ProcessKeyboard(FORWARD, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        camera.ProcessKeyboard(FORWARD, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS)
         camera.ProcessKeyboard(BACKWARD, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
         camera.ProcessKeyboard(LEFT, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
         camera.ProcessKeyboard(RIGHT, deltaTime);
-
-//    if (glfwGetKey(window, GLFW_KEY_R) == GLFW_RELEASE)
-//        g_r->sendEvent('r');
-//    if (glfwGetKey(window, GLFW_KEY_R) == GLFW_RELEASE && glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-//        g_r->sendEvent('R');
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
