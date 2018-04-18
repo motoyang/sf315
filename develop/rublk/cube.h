@@ -1,15 +1,12 @@
 #ifndef CUBE_H
 #define CUBE_H
 
-#define degreesToRadians(x)   ((x) * 3.141592f / 180.0f)
-
 class Rublk;
 
 class Cube
 {
   Rublk* m_rublk;
   int m_id;
-  const float* m_vertices;
   glm::vec3 m_position;
   glm::mat4 m_model;
   unsigned int m_vao, m_vbo;
@@ -22,28 +19,27 @@ public:
   virtual ~Cube();
 
   void render(const Shader& s);
-  bool isTop() const;
-  bool isRight() const;
-  void setPosition(const glm::vec3& v);
   glm::vec3 getPosition() const;
-  void rotate(int degree, const glm::vec3 axis);
-
+  void rotate(int degree, const glm::vec3& axis);
+  void changeModel(int degree, const glm::vec3& axis);
 };
 
 class Rublk
 {
   int m_rank;
   int m_taskCount;
+  unsigned int m_skin;
   std::vector<Cube> m_cubes;
   std::queue<char> m_events;
 
   void eventHandler();
 
 public:
-  Rublk(int rank);
+  Rublk(int rank, unsigned int skin);
+  void confuse();
+
   void render(const Shader& s);
-  void roate();
-  void sendEvent(const char c);
+  void pushEvent(const char c);
   void taskStart();
   void taskFinished();
 };
