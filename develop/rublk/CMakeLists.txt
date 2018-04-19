@@ -4,6 +4,8 @@ ADD_DEFINITIONS(-DSTBI_NO_DDS)
 
 project(rublk)
 
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+
 set(CMAKE_BUILD_TYPE "Debug")
 #set(CMAKE_BUILD_TYPE "Release")
 
@@ -13,12 +15,8 @@ link_directories(~/.local/lib/)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -v")
 
-set(SRC_ROOT_DIR "~/dev/cpp/ogl2")
-
-include_directories(${SRC_ROOT_DIR}/includes)
-#link_directories(${SRC_ROOT_DIR}/libs)
-set(SRC_GLAD_C ${SRC_ROOT_DIR}/src/glad.c)
-set(SRC_STBIMAGE_C ${SRC_ROOT_DIR}/includes/stb_image_aug.c)
+set(SRC_GLAD_C "glad/glad.c")
+set(SRC_STBIMAGE_C "stb/stb_image_aug.c")
 
 #查找当前文件夹中的所有源代码文件，也可以通过Set命令将所有文件设置为一个变量
 FILE(GLOB SRC_FILES "./*.cpp")

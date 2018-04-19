@@ -5,7 +5,7 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include "learnopengl/shader_m.h"
+#include "shader_m.h"
 #include "cube.h"
 
 // png图片的y坐标是从上到下，x坐标是从左到右

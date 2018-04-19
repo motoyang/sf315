@@ -1,14 +1,10 @@
-#include <glad/glad.h>
+#include "glad/glad.h"
 #include <GLFW/glfw3.h>
-#include <stb_image.h>
+#include "stb/stb_image.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-
-#include <learnopengl/filesystem.h>
-#include <learnopengl/shader_m.h>
-#include <learnopengl/camera.h>
 
 #include <unistd.h>
 
@@ -17,6 +13,8 @@
 #include <vector>
 #include <queue>
 
+#include "shader_m.h"
+#include "camera.h"
 #include "cube.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -31,6 +29,7 @@ const unsigned int SCR_HEIGHT = 600;
 
 // camera
 Camera camera(glm::vec3(3.0f, 4.0f, 5.0f));
+
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -51,6 +50,11 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     glfwSetWindowShouldClose(window, true);
     break;
 
+  case GLFW_KEY_SPACE:
+    // 从背面观察rublk
+    camera.Position = -camera.Position;
+    camera.Front = -camera.Front;
+    break;
   case GLFW_KEY_L:
     if (mods & GLFW_MOD_SHIFT) {
       g_r->pushEvent('L');
@@ -98,6 +102,39 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
   }
 }
 
+GLFWwindow* initGLFW(const char* title)
+{
+  // glfw: initialize and configure
+  // ------------------------------
+  glfwInit();
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+#ifdef __APPLE__
+  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+#endif
+
+  // glfw window creation
+  // --------------------
+  GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, title, NULL, NULL);
+  if (window == NULL)
+  {
+    std::cout << "Failed to create GLFW window" << std::endl;
+    glfwTerminate();
+    return nullptr;
+  }
+  glfwMakeContextCurrent(window);
+  glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+  glfwSetCursorPosCallback(window, mouse_callback);
+  glfwSetScrollCallback(window, scroll_callback);
+
+  // tell GLFW to capture our mouse
+  glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+  glfwSetKeyCallback(window, key_callback);
+
+  return window;
+}
 // lighting
 //glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
 
@@ -126,53 +163,25 @@ int main(int argc, char** argv)
     }
   }
 
-  // glfw: initialize and configure
-  // ------------------------------
-  glfwInit();
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-#ifdef __APPLE__
-  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-#endif
-
-  // glfw window creation
-  // --------------------
-  GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
-  if (window == NULL)
-  {
-    std::cout << "Failed to create GLFW window" << std::endl;
-    glfwTerminate();
+  // initialize GLFW
+  GLFWwindow* window = initGLFW("LearnOpenGL");
+  if (!window) {
     return -1;
   }
-  glfwMakeContextCurrent(window);
-  glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-  glfwSetCursorPosCallback(window, mouse_callback);
-  glfwSetScrollCallback(window, scroll_callback);
-
-  // tell GLFW to capture our mouse
-  glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-  glfwSetKeyCallback(window, key_callback);
 
   // glad: load all OpenGL function pointers
-  // ---------------------------------------
-  if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-  {
+  if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
     std::cout << "Failed to initialize GLAD" << std::endl;
     return -1;
   }
 
   // configure global opengl state
-  // -----------------------------
   glEnable(GL_DEPTH_TEST);
 
   // build and compile our shader zprogram
-  // ------------------------------------
   Shader shader("rublk.vs", "rublk.fs");
 
   // load textures (we now use a utility function to keep the code more organized)
-  // -----------------------------------------------------------------------------
   unsigned int skin = loadTexture("textures/rublk.png");
 
   // 创建rublk cube
@@ -181,22 +190,19 @@ int main(int argc, char** argv)
   if (!opt.c_flag) {
     rbulk.confuse();
   }
+
   // render loop
-  // -----------
   while (!glfwWindowShouldClose(window))
   {
     // per-frame time logic
-    // --------------------
     float currentFrame = glfwGetTime();
     deltaTime = currentFrame - lastFrame;
     lastFrame = currentFrame;
 
     // input
-    // -----
     processInput(window);
 
     // render
-    // ------
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -213,13 +219,11 @@ int main(int argc, char** argv)
     rbulk.render(shader);
 
     // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
-    // -------------------------------------------------------------------------------
     glfwSwapBuffers(window);
     glfwPollEvents();
   }
 
   // glfw: terminate, clearing all previously allocated GLFW resources.
-  // ------------------------------------------------------------------
   glfwTerminate();
   return 0;
 }
