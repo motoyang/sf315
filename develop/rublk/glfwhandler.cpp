@@ -77,7 +77,13 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
   case GLFW_KEY_SPACE:
     // 从背面观察rublk
     camera.setPosition(glm::vec3(0.0f, 0.0f, 0.0f) - camera.getPosition());
-    camera.setFront(glm::vec3(0.0f, 0.0f, 0.0f) - camera.getFront());
+    camera.setTarget(glm::vec3(0.0f, 0.0f, 0.0f));
+    break;
+
+  case GLFW_KEY_ENTER:
+    // 回到起始点观察
+    camera.setPosition(ORIGIN_CAMERA_POSITION);
+    camera.setTarget(glm::vec3(0.0f, 0.0f, 0.0f));
     break;
 
   case GLFW_KEY_L:

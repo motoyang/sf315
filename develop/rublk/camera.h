@@ -45,10 +45,9 @@ public:
   // input on the vertical wheel-axis
   void ProcessMouseScroll(float yoffset);
 
+  void setTarget(const glm::vec3& target);
   glm::vec3 getPosition() const;
   void setPosition(const glm::vec3& pos);
-  glm::vec3 getFront() const;
-  void setFront(const glm::vec3& front);
   float getZoom() const;
 };
 

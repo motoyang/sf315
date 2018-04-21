@@ -1,6 +1,8 @@
 #ifndef CUBE_H
 #define CUBE_H
 
+#define ORIGIN_CAMERA_POSITION glm::vec3(3.0f, 4.0f, 5.0f)
+
 class Rublk
 {
   friend class Singleton<Rublk>;
@@ -14,7 +16,7 @@ protected:
 public:
   virtual ~Rublk();
 
-  bool initialize(int rank, unsigned int skin);
+  bool initialize(int rank, unsigned int diffuseMap, unsigned int specularMap);
   void confuse();
 
   void render(const Shader& s);

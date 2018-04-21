@@ -1637,8 +1637,9 @@ Cube::~Cube()
 
 void Cube::render(const Shader& s)
 {
+  Rublk& r =  Singleton<Rublk>::instance();
   if (m_angle == 0) {
-    Singleton<Rublk>::instance().taskFinished();
+    r.taskFinished();
     m_angle = -1;
   }
   if (m_angle > 0) {
@@ -1677,7 +1678,8 @@ class Rublk::Impl
 public:
   int m_rank;
   int m_taskCount;
-  unsigned int m_skin;
+  unsigned int m_diffuseMap;
+  unsigned int m_specularMap;
   std::vector<Cube> m_cubes;
   std::queue<char> m_events;
 
@@ -1812,7 +1814,7 @@ Rublk::~Rublk()
 
 }
 
-bool Rublk::initialize(int rank, unsigned int skin)
+bool Rublk::initialize(int rank, unsigned int diffuseMap, unsigned int specularMap)
 {
   // 只做一次初始化，如果已经初始化过了，就直接返回false
   static bool initialized = false;
@@ -1828,7 +1830,8 @@ bool Rublk::initialize(int rank, unsigned int skin)
     return false;
   }
   m_pImpl->m_rank = rank;
-  m_pImpl->m_skin = skin;
+  m_pImpl->m_diffuseMap = diffuseMap;
+  m_pImpl->m_specularMap = specularMap;
   m_pImpl->m_taskCount = 0;
 
   // rublk中心在长宽高的第几个cube
@@ -1911,9 +1914,12 @@ void Rublk::render(const Shader &s)
 {
   m_pImpl->eventHandler();
 
-  // bind skin
+  // bind diffuse map
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, m_pImpl->m_skin);
+  glBindTexture(GL_TEXTURE_2D, m_pImpl->m_diffuseMap);
+  // bind specular map
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_2D, m_pImpl->m_specularMap);
 
   for (Cube& c: m_pImpl->m_cubes) {
     c.render(s);
@@ -1934,3 +1940,4 @@ void Rublk::taskFinished()
 {
   --m_pImpl->m_taskCount;
 }
+

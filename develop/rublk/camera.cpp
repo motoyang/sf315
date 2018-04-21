@@ -72,6 +72,18 @@ public:
       updateCameraVectors();
   }
 
+  void setTarget(const glm::vec3& target)
+  {
+    glm::vec3 p = target - m_pos;
+    // Yaw是在zx平面内，右手坐标系下，与x轴正方向的夹角
+    m_yaw =  glm::degrees(glm::atan(p.z, p.x));
+    float sin_pitch = p.y / glm::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+    // Pitch是与zx平面的夹角，y>0时是正值，y<0时是负值
+    m_pitch = glm::degrees(glm::asin(sin_pitch));
+
+    updateCameraVectors();
+  }
+
   // Returns the view matrix calculated using Euler Angles and the LookAt Matrix
   glm::mat4 GetViewMatrix() const
   {
@@ -135,16 +147,6 @@ public:
     m_pos = pos;
   }
 
-  glm::vec3 getFront() const
-  {
-    return m_front;
-  }
-
-  void setFront(const glm::vec3& front)
-  {
-    m_front = front;
-  }
-
   float getZoom() const
   {
     return m_zoom;
@@ -187,6 +189,11 @@ void Camera::ProcessMouseScroll(float yoffset)
   m_pImpl->ProcessMouseScroll(yoffset);
 }
 
+void Camera::setTarget(const glm::vec3 &target)
+{
+  m_pImpl->setTarget(target);
+}
+
 glm::vec3 Camera::getPosition() const
 {
   return m_pImpl->getPosition();
@@ -195,16 +202,6 @@ glm::vec3 Camera::getPosition() const
 void Camera::setPosition(const glm::vec3& pos)
 {
   m_pImpl->setPosition(pos);
-}
-
-glm::vec3 Camera::getFront() const
-{
-  return m_pImpl->getFront();
-}
-
-void Camera::setFront(const glm::vec3 &front)
-{
-  m_pImpl->setFront(front);
 }
 
 float Camera::getZoom() const
