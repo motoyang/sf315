@@ -1,11 +1,16 @@
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 #include <vector>
 #include <queue>
 #include <random>
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include <memory>
+
 #include "shader_m.h"
+#include "singleton.h"
 #include "cube.h"
 
 // png图片的y坐标是从上到下，x坐标是从左到右
@@ -1582,9 +1587,28 @@ static float v27[][288] = {
 
 // --
 
-Cube::Cube(Rublk* r, int id, const float* vertices, const glm::vec3 &position)
-  : m_rublk(r)
-  , m_id(id)
+class Cube
+{
+  int m_id;
+  glm::vec3 m_position;
+  glm::mat4 m_model;
+  unsigned int m_vao, m_vbo;
+
+  int m_angle;
+  glm::vec3 m_axis;
+
+public:
+  Cube(int id, const float* vertices, const glm::vec3& position);
+  virtual ~Cube();
+
+  void render(const Shader& s);
+  glm::vec3 getPosition() const;
+  void rotate(int degree, const glm::vec3& axis);
+  void changeModel(int degree, const glm::vec3& axis);
+};
+
+Cube::Cube(int id, const float* vertices, const glm::vec3 &position)
+  : m_id(id)
   , m_position(position)
   , m_angle(-1)
 {
@@ -1614,7 +1638,7 @@ Cube::~Cube()
 void Cube::render(const Shader& s)
 {
   if (m_angle == 0) {
-    m_rublk->taskFinished();
+    Singleton<Rublk>::instance().taskFinished();
     m_angle = -1;
   }
   if (m_angle > 0) {
@@ -1637,7 +1661,7 @@ void Cube::rotate(int degree, const glm::vec3& axis)
 {
   m_angle = degree;
   m_axis = glm::vec3(glm::inverse(m_model) * glm::vec4(axis, 1.0f));
-  m_rublk->taskStart();
+  Singleton<Rublk>::instance().taskStart();
 }
 
 void Cube::changeModel(int degree, const glm::vec3 &axis)
@@ -1648,130 +1672,165 @@ void Cube::changeModel(int degree, const glm::vec3 &axis)
 
 // --
 
-void Rublk::eventHandler()
+class Rublk::Impl
 {
-  // 如果event队列为空，就是没有需要处理的event
-  if (m_events.size() == 0) {
-    return;
-  }
+public:
+  int m_rank;
+  int m_taskCount;
+  unsigned int m_skin;
+  std::vector<Cube> m_cubes;
+  std::queue<char> m_events;
 
-  // 如果仍然有任务在执行，就不做事件处理
-  if (m_taskCount) {
-    return;
-  }
+  void eventHandler()
+  {
+    // 如果event队列为空，就是没有需要处理的event
+    if (m_events.size() == 0) {
+      return;
+    }
 
-  // 提取队列中的第一个event
-  char c = m_events.front();
-  m_events.pop();
+    // 如果仍然有任务在执行，就不做事件处理
+    if (m_taskCount) {
+      return;
+    }
 
-  // 处理event
-  switch (c) {
-  case 'l':
-    std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
-      glm::vec3 p = c.getPosition();
-      if (p.x < -1.0) {
-        c.rotate(90, glm::vec3(-1.0f, 0.0f, 0.0f));
-      }
-    });
-    break;
-  case 'L':
-    std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
-      glm::vec3 p = c.getPosition();
-      if (p.x < -1.0) {
-        c.rotate(90, glm::vec3(1.0f, 0.0f, 0.0f));
-      }
-    });
-    break;
-  case 'r':
-    std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
-      glm::vec3 p = c.getPosition();
-      if (p.x > 1.0) {
-        c.rotate(90, glm::vec3(1.0f, 0.0f, 0.0f));
-      }
-    });
-    break;
-  case 'R':
-    std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
-      glm::vec3 p = c.getPosition();
-      if (p.x > 1.0) {
-        c.rotate(90, glm::vec3(-1.0f, 0.0f, 0.0f));
-      }
-    });
-    break;
-  case 'f':
-    std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
-      glm::vec3 p = c.getPosition();
-      if (p.z > 1.0) {
-        c.rotate(90, glm::vec3(0.0f, 0.0f, 1.0f));
-      }
-    });
-    break;
-  case 'F':
-    std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
-      glm::vec3 p = c.getPosition();
-      if (p.z > 1.0) {
-        c.rotate(90, glm::vec3(0.0f, 0.0f, -1.0f));
-      }
-    });
-    break;
-  case 'b':
-    std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
-      glm::vec3 p = c.getPosition();
-      if (p.z < -1.0) {
-        c.rotate(90, glm::vec3(0.0f, 0.0f, -1.0f));
-      }
-    });
-    break;
-  case 'B':
-    std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
-      glm::vec3 p = c.getPosition();
-      if (p.z <- 1.0) {
-        c.rotate(90, glm::vec3(0.0f, 0.0f, 1.0f));
-      }
-    });
-    break;
-  case 'u':
-    std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
-      glm::vec3 p = c.getPosition();
-      if (p.y > 1.0) {
-        c.rotate(90, glm::vec3(0.0f, 1.0f, 0.0f));
-      }
-    });
-    break;
-  case 'U':
-    std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
-      glm::vec3 p = c.getPosition();
-      if (p.y > 1.0) {
-        c.rotate(90, glm::vec3(0.0f, -1.0f, 0.0f));
-      }
-    });
-    break;
-  case 'd':
-    std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
-      glm::vec3 p = c.getPosition();
-      if (p.y < -1.0) {
-        c.rotate(90, glm::vec3(0.0f, -1.0f, 0.0f));
-      }
-    });
-    break;
-  case 'D':
-    std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
-      glm::vec3 p = c.getPosition();
-      if (p.y < -1.0) {
-        c.rotate(90, glm::vec3(0.0f, 1.0f, 0.0f));
-      }
-    });
-    break;
-  default:
-    break;
+    // 提取队列中的第一个event
+    char c = m_events.front();
+    m_events.pop();
+
+    // 处理event
+    switch (c) {
+    case 'l':
+      std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
+        glm::vec3 p = c.getPosition();
+        if (p.x < -1.0) {
+          c.rotate(90, glm::vec3(-1.0f, 0.0f, 0.0f));
+        }
+      });
+      break;
+    case 'L':
+      std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
+        glm::vec3 p = c.getPosition();
+        if (p.x < -1.0) {
+          c.rotate(90, glm::vec3(1.0f, 0.0f, 0.0f));
+        }
+      });
+      break;
+    case 'r':
+      std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
+        glm::vec3 p = c.getPosition();
+        if (p.x > 1.0) {
+          c.rotate(90, glm::vec3(1.0f, 0.0f, 0.0f));
+        }
+      });
+      break;
+    case 'R':
+      std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
+        glm::vec3 p = c.getPosition();
+        if (p.x > 1.0) {
+          c.rotate(90, glm::vec3(-1.0f, 0.0f, 0.0f));
+        }
+      });
+      break;
+    case 'f':
+      std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
+        glm::vec3 p = c.getPosition();
+        if (p.z > 1.0) {
+          c.rotate(90, glm::vec3(0.0f, 0.0f, 1.0f));
+        }
+      });
+      break;
+    case 'F':
+      std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
+        glm::vec3 p = c.getPosition();
+        if (p.z > 1.0) {
+          c.rotate(90, glm::vec3(0.0f, 0.0f, -1.0f));
+        }
+      });
+      break;
+    case 'b':
+      std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
+        glm::vec3 p = c.getPosition();
+        if (p.z < -1.0) {
+          c.rotate(90, glm::vec3(0.0f, 0.0f, -1.0f));
+        }
+      });
+      break;
+    case 'B':
+      std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
+        glm::vec3 p = c.getPosition();
+        if (p.z <- 1.0) {
+          c.rotate(90, glm::vec3(0.0f, 0.0f, 1.0f));
+        }
+      });
+      break;
+    case 'u':
+      std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
+        glm::vec3 p = c.getPosition();
+        if (p.y > 1.0) {
+          c.rotate(90, glm::vec3(0.0f, 1.0f, 0.0f));
+        }
+      });
+      break;
+    case 'U':
+      std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
+        glm::vec3 p = c.getPosition();
+        if (p.y > 1.0) {
+          c.rotate(90, glm::vec3(0.0f, -1.0f, 0.0f));
+        }
+      });
+      break;
+    case 'd':
+      std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
+        glm::vec3 p = c.getPosition();
+        if (p.y < -1.0) {
+          c.rotate(90, glm::vec3(0.0f, -1.0f, 0.0f));
+        }
+      });
+      break;
+    case 'D':
+      std::for_each(m_cubes.begin(), m_cubes.end(), [](Cube& c) {
+        glm::vec3 p = c.getPosition();
+        if (p.y < -1.0) {
+          c.rotate(90, glm::vec3(0.0f, 1.0f, 0.0f));
+        }
+      });
+      break;
+    default:
+      break;
+    }
   }
+};
+
+// --
+
+Rublk::Rublk()
+{
 }
 
-Rublk::Rublk(int rank, unsigned int skin)
-  : m_rank(rank)
-  , m_taskCount(0)
-  , m_skin(skin)
+Rublk::~Rublk()
 {
+
+}
+
+bool Rublk::initialize(int rank, unsigned int skin)
+{
+  // 只做一次初始化，如果已经初始化过了，就直接返回false
+  static bool initialized = false;
+  if (initialized) {
+    return false;
+  } else {
+    initialized = true;
+  }
+
+  m_pImpl = std::make_unique<Rublk::Impl>();
+  if (!m_pImpl) {
+    std::cout << "memory lack." << std::endl;
+    return false;
+  }
+  m_pImpl->m_rank = rank;
+  m_pImpl->m_skin = skin;
+  m_pImpl->m_taskCount = 0;
+
   // rublk中心在长宽高的第几个cube
   const float center = rank / 2.0f - 0.5f;
   // cube的长宽高为1.0f，两个cube中心的距离如下：
@@ -1780,7 +1839,7 @@ Rublk::Rublk(int rank, unsigned int skin)
   // 很重要！
   // 提前分配足够的空间，避免emplace_back过程中的重新分配。
   // 如果重新分配空间，会析构已经分配的cube，因为cube的析构中有m_vao, m_vbo的删除，会导致使用已经删除的buffer。
-  m_cubes.reserve(rank * rank * rank);
+  m_pImpl->m_cubes.reserve(rank * rank * rank);
 
   for (int i = 0; i < rank; ++i) {
     for (int j = 0; j < rank; ++j) {
@@ -1788,10 +1847,12 @@ Rublk::Rublk(int rank, unsigned int skin)
         // 三维魔方，数量是rank的立方
         int id = i * rank * rank + j * rank + k;
         glm::vec3 v(i - center, j - center, k - center);
-        m_cubes.emplace_back(this, id, v27[id], v * gap);
+        m_pImpl->m_cubes.emplace_back(id, v27[id], v * gap);
       }
     }
   }
+
+  return initialized;
 }
 
 void Rublk::confuse()
@@ -1807,37 +1868,37 @@ void Rublk::confuse()
       degrees[j] = 90 * dis(engine);
     }
 
-    for (Cube& c: m_cubes) {
+    for (Cube& c: m_pImpl->m_cubes) {
       glm::vec3 p = c.getPosition();
       if (p.x < -1.0) {
         c.changeModel(degrees[0], glm::vec3(-1.0f, 0.0f, 0.0f));
       }
     }
-    for (Cube& c: m_cubes) {
+    for (Cube& c: m_pImpl->m_cubes) {
       glm::vec3 p = c.getPosition();
       if (p.x > 1.0) {
         c.changeModel(degrees[1], glm::vec3(1.0f, 0.0f, 0.0f));
       }
     }
-    for (Cube& c: m_cubes) {
+    for (Cube& c: m_pImpl->m_cubes) {
       glm::vec3 p = c.getPosition();
       if (p.y < -1.0) {
         c.changeModel(degrees[2], glm::vec3(0.0f, -1.0f, 0.0f));
       }
      }
-    for (Cube& c: m_cubes) {
+    for (Cube& c: m_pImpl->m_cubes) {
       glm::vec3 p = c.getPosition();
       if (p.y > 1.0) {
         c.changeModel(degrees[3], glm::vec3(0.0f, 1.0f, 0.0f));
       }
     }
-    for (Cube& c: m_cubes) {
+    for (Cube& c: m_pImpl->m_cubes) {
       glm::vec3 p = c.getPosition();
       if (p.z < -1.0) {
         c.changeModel(degrees[4], glm::vec3(0.0f, 0.0f, -1.0f));
       }
     }
-    for (Cube& c: m_cubes) {
+    for (Cube& c: m_pImpl->m_cubes) {
       glm::vec3 p = c.getPosition();
       if (p.z > 1.0) {
         c.changeModel(degrees[5], glm::vec3(0.0f, 0.0f, 1.0f));
@@ -1848,28 +1909,28 @@ void Rublk::confuse()
 
 void Rublk::render(const Shader &s)
 {
-  eventHandler();
+  m_pImpl->eventHandler();
 
   // bind skin
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, m_skin);
+  glBindTexture(GL_TEXTURE_2D, m_pImpl->m_skin);
 
-  for (Cube& c: m_cubes) {
+  for (Cube& c: m_pImpl->m_cubes) {
     c.render(s);
   }
 }
 
 void Rublk::pushEvent(const char c)
 {
-  m_events.push(c);
+  m_pImpl->m_events.push(c);
 }
 
 void Rublk::taskStart()
 {
-  ++m_taskCount;
+  ++m_pImpl->m_taskCount;
 }
 
 void Rublk::taskFinished()
 {
-  --m_taskCount;
+  --m_pImpl->m_taskCount;
 }

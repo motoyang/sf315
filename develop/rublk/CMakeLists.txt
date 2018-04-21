@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 2.8)
 
-ADD_DEFINITIONS(-DSTBI_NO_DDS)
-
 project(rublk)
+
+ADD_DEFINITIONS(-DSTBI_NO_DDS)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
@@ -22,20 +22,14 @@ set(SRC_STBIMAGE_C "stb/stb_image_aug.c")
 FILE(GLOB SRC_FILES "./*.cpp")
 #同理，查找当前文件夹中所有的头文件
 FILE(GLOB HEAD_FILES "./*.h")
-#同理，查找当前文件夹中所有的vs文件
-FILE(GLOB VS_FILES "./*.vs")
-#同理，查找当前文件夹中所有的qrc文件
-FILE(GLOB FS_FILES "./*.fs")
-
-#set(SHADER_LIB "shaders")
-#add_library(${SHADER_LIB} EXCLUDE_FROM_ALL ${VS_FILES} ${FS_FILES})
+#同理，查找所有的vs和fs文件
+FILE(GLOB SHADER_FILES "shader/*.vs" "shader/*.fs")
 
 add_executable(${PROJECT_NAME}
   ${SRC_GLAD_C}
   ${SRC_STBIMAGE_C}
   ${SRC_FILES}
-  ${VS_FILES}
-  ${FS_FILES}
+  ${SHADER_FILES}
   )
 target_link_libraries(${PROJECT_NAME}
   dl
