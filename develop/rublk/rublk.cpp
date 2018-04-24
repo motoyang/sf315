@@ -143,11 +143,9 @@ int main(int argc, char** argv)
 
   // lamps
   Shader lampShader("shader/lamp.vs", "shader/lamp.fs");
-  int lampCouunt = sizeof(pointLightPositions)/sizeof(pointLightPositions[0]);
   std::vector<Lamp> lamps;
-  lamps.reserve(lampCouunt);
-  for (int i = 0; i < lampCouunt; ++i) {
-    lamps.emplace_back(pointLightPositions[i]);
+  for (const auto& p: pointLightPositions) {
+    lamps.emplace_back(p);
   }
 
   // render loop
