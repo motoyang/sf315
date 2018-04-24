@@ -209,4 +209,9 @@ float Camera::getZoom() const
   return m_pImpl->getZoom();
 }
 
+glm::vec3 Camera::getFront() const
+{
+  return m_pImpl->m_front;
+}
+
 

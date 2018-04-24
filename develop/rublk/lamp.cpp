@@ -68,16 +68,7 @@ public:
   glm::vec3 m_position;
   unsigned int m_vao, m_vbo;
 
-  Impl()
-  {}
-
-  virtual ~Impl()
-  {
-    glDeleteVertexArrays(1, &m_vao);
-    glDeleteBuffers(1, &m_vbo);
-  }
-
-  void initialize(const glm::vec3& pos)
+  Impl(const glm::vec3& pos)
   {
     m_position = pos;
 
@@ -98,11 +89,17 @@ public:
     glBindBuffer(GL_ARRAY_BUFFER, 0);
   }
 
+  virtual ~Impl()
+  {
+    glDeleteVertexArrays(1, &m_vao);
+    glDeleteBuffers(1, &m_vbo);
+  }
+
   void render(const Shader& s)
   {
     glm::mat4 model = glm::mat4();
     model = glm::translate(model, m_position);
-    model = glm::scale(model, glm::vec3(0.1f)); // a smaller cube
+    model = glm::scale(model, glm::vec3(0.025f)); // a smaller cube
     s.setMat4("model", model);
 
     glBindVertexArray(m_vao);
@@ -113,9 +110,9 @@ public:
 
 // --
 
-Lamp::Lamp()
+Lamp::Lamp(const glm::vec3& pos)
 {
-  m_pImpl = std::make_unique<Lamp::Impl>();
+  m_pImpl = std::make_unique<Lamp::Impl>(pos);
 }
 
 Lamp::~Lamp()
@@ -123,9 +120,10 @@ Lamp::~Lamp()
 
 }
 
-void Lamp::initialize(const glm::vec3& position)
+Lamp::Lamp(Lamp&& l)
+  : m_pImpl(std::move(l.m_pImpl))
 {
-  m_pImpl->initialize(position);
+
 }
 
 void Lamp::render(const Shader& s)

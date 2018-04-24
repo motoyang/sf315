@@ -64,8 +64,67 @@ int main(int argc, char** argv)
   Camera& camera = Singleton<Camera>::instance();
   camera.initialize(ORIGIN_CAMERA_POSITION);
 
+  // positions of the point lights
+  glm::vec3 pointLightPositions[] = {
+      glm::vec3( 3.7f,  0.2f,  2.0f),
+      glm::vec3( 2.3f, -3.3f, -4.0f),
+      glm::vec3(-4.0f,  2.0f, -12.0f),
+      glm::vec3( 0.0f,  5.0f, -3.0f)
+  };
+
   // build and compile our shader zprogram
   Shader shader("shader/rublk.vs", "shader/rublk.fs");
+  shader.use();
+  shader.setInt("material.diffuse", 0);
+  shader.setInt("material.specular", 1);
+  shader.setFloat("material.shininess", 32.0f);
+
+  // directional light
+  shader.setVec3("dirLight.direction", -0.2f, -1.0f, -0.3f);
+  shader.setVec3("dirLight.ambient", 0.05f, 0.05f, 0.05f);
+  shader.setVec3("dirLight.diffuse", 0.4f, 0.4f, 0.4f);
+  shader.setVec3("dirLight.specular", 0.5f, 0.5f, 0.5f);
+  // point light 1
+  shader.setVec3("pointLights[0].position", pointLightPositions[0]);
+  shader.setVec3("pointLights[0].ambient", 0.05f, 0.05f, 0.05f);
+  shader.setVec3("pointLights[0].diffuse", 0.8f, 0.8f, 0.8f);
+  shader.setVec3("pointLights[0].specular", 1.0f, 1.0f, 1.0f);
+  shader.setFloat("pointLights[0].constant", 1.0f);
+  shader.setFloat("pointLights[0].linear", 0.09);
+  shader.setFloat("pointLights[0].quadratic", 0.032);
+  // point light 2
+  shader.setVec3("pointLights[1].position", pointLightPositions[1]);
+  shader.setVec3("pointLights[1].ambient", 0.05f, 0.05f, 0.05f);
+  shader.setVec3("pointLights[1].diffuse", 0.8f, 0.8f, 0.8f);
+  shader.setVec3("pointLights[1].specular", 1.0f, 1.0f, 1.0f);
+  shader.setFloat("pointLights[1].constant", 1.0f);
+  shader.setFloat("pointLights[1].linear", 0.09);
+  shader.setFloat("pointLights[1].quadratic", 0.032);
+  // point light 3
+  shader.setVec3("pointLights[2].position", pointLightPositions[2]);
+  shader.setVec3("pointLights[2].ambient", 0.05f, 0.05f, 0.05f);
+  shader.setVec3("pointLights[2].diffuse", 0.8f, 0.8f, 0.8f);
+  shader.setVec3("pointLights[2].specular", 1.0f, 1.0f, 1.0f);
+  shader.setFloat("pointLights[2].constant", 1.0f);
+  shader.setFloat("pointLights[2].linear", 0.09);
+  shader.setFloat("pointLights[2].quadratic", 0.032);
+  // point light 4
+  shader.setVec3("pointLights[3].position", pointLightPositions[3]);
+  shader.setVec3("pointLights[3].ambient", 0.05f, 0.05f, 0.05f);
+  shader.setVec3("pointLights[3].diffuse", 0.8f, 0.8f, 0.8f);
+  shader.setVec3("pointLights[3].specular", 1.0f, 1.0f, 1.0f);
+  shader.setFloat("pointLights[3].constant", 1.0f);
+  shader.setFloat("pointLights[3].linear", 0.09);
+  shader.setFloat("pointLights[3].quadratic", 0.032);
+  // spotLight
+  shader.setVec3("spotLight.ambient", 0.0f, 0.0f, 0.0f);
+  shader.setVec3("spotLight.diffuse", 1.0f, 1.0f, 1.0f);
+  shader.setVec3("spotLight.specular", 1.0f, 1.0f, 1.0f);
+  shader.setFloat("spotLight.constant", 1.0f);
+  shader.setFloat("spotLight.linear", 0.09);
+  shader.setFloat("spotLight.quadratic", 0.032);
+  shader.setFloat("spotLight.cutOff", glm::cos(glm::radians(12.5f)));
+  shader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(15.0f)));
 
   // load textures (we now use a utility function to keep the code more organized)
   unsigned int diffuseMap = loadTexture("textures/rublk.png");
@@ -82,10 +141,14 @@ int main(int argc, char** argv)
     rublk.confuse();
   }
 
-  // lighting
+  // lamps
   Shader lampShader("shader/lamp.vs", "shader/lamp.fs");
-  Lamp& lamp = Singleton<Lamp>::instance();
-  lamp.initialize(glm::vec3(3.0f, 4.0f, 6.0f));
+  int lampCouunt = sizeof(pointLightPositions)/sizeof(pointLightPositions[0]);
+  std::vector<Lamp> lamps;
+  lamps.reserve(lampCouunt);
+  for (int i = 0; i < lampCouunt; ++i) {
+    lamps.emplace_back(pointLightPositions[i]);
+  }
 
   // render loop
   float lastFrame = 0.0f;
@@ -105,23 +168,15 @@ int main(int argc, char** argv)
 
     // be sure to activate shader when setting uniforms/drawing objects
     shader.use();
-
-    shader.setVec3("light.position", lamp.getPosition());
     shader.setVec3("viewPos", camera.getPosition());
-
-    // light properties
-    shader.setVec3("light.ambient", 0.3f, 0.3f, 0.3f);
-    shader.setVec3("light.diffuse", 0.5f, 0.5f, 0.5f);
-    shader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
-
-    // material properties
-    shader.setFloat("material.shininess", 64.0f);
-
     // view/projection transformations
     glm::mat4 projection = glm::perspective(glm::radians(camera.getZoom()), aspectGLFW(), 0.1f, 100.0f);
     glm::mat4 view = camera.GetViewMatrix();
     shader.setMat4("projection", projection);
     shader.setMat4("view", view);
+    // spotLight
+    shader.setVec3("spotLight.position", camera.getPosition());
+    shader.setVec3("spotLight.direction", camera.getFront());
 
     // render the rbulk
     rublk.render(shader);
@@ -130,7 +185,9 @@ int main(int argc, char** argv)
     lampShader.use();
     lampShader.setMat4("projection", projection);
     lampShader.setMat4("view", view);
-    lamp.render(lampShader);
+    for (Lamp& lamp: lamps) {
+      lamp.render(lampShader);
+    }
 
     // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
     glfwSwapBuffers(window);

@@ -49,6 +49,7 @@ public:
   glm::vec3 getPosition() const;
   void setPosition(const glm::vec3& pos);
   float getZoom() const;
+  glm::vec3 getFront() const;
 };
 
 #endif
