@@ -4,12 +4,14 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <iostream>
 #include <vector>
 #include <queue>
 #include <random>
 #include <memory>
+#include <experimental/propagate_const>
 
-#include "shader_m.h"
+#include "shader.h"
 #include "singleton.h"
 #include "cube.h"
 
@@ -1597,15 +1599,33 @@ class Cube
   int m_angle;
   glm::vec3 m_axis;
 
+  void deleteGlObjects();
+
 public:
   Cube(int id, const float* vertices, const glm::vec3& position);
   virtual ~Cube();
+  Cube(Cube&& c) noexcept;
+  Cube& operator=(Cube&& c) noexcept; // 可以是delete的
+  Cube(const Cube& c) = delete;
+  Cube& operator=(const Cube& c) = delete;
 
   void render(const Shader& s);
   glm::vec3 getPosition() const;
   void rotate(int degree, const glm::vec3& axis);
   void changeModel(int degree, const glm::vec3& axis);
 };
+
+void Cube::deleteGlObjects()
+{
+  if (m_vao) {
+    glDeleteVertexArrays(1, &m_vao);
+    m_vao = 0;
+  }
+  if (m_vbo) {
+    glDeleteBuffers(1, &m_vbo);
+    m_vbo = 0;
+  }
+}
 
 Cube::Cube(int id, const float* vertices, const glm::vec3 &position)
   : m_id(id)
@@ -1631,8 +1651,38 @@ Cube::Cube(int id, const float* vertices, const glm::vec3 &position)
 
 Cube::~Cube()
 {
-  glDeleteVertexArrays(1, &m_vao);
-  glDeleteBuffers(1, &m_vbo);
+  deleteGlObjects();
+}
+
+Cube::Cube(Cube &&c) noexcept
+  : m_id(c.m_id)
+  , m_position(std::move(c.m_position))
+  , m_model(std::move(c.m_model))
+  , m_vao(c.m_vao)
+  , m_vbo(c.m_vbo)
+  , m_angle(c.m_angle)
+  , m_axis(std::move(c.m_axis))
+{
+  c.m_vao = 0;
+  c.m_vbo = 0;
+}
+
+Cube& Cube::operator=(Cube &&c) noexcept
+{
+  deleteGlObjects();
+
+  m_id = c.m_id;
+  m_position = std::move(c.m_position);
+  m_model = std::move(c.m_model);
+  m_vao = c.m_vao;
+  m_vbo = c.m_vbo;
+  m_angle = c.m_angle;
+  m_axis = std::move(c.m_axis);
+
+  c.m_vao = 0;
+  c.m_vbo = 0;
+
+  return *this;
 }
 
 void Cube::render(const Shader& s)
@@ -1839,7 +1889,8 @@ bool Rublk::initialize(int rank, unsigned int diffuseMap, unsigned int specularM
   // cube的长宽高为1.0f，两个cube中心的距离如下：
   const float gap = 1.05f;
 \
-  // 很重要！
+  // 如果有了正确的cube移动构造函数，下面的reserve调用不是必须的，但可以提高效率。
+  // 在没有正确的cube移动构造函数的情况下，reserve的调用是必须的！
   // 提前分配足够的空间，避免emplace_back过程中的重新分配。
   // 如果重新分配空间，会析构已经分配的cube，因为cube的析构中有m_vao, m_vbo的删除，会导致使用已经删除的buffer。
   m_pImpl->m_cubes.reserve(rank * rank * rank);

@@ -5,9 +5,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <memory>
+#include <string>
 
 #include "singleton.h"
-#include "shader_m.h"
+#include "shader.h"
 #include "lamp.h"
 
 static float vLamp[] = {
@@ -120,7 +121,7 @@ Lamp::~Lamp()
 
 }
 
-Lamp::Lamp(Lamp&& l)
+Lamp::Lamp(Lamp&& l) noexcept
   : m_pImpl(std::move(l.m_pImpl))
 {
 

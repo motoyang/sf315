@@ -11,10 +11,11 @@
 #include <algorithm>
 #include <vector>
 #include <queue>
+#include <experimental/propagate_const>
 
 #include "glfwhandler.h"
 #include "texture.h"
-#include "shader_m.h"
+#include "shader.h"
 
 #include "singleton.h"
 #include "camera.h"
@@ -66,10 +67,10 @@ int main(int argc, char** argv)
 
   // positions of the point lights
   glm::vec3 pointLightPositions[] = {
-      glm::vec3( 3.7f,  0.2f,  2.0f),
-      glm::vec3( 2.3f, -3.3f, -4.0f),
-      glm::vec3(-4.0f,  2.0f, -12.0f),
-      glm::vec3( 0.0f,  5.0f, -3.0f)
+      glm::vec3( 2.0f,  2.0f,  2.0f),
+      glm::vec3( -2.0f, -2.0f, -2.0f),
+      glm::vec3(2.0f,  -2.0f, -2.0f),
+      glm::vec3( -2.0f,  2.0f, 2.0f)
   };
 
   // build and compile our shader zprogram

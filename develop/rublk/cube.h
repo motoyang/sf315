@@ -8,13 +8,19 @@ class Rublk
   friend class Singleton<Rublk>;
 
   class Impl;
-  std::unique_ptr<Impl> m_pImpl;
+  std::experimental::propagate_const<std::unique_ptr<Impl>> m_pImpl;
 
 protected:
   Rublk();
 
 public:
   virtual ~Rublk();
+
+  // Rublk是单体设计，所以就不要下面四个函数
+  Rublk(Rublk&& r) noexcept = delete;
+  Rublk& operator =(Rublk&& r) noexcept = delete;
+  Rublk(const Rublk& r) = delete;
+  Rublk& operator =(const Rublk& r) = delete;
 
   bool initialize(int rank, unsigned int diffuseMap, unsigned int specularMap);
   void confuse();

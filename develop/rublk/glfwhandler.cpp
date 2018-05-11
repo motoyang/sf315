@@ -7,8 +7,9 @@
 #include <iostream>
 #include <vector>
 #include <queue>
+#include <experimental/propagate_const>
 
-#include "shader_m.h"
+#include "shader.h"
 
 #include "singleton.h"
 #include "camera.h"
@@ -146,13 +147,13 @@ void processInput(GLFWwindow *window)
   Camera& camera = Singleton<Camera>::instance();
 
   if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-    camera.ProcessKeyboard(CameraMovement::FORWARD, deltaTime);
+    camera.ProcessKeyboard(Camera::Movement::FORWARD, deltaTime);
   if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS)
-    camera.ProcessKeyboard(CameraMovement::BACKWARD, deltaTime);
+    camera.ProcessKeyboard(Camera::Movement::BACKWARD, deltaTime);
   if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
-    camera.ProcessKeyboard(CameraMovement::LEFT, deltaTime);
+    camera.ProcessKeyboard(Camera::Movement::LEFT, deltaTime);
   if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
-    camera.ProcessKeyboard(CameraMovement::RIGHT, deltaTime);
+    camera.ProcessKeyboard(Camera::Movement::RIGHT, deltaTime);
 }
 
 GLFWwindow* initGLFW(const char* title)

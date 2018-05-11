@@ -91,16 +91,16 @@ public:
   }
 
   // Processes input received from any keyboard-like input system. Accepts input parameter in the form of camera defined ENUM (to abstract it from windowing systems)
-  void ProcessKeyboard(CameraMovement direction, float deltaTime)
+  void ProcessKeyboard(Camera::Movement direction, float deltaTime)
   {
       float velocity = m_movementSpeed * deltaTime;
-      if (direction == CameraMovement::FORWARD)
+      if (direction == Camera::Movement::FORWARD)
           m_pos += m_front * velocity;
-      if (direction == CameraMovement::BACKWARD)
+      if (direction == Camera::Movement::BACKWARD)
           m_pos -= m_front * velocity;
-      if (direction == CameraMovement::LEFT)
+      if (direction == Camera::Movement::LEFT)
           m_pos -= m_right * velocity;
-      if (direction == CameraMovement::RIGHT)
+      if (direction == Camera::Movement::RIGHT)
           m_pos += m_right * velocity;
   }
 
@@ -174,7 +174,7 @@ glm::mat4 Camera::GetViewMatrix()
   return m_pImpl->GetViewMatrix();
 }
 
-void Camera::ProcessKeyboard(CameraMovement direction, float deltaTime)
+void Camera::ProcessKeyboard(Camera::Movement direction, float deltaTime)
 {
   m_pImpl->ProcessKeyboard(direction, deltaTime);
 }
