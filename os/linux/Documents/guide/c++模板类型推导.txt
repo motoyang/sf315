@@ -1,0 +1,148 @@
+那么现在开始解包给类的构造函数了，若有如下情景：auto tup = make_tuple(...);
+A a(tup);
+我们只要定义以下几个构造函数即可。
+
+```cpp
+
+struct A{
+
+  // 第一个被调用的构造函数，这里生成一个index_squence，并调用第二个构造函数。
+  template<typename T> A(T t)
+    : A(std::make_index_squence< std::tuple_size<T>::value >, t)
+  {}
+
+
+  // 这里是第二个构造函数，这里将tuple解包，然后调用第三个构造函数
+  template<size_t... i, typename T> 
+  A(std::index_squence<i...>, T t)
+    : A(get<i>(t)...)
+  {}
+
+  //第三个构造函数，也就是直接用普通参数的构造函数。
+  A(...)
+  {}
+};
+
+--------------------------------------------------------------------------------
+
+如果这是我们的模板
+
+template<typename T>
+void f(T & param);  //param是一个引用
+
+我们声明这些变量：
+
+int x=27;       //x是int
+const int cx=x;     //cx是const int
+const int & rx=cx;  //rx是指向const int的引用
+
+当把这些变量传递给f时类型推导会这样
+
+f(x);       //T是int，param的类型是int&
+f(cx);      //T是const int，param的类型是const int &
+f(rx);      //T是const int，param的类型是const int &
+
+------------------
+
+举个例子：
+
+template<typename T>
+void f(T&& param);      //param现在是一个通用引用类型
+
+int x=27;               //如之前一样
+const int cx=x;         //如之前一样
+const int & rx=cx;      //如之前一样
+
+f(x);               //x是左值，所以T是int&
+                    //param类型也是int&
+
+f(cx);              //cx是左值，所以T是const int &
+                    //param类型也是const int&
+
+f(rx);              //rx是左值，所以T是const int &
+                    //param类型也是const int&
+
+f(27);              //27是右值，所以T是int
+                    //param类型就是int&&
+----------------
+
+当ParamType既不是指针也不是引用时，我们通过传值（pass-by-value）的方式处理：
+
+template<typename T>
+void f(T param);            //以传值的方式处理param
+
+这意味着无论传递什么param都会成为它的一份拷贝——一个完整的新对象。事实上param成为一个新对象这一行为会影响T如何从expr中推导出结果。
+
+    和之前一样，如果expr的类型是一个引用，忽略这个引用部分
+    如果忽略引用之后expr是一个const，那就再忽略const。如果它是volatile，也会被忽略（volatile不常见，它通常用于驱动程序的开发中。关于volatile的细节请参见Item40)
+
+因此
+
+int x=27;               //如之前一样
+const int cx=x;         //如之前一样
+const int & rx=cx;      //如之前一样
+
+f(x);               //T和param都是int
+f(cx);              //T和param都是int
+f(rx);              //T和param都是int
+
+---------------
+
+比如在模板类型推导中指针不同于数组，虽然它们两个有时候是完全等价的。关于这个等价最常见的例子是在很多上下文中数组会退化为指向它的第一个元素的指针，比如下面就是允许的做法：
+
+const char name[] = "J. P. Briggs";     //name的类型是const char[13]
+
+const char * ptrToName = name;      //数组退化为指针
+
+在这里const char* **指针ptrToName会由name初始化，而name的类型为const char[13]，这两种类型(const char * 和const char[13]**)是不一样的，但是由于数组退化为指针的规则，编译器允许这样的代码。
+
+但要是一个数组传值给一个模板会怎样？会发生什么？
+
+template<typename T>
+void f(T param);            
+
+f(name);        //对于T和param会产生什么样的类型
+
+我们从一个简单的例子开始，这里有一个函数的形参是数组，是的，这样的语法是合法的：
+
+void myFunc(int param[]);
+
+但是数组声明会被视作指针声明，这意味着myFunc的声明和下面声明是等价的：
+
+void myFunc(int *param);    //同上
+
+这样的等价是C语言的产物，C++又是建立在C语言的基础上，它让人产生了一种数组和指针是等价的的错觉。
+
+因为数组形参会视作指针形参，所以传递给模板的一个数组类型会被推导为一个指针类型。这意味着在模板函数f的调用中，它的模板类型参数T会被推导为*const char\ **：
+
+f(name);    //name是一个数组，但是T被推导为const char *
+
+但是现在难题来了，虽然函数不能接受真正的数组，但是可以接受指向数组的引用！所以我们修改f为传引用：
+
+template<typename T>
+void f(T& param);   
+
+我们这样进行调用
+
+f(name);    //传数组
+
+T被推导为了真正的数组！这个类型包括了数组的大小，在这个例子中T被推导为const char[13]，param则被推导为const char(&)[13]。是的，这种语法看起来简直有毒，但是知道它将会让你在关心这些问题的人的提问中获得大神的称号。
+
+------------------
+
+函数实参
+
+在C++中不止是数组会退化为指针，函数类型也会退化为一个函数指针，我们对于数组的全部讨论都可以应用到函数来：
+
+void someFunc(int, double); //someFunc是一个函数，类型是void(int,double)
+
+template<typename T>
+void f1(T param);       //传值
+
+template<typename T>
+void f2(T & param);     //传引用
+
+f1(someFunc);           //param被推导为指向函数的指针，类型是void(*)(int, double)
+f2(someFunc);           //param被推导为指向函数的引用，类型为void(&)(int, bouel)
+
+
