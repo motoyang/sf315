@@ -18,11 +18,15 @@ private:
   void keyReleaseEvent(KeyEvent& event) override;
 
   void setCameraPos();
+
   Scene3D _scene;
   SceneGraph::DrawableGroup3D _drawables;
+  SceneGraph::AnimableGroup3D _animables;
   std::unique_ptr<Object3D> _cameraObject;
   std::unique_ptr<SceneGraph::Camera3D> _camera;
   std::unique_ptr<Rublk> _rublk;
+
+  Timeline _timeline;
   Vector2i _previousMousePosition, _mousePressPosition;
 };
 

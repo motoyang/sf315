@@ -6,10 +6,12 @@
 #include <algorithm>
 
 #define CORRADE_NO_ASSERT
+
 #include <Corrade/Utility/Macros.h>
 #include <Corrade/Containers/ArrayView.h>
 #include <Corrade/PluginManager/Manager.h>
 
+#include <Magnum/Timeline.h>
 #include <Magnum/Platform/Sdl2Application.h>
 #include <Magnum/Trade/AbstractImporter.h>
 #include <Magnum/Trade/ImageData.h>
@@ -23,6 +25,8 @@
 #include <Magnum/SceneGraph/Camera.h>
 #include <Magnum/SceneGraph/Object.h>
 #include <Magnum/SceneGraph/Drawable.h>
+#include <Magnum/SceneGraph/Animable.h>
+#include <Magnum/SceneGraph/AnimableGroup.h>
 
 #include "cube.h"
 #include "MagnumRublk.h"
@@ -1607,7 +1611,7 @@ static Float v27[][CubeVertexSize] = {
 
 using namespace Magnum;
 
-class Cube: public Object3D, public SceneGraph::Drawable3D
+class Cube: public Object3D, public SceneGraph::Drawable3D, public SceneGraph::Animable3D
 {
   int m_id;
   Vector3 m_position;
@@ -1621,7 +1625,8 @@ class Cube: public Object3D, public SceneGraph::Drawable3D
   GL::Mesh m_mesh;
 
 public:
-  explicit Cube(Object3D* parent, SceneGraph::DrawableGroup3D* group,
+  explicit Cube(Object3D* parent, SceneGraph::DrawableGroup3D *drawables,
+                SceneGraph::AnimableGroup3D *animables,
                 int id, Float* vertices, const Vector3& position,
                 Shaders::Phong& shader, GL::Texture2D& texture,
                 GL::Texture2D& texDiffuse);
@@ -1637,14 +1642,17 @@ public:
 
 private:
   void draw(const Matrix4& transformationMatrix, SceneGraph::Camera3D& camera) override;
+  void animationStep(Float time, Float delta) override;
 };
 
-Cube::Cube(Object3D *parent, SceneGraph::DrawableGroup3D *group,
+Cube::Cube(Object3D *parent, SceneGraph::DrawableGroup3D *drawables,
+           SceneGraph::AnimableGroup3D *animables,
            int id, Float *vertices, const Vector3 &position,
            Shaders::Phong& shader, GL::Texture2D& texture,
            GL::Texture2D& texDiffuse)
   : Object3D(parent)
-  , SceneGraph::Drawable3D(*this, group)
+  , SceneGraph::Drawable3D(*this, drawables)
+  , SceneGraph::Animable3D(*this, animables)
   , m_id(id)
   , m_position(position)
   , m_angle(-1)
@@ -1663,6 +1671,7 @@ Cube::Cube(Object3D *parent, SceneGraph::DrawableGroup3D *group,
                        Shaders::Phong::TextureCoordinates{});
 
   translate(m_position);
+  setState(SceneGraph::AnimationState::Stopped);
 }
 
 Vector3 Cube::getPosition() const
@@ -1675,6 +1684,7 @@ void Cube::roll(int degree, const Vector3& axis)
   m_angle = degree;
   m_axis = axis;
   g_app->_rublk->taskStart();
+  setState(SceneGraph::AnimationState::Running);
 }
 
 void Cube::setRotation(int degree, const Vector3 &axis)
@@ -1684,17 +1694,6 @@ void Cube::setRotation(int degree, const Vector3 &axis)
 
 void Cube::draw(const Matrix4 &transformationMatrix, SceneGraph::Camera3D &camera)
 {
-  using namespace Magnum::Math::Literals;
-
-  if (m_angle == 0) {
-    g_app->_rublk->taskFinished();
-    m_angle = -1;
-  }
-
-  if (m_angle > 0) {
-    rotate(3.0_degf, m_axis);
-    m_angle -= 3;
-  }
 /*
   auto d1 = (transformationMatrix)[0].xyz().dot();
   auto d2 = (transformationMatrix)[1].xyz().dot();
@@ -1710,6 +1709,32 @@ void Cube::draw(const Matrix4 &transformationMatrix, SceneGraph::Camera3D &camer
       .bindSpecularTexture(m_texture);
 
   m_mesh.draw(m_shader);
+}
+
+void Cube::animationStep(Float time, Float delta)
+{
+  static_cast<void>(time);
+
+  if (m_angle == 0) {
+    g_app->_rublk->taskFinished();
+    m_angle = -1;
+    setState(SceneGraph::AnimationState::Stopped);
+    return;
+  }
+
+  if (m_angle > 0) {
+    using namespace Magnum::Math::Literals;
+
+    // 360.0f表示每秒转360度
+    Int r = static_cast<Int>(360.0f*delta);
+    if (m_angle >= r) {
+      rotate(Math::Deg<Float>(static_cast<Float>(r)), m_axis);
+      m_angle -= r;
+    } else {
+      rotate(Math::Deg<Float>(static_cast<Float>(m_angle)), m_axis);
+      m_angle = 0;
+    }
+  }
 }
 
 // --
@@ -1888,16 +1913,25 @@ void Rublk::draw(const Matrix4 &transformationMatrix, SceneGraph::Camera3D &came
 {
   static_cast<void>(transformationMatrix);
   static_cast<void>(camera);
+}
+
+void Rublk::animationStep(Float time, Float delta)
+{
+  static_cast<void>(time);
+  static_cast<void>(delta);
 
   m_pImpl->eventHandler();
-  if (m_pImpl->m_taskCount) {
-    g_app->redraw();
+
+  if (m_pImpl->m_events.empty()) {
+    setState(SceneGraph::AnimationState::Stopped);
   }
 }
 
-Rublk::Rublk(Scene3D *scene, SceneGraph::DrawableGroup3D *group, int rank)
+Rublk::Rublk(Scene3D *scene, SceneGraph::DrawableGroup3D *drawables,
+             Magnum::SceneGraph::AnimableGroup3D *animables, int rank)
   : Object3D(scene)
-  , SceneGraph::Drawable3D(*this, group)
+  , SceneGraph::Drawable3D(*this, drawables)
+  , SceneGraph::Animable3D(*this, animables)
   , m_pImpl(std::make_unique<Rublk::Impl>())
 {
   // rublk中心在长宽高的第几个cube
@@ -1905,6 +1939,9 @@ Rublk::Rublk(Scene3D *scene, SceneGraph::DrawableGroup3D *group, int rank)
   // cube的长宽高为1.0f，两个cube中心的距离如下：
   const float gap = 1.05f;
 \
+  // 初始AnimationState设置为stopped
+  setState(SceneGraph::AnimationState::Stopped);
+
   // 如果有了正确的cube移动构造函数，下面的reserve调用不是必须的，但可以提高效率。
   // 在没有正确的cube移动构造函数的情况下，reserve的调用是必须的！
   // 提前分配足够的空间，避免emplace_back过程中的重新分配。
@@ -1918,7 +1955,7 @@ Rublk::Rublk(Scene3D *scene, SceneGraph::DrawableGroup3D *group, int rank)
         int id = i * rank * rank + j * rank + k;
         Vector3 v(i - center, j - center, k - center);
         m_pImpl->m_cubes.emplace_back(std::make_unique<Cube>(
-            this, group, id, v27[id], v * gap, m_pImpl->m_shader,
+            this, drawables, animables, id, v27[id], v * gap, m_pImpl->m_shader,
             m_pImpl->m_texture, m_pImpl->m_texDiffuse));
       }
     }
@@ -1985,6 +2022,9 @@ void Rublk::confuse()
 void Rublk::pushEvent(const char c)
 {
   m_pImpl->m_events.push(c);
+  if (state() == SceneGraph::AnimationState::Stopped) {
+    setState(SceneGraph::AnimationState::Running);
+  }
 }
 
 void Rublk::taskStart()

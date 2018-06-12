@@ -4,10 +4,13 @@
 #include <Corrade/Containers/Optional.h>
 #include <Corrade/Utility/Arguments.h>
 
+#include <Magnum/Timeline.h>
 #include <Magnum/GL/Renderer.h>
 #include <Magnum/GL/DefaultFramebuffer.h>
 #include <Magnum/Platform/Sdl2Application.h>
 #include <Magnum/SceneGraph/Drawable.h>
+#include <Magnum/SceneGraph/Animable.h>
+#include <Magnum/SceneGraph/AnimableGroup.h>
 #include <Magnum/SceneGraph/MatrixTransformation3D.h>
 #include <Magnum/SceneGraph/Scene.h>
 #include <Magnum/SceneGraph/Camera.h>
@@ -28,7 +31,7 @@ MagnumRublk::MagnumRublk(const Arguments& arguments)
   GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
   GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
 
-  _rublk = std::make_unique<Rublk>(&_scene, &_drawables, 3);
+  _rublk = std::make_unique<Rublk>(&_scene, &_drawables, &_animables, 3);
 
   _cameraObject = std::make_unique<Object3D>(&_scene);
   setCameraPos();
@@ -47,16 +50,22 @@ MagnumRublk::MagnumRublk(const Arguments& arguments)
     _rublk->confuse();
   }
 
+  CORRADE_INTERNAL_ASSERT_OUTPUT(setSwapInterval(1));
+  _timeline.start();
   g_app = this;
 }
 
 void MagnumRublk::drawEvent()
 {
+  _animables.step(_timeline.previousFrameTime(), _timeline.previousFrameDuration());
+  Debug() << "freq: " << 1.0f/_timeline.previousFrameDuration();
+
   GL::defaultFramebuffer.clear(GL::FramebufferClear::Color | GL::FramebufferClear::Depth);
-
   _camera->draw(_drawables);
-
   swapBuffers();
+
+  redraw();
+  _timeline.nextFrame();
 }
 
 void MagnumRublk::mousePressEvent(MouseEvent& event)
@@ -121,8 +130,6 @@ void MagnumRublk::keyReleaseEvent(KeyEvent& event)
     default:
       return;
     }
-
-    redraw();
 }
 
 void MagnumRublk::setCameraPos()
