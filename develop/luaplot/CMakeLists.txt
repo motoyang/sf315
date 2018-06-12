@@ -54,7 +54,6 @@ FILE(GLOB HEAD_FILES "./*.h" "./qcp/*.h")
 FILE(GLOB UI_FILES "./*.ui")
 #同理，查找当前文件夹中所有的qrc文件
 FILE(GLOB QRC_FILES "./*.qrc")
-FILE(GLOB VER_FILE "./ver.cc")
 
 #通过Ui文件生成对应的头文件，一定要添加
 #qt5_wrap_cpp(MOC ${HEAD_FILES})
@@ -69,9 +68,6 @@ include_directories(
 # Add block directories
 #add_subdirectory(qcp)
 
-set (VER_LIB "_Version")
-add_library(${VER_LIB} ${VER_FILE})
-
 #创建工程文件
 add_executable(${PROJECT_NAME}
     ${SRC_FILES}
@@ -82,16 +78,23 @@ add_executable(${PROJECT_NAME}
 set (LUA_LIB "lua-5.3")
 target_link_libraries(${PROJECT_NAME}
     ${LUA_LIB}
-    ${VER_LIB}
     Qt5::Widgets Qt5::Core Qt5::Gui Qt5::PrintSupport
     )
 #link_directories(/lib/x86_64-linux-gnu)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lua)
 
-add_custom_command(TARGET ${VER_LIB}
+set (VER_TARGET "_Version")
+add_custom_target(${VER_TARGET} ALL)
+add_dependencies(${PROJECT_NAME} ${VER_TARGET})
+add_custom_command(TARGET ${VER_TARGET}
   PRE_BUILD
   COMMAND echo "daily build command"
-  COMMAND /home/xt/bin/ver.sh ver.h
+  COMMAND $ENV{HOME}/bin/ver.sh ver.h
   WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-  COMMENT "This command will be executed before building target ${VER_LIB}"
+  COMMENT "This command will be executed before building the project."
   )
+
+#把自动生成的源文件cfg_out.c加到test_elf目标去编译
+# target_sources(test_elf PRIVATE cfg_out.c)
+#指明cfg_out.c是自动生成的文件，否则会认为找不到文件而出错
+# set_source_files_properties(cfg_out.c PROPERTIES GENERATED 1)

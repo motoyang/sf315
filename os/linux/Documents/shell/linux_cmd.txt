@@ -782,3 +782,7 @@ $ sudo apt remove fcitx-module-kimpanel
 
 # 下载website的整个内容，保存在~/tmp/目录中
 wget -r -p -np -k -P ~/tmp/ http://www.qtiplot.com/doc/manual-en
+
+# 批量增加文件的扩展名
+find . -type f | xargs -I {} mv {} {}.mp3
+
