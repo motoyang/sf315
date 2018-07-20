@@ -1,3 +1,18 @@
+# grub引导时加入内核参数 pci=nomsi
+
+# 1、打开终端，修改/etc/default/grub引导文件
+sudo -H gedit /etc/default/grub
+
+# 2、打开之后找到以下这句
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
+
+# 然后将其改为：
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash pci=nomsi"
+
+# 3、保存关闭grub文件，更新grub引导，并重启
+sudo update-grub
+
+
 --------------------------------------------------------------------------------
 
 国外趴好几天终于搞定hd4600 dp 4k 60hz 并成功开启hdpi！
@@ -243,7 +258,7 @@ passwd xt
 vi /etc/passwd
 
 # 安装必要的软件
-apt install net-tools sudo ssh man-db less dosfstools vim parallel build-essential bash-completion screen
+apt install net-tools sudo resolvconf ssh man-db less dosfstools vim parallel build-essential bash-completion screen
 vi /etc/sudoers
 
 # 如果要安装更多的软件，可以如下：
@@ -351,6 +366,21 @@ iface eth0:0 inet dhcp
 # end of配置debian系统的网络
 # ------------------------------------------------------------------------------
 
+
+# ------------------------------------------------------------------------------
+# Ubuntu18.04 修改DNS
+sudo vim /etc/systemd/resolved.conf
+
+# 修改如下：
+[Resolve]
+DNS=202.96.128.86 202.96.128.166 
+
+# 保存退出后，重启服务systemd-resolved.service
+systemctl restart systemd-resolved.service
+
+# 查看修改结果
+systemd-resolved.service --status
+# ------------------------------------------------------------------------------
 
 
 # ------------------------------------------------------------------------------

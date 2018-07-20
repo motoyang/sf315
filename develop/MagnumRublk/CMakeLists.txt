@@ -36,6 +36,7 @@ endif()
 
 #find_package(Corrade REQUIRED Containers)
 find_package(Magnum REQUIRED GL Trade Sdl2Application Shaders SceneGraph)
+find_package(MagnumExtras REQUIRED Ui)
 
 set_directory_properties(PROPERTIES CORRADE_USE_PEDANTIC_FLAGS ON)
 
@@ -57,6 +58,7 @@ target_link_libraries(magnum-rublk PRIVATE
     Magnum::Trade
     Magnum::SceneGraph
     Magnum::Shaders
+    MagnumExtras::Ui
     )
 
 install(TARGETS magnum-rublk DESTINATION ${MAGNUM_BINARY_INSTALL_DIR})

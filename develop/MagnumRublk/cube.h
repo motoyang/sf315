@@ -6,6 +6,8 @@ using namespace Magnum;
 typedef SceneGraph::Object<SceneGraph::MatrixTransformation3D> Object3D;
 typedef SceneGraph::Scene<SceneGraph::MatrixTransformation3D> Scene3D;
 
+void orthonormalizeOnObject(Object3D* o);
+
 class Rublk: public Object3D, public SceneGraph::Drawable3D, public SceneGraph::Animable3D
 {
   class Impl;

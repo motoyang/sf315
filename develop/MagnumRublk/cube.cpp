@@ -5,13 +5,14 @@
 #include <memory>
 #include <algorithm>
 
-#define CORRADE_NO_ASSERT
+//#define CORRADE_NO_ASSERT
 
 #include <Corrade/Utility/Macros.h>
 #include <Corrade/Containers/ArrayView.h>
 #include <Corrade/PluginManager/Manager.h>
 
 #include <Magnum/Timeline.h>
+#include <Magnum/Math/Algorithms/GramSchmidt.h>
 #include <Magnum/Platform/Sdl2Application.h>
 #include <Magnum/Trade/AbstractImporter.h>
 #include <Magnum/Trade/ImageData.h>
@@ -28,7 +29,16 @@
 #include <Magnum/SceneGraph/Animable.h>
 #include <Magnum/SceneGraph/AnimableGroup.h>
 
+#include <Magnum/Ui/Anchor.h>
+#include <Magnum/Ui/Button.h>
+#include <Magnum/Ui/Label.h>
+#include <Magnum/Ui/Plane.h>
+#include <Magnum/Ui/UserInterface.h>
+#include <Magnum/Ui/ValidatedInput.h>
+#include <Magnum/Text/Alignment.h>
+
 #include "cube.h"
+#include "baseuiplane.h"
 #include "MagnumRublk.h"
 
 // cube的Vertex的大小，数据类型为Float
@@ -1694,14 +1704,6 @@ void Cube::setRotation(int degree, const Vector3 &axis)
 
 void Cube::draw(const Matrix4 &transformationMatrix, SceneGraph::Camera3D &camera)
 {
-/*
-  auto d1 = (transformationMatrix)[0].xyz().dot();
-  auto d2 = (transformationMatrix)[1].xyz().dot();
-  auto d3 = (transformationMatrix)[2].xyz().dot();
-  if (!Math::TypeTraits<Float>::equals(d1, d2) || !Math::TypeTraits<Float>::equals(d2, d3)) {
-    Debug() << d1 << " = " << d2 << " = " << d3;
-  }
-*/
   m_shader.setTransformationMatrix(transformationMatrix)
       .setNormalMatrix(transformationMatrix.rotation())
       .setProjectionMatrix(camera.projectionMatrix())
@@ -1715,10 +1717,16 @@ void Cube::animationStep(Float time, Float delta)
 {
   static_cast<void>(time);
 
+  g_app->setFps(1.0f / delta);
+
   if (m_angle == 0) {
     g_app->_rublk->taskFinished();
     m_angle = -1;
     setState(SceneGraph::AnimationState::Stopped);
+
+    // 消除matrix计算中浮点数误差的累积，对matrix做正交化
+    orthonormalizeOnObject(this);
+
     return;
   }
 
@@ -1726,7 +1734,7 @@ void Cube::animationStep(Float time, Float delta)
     using namespace Magnum::Math::Literals;
 
     // 360.0f表示每秒转360度
-    Int r = static_cast<Int>(360.0f*delta);
+    Int r = Math::max(1, static_cast<Int>(360.0f*delta));
     if (m_angle >= r) {
       rotate(Math::Deg<Float>(static_cast<Float>(r)), m_axis);
       m_angle -= r;
@@ -1754,8 +1762,8 @@ public:
     , m_shader(Shaders::Phong::Flag::DiffuseTexture | Shaders::Phong::Flag::SpecularTexture)
   {
     m_shader.setLightPosition({3.0f, 5.0f, 7.0f})
-//        .setLightColor(Color3{1.0f})
-//        .setDiffuseColor(Color3{1.0f})
+        .setLightColor(Color3{1.0f})
+        .setDiffuseColor(Color3{0.8f})
         .setAmbientColor(Color3{0.1f});
 
     PluginManager::Manager<Trade::AbstractImporter> manager;
@@ -2037,3 +2045,12 @@ void Rublk::taskFinished()
   --m_pImpl->m_taskCount;
 }
 
+void orthonormalizeOnObject(Object3D *o)
+{
+  Matrix4 m = o->transformation();
+
+  Matrix3 r = m.rotation();
+  Vector3 v = m.translation();
+  Math::Algorithms::gramSchmidtOrthonormalizeInPlace(r);
+  o->setTransformation(Matrix4::from(r, v));
+}

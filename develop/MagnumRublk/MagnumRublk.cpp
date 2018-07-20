@@ -1,5 +1,8 @@
 #include <iostream>
 #include <memory>
+#include <regex>
+#include <iomanip>
+#include <sstream>
 
 #include <Corrade/Containers/Optional.h>
 #include <Corrade/Utility/Arguments.h>
@@ -16,20 +19,32 @@
 #include <Magnum/SceneGraph/Camera.h>
 #include <Magnum/SceneGraph/Object.h>
 
+#include <Magnum/Ui/Anchor.h>
+#include <Magnum/Ui/Button.h>
+#include <Magnum/Ui/Label.h>
+#include <Magnum/Ui/Plane.h>
+#include <Magnum/Ui/UserInterface.h>
+#include <Magnum/Ui/ValidatedInput.h>
+#include <Magnum/Text/Alignment.h>
+
 #include "cube.h"
+#include "baseuiplane.h"
 #include "MagnumRublk.h"
 
-using namespace Magnum;
+// --
 
 MagnumRublk* g_app = nullptr;
 
+// --
+
 MagnumRublk::MagnumRublk(const Arguments& arguments)
-  : Platform::Application{arguments, Configuration{}.setTitle("Magnum Textured Triangle Example")}
+  : Platform::Application{arguments, Configuration().setTitle("Magnum Textured Triangle Example")}
 {
   using namespace Math::Literals;
 
   GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
   GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
+  GL::Renderer::setClearColor(0x000000_rgbf);
 
   _rublk = std::make_unique<Rublk>(&_scene, &_drawables, &_animables, 3);
 
@@ -50,22 +65,54 @@ MagnumRublk::MagnumRublk(const Arguments& arguments)
     _rublk->confuse();
   }
 
+  // 打开opengl的垂直同步。注意！显卡设置中的垂直同步也会影响这个值的设置。
+  // ubuntu中设置nvidia垂直同步的方法如下：
+  // $ sudo vim /etc/modprobe.d/nvidia-graphics-drivers.conf
+  // 然后在最后一行添加:
+  // options nvidia_drm modeset=1
+  // 退出保存后，终端输入:
+  // $ sudo update-initramfs -u
+  // 重启，检查设置是否成功，显示1或Y就是打开了垂直同步：
+  // $ sudo cat /sys/module/nvidia_drm/parameters/modeset
   CORRADE_INTERNAL_ASSERT_OUTPUT(setSwapInterval(1));
+
+  // Create the UI
+  _ui.emplace(Vector2{windowSize()}, windowSize(), Ui::mcssDarkStyleConfiguration(), "uiname");
+  // Base UI plane
+  _baseUiPlane.emplace(*_ui);
+
   _timeline.start();
   g_app = this;
+}
+
+void MagnumRublk::setFps(Float f)
+{
+  std::stringstream out;
+  out << "FPS: " << std::setprecision(3) << f;
+  _baseUiPlane->_fps.setText(out.str());
 }
 
 void MagnumRublk::drawEvent()
 {
   _animables.step(_timeline.previousFrameTime(), _timeline.previousFrameDuration());
-  Debug() << "freq: " << 1.0f/_timeline.previousFrameDuration();
 
   GL::defaultFramebuffer.clear(GL::FramebufferClear::Color | GL::FramebufferClear::Depth);
   _camera->draw(_drawables);
-  swapBuffers();
 
+  /* Draw the UI */
+  GL::Renderer::enable(GL::Renderer::Feature::Blending);
+  GL::Renderer::setBlendFunction(GL::Renderer::BlendFunction::One, GL::Renderer::BlendFunction::OneMinusSourceAlpha);
+  _ui->draw();
+  GL::Renderer::setBlendFunction(GL::Renderer::BlendFunction::One, GL::Renderer::BlendFunction::One);
+  GL::Renderer::disable(GL::Renderer::Feature::Blending);
+
+  swapBuffers();
   redraw();
   _timeline.nextFrame();
+}
+
+void MagnumRublk::viewportEvent(const Vector2i& size) {
+    GL::defaultFramebuffer.setViewport({{}, size});
 }
 
 void MagnumRublk::mousePressEvent(MouseEvent& event)
@@ -80,6 +127,8 @@ void MagnumRublk::mousePressEvent(MouseEvent& event)
 
 void MagnumRublk::mouseMoveEvent(MouseMoveEvent& event)
 {
+  static Int count = 0;
+
   if (!(event.buttons() & MouseMoveEvent::Button::Left)) {
     return;
   }
@@ -91,6 +140,12 @@ void MagnumRublk::mouseMoveEvent(MouseMoveEvent& event)
   (*_cameraObject)
       .rotate(Rad{-delta.y()}, _cameraObject->transformation().right().normalized())
       .rotateY(Rad{-delta.x()});
+
+  // 每50次，对cameraObject的Matrix做正交化，消除浮点数计算的误差累积
+  if (++count > 50) {
+    orthonormalizeOnObject(_cameraObject.get());
+    count = 0;
+  }
 
   _previousMousePosition = event.position();
   event.setAccepted();

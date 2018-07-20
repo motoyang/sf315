@@ -3,7 +3,10 @@
 
 using namespace Magnum;
 
-class MagnumRublk: public Platform::Application
+// --
+
+class MagnumRublk
+    : public Platform::Application
 {
   friend class Rublk;
   friend class Cube;
@@ -11,7 +14,10 @@ class MagnumRublk: public Platform::Application
 public:
   explicit MagnumRublk(const Arguments& arguments);
 
+  void setFps(Float f);
+
 private:
+  void viewportEvent(const Vector2i& size) override;
   void drawEvent() override;
   void mousePressEvent(MouseEvent& event) override;
   void mouseMoveEvent(MouseMoveEvent& event) override;
@@ -28,6 +34,10 @@ private:
 
   Timeline _timeline;
   Vector2i _previousMousePosition, _mousePressPosition;
+
+  // UI
+  Containers::Optional<Ui::UserInterface> _ui;
+  Containers::Optional<BaseUiPlane> _baseUiPlane;
 };
 
 extern MagnumRublk* g_app;
