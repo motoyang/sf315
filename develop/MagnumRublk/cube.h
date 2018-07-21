@@ -34,6 +34,9 @@ public:
   void pushEvent(const char c);
   void taskStart();
   void taskFinished();
+
+  void setRollSpeed(Int degrees);
+  Int rollSpeed() const;
 };
 
 #endif // CUBE_H

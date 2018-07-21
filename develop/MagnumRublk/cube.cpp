@@ -5,8 +5,6 @@
 #include <memory>
 #include <algorithm>
 
-//#define CORRADE_NO_ASSERT
-
 #include <Corrade/Utility/Macros.h>
 #include <Corrade/Containers/ArrayView.h>
 #include <Corrade/PluginManager/Manager.h>
@@ -1723,6 +1721,7 @@ void Cube::animationStep(Float time, Float delta)
     g_app->_rublk->taskFinished();
     m_angle = -1;
     setState(SceneGraph::AnimationState::Stopped);
+    g_app->setFps(0.0f);
 
     // 消除matrix计算中浮点数误差的累积，对matrix做正交化
     orthonormalizeOnObject(this);
@@ -1734,7 +1733,7 @@ void Cube::animationStep(Float time, Float delta)
     using namespace Magnum::Math::Literals;
 
     // 360.0f表示每秒转360度
-    Int r = Math::max(1, static_cast<Int>(360.0f*delta));
+    Int r = Math::max(1, static_cast<Int>(g_app->_rublk->rollSpeed() * delta));
     if (m_angle >= r) {
       rotate(Math::Deg<Float>(static_cast<Float>(r)), m_axis);
       m_angle -= r;
@@ -1750,7 +1749,8 @@ void Cube::animationStep(Float time, Float delta)
 class Rublk::Impl
 {
 public:
-  int m_taskCount;
+  Int m_taskCount;
+  Int m_degrees;
   std::vector<std::unique_ptr<Cube>> m_cubes;
   std::queue<char> m_events;
 
@@ -1759,6 +1759,7 @@ public:
 
   Impl()
     : m_taskCount(0)
+    , m_degrees(0)
     , m_shader(Shaders::Phong::Flag::DiffuseTexture | Shaders::Phong::Flag::SpecularTexture)
   {
     m_shader.setLightPosition({3.0f, 5.0f, 7.0f})
@@ -1797,6 +1798,8 @@ public:
 
   void eventHandler()
   {
+    const Int DegreesRoll = 90;
+
     // 如果event队列为空，就是没有需要处理的event
     if (m_events.size() == 0) {
       return;
@@ -1817,7 +1820,7 @@ public:
       std::for_each(m_cubes.begin(), m_cubes.end(), [](auto& c) {
         Vector3 p = c->getPosition();
         if (p.x() < -1.0f) {
-          c->roll(90, Vector3(-1.0f, 0.0f, 0.0f));
+          c->roll(DegreesRoll, Vector3(-1.0f, 0.0f, 0.0f));
         }
       });
       break;
@@ -1825,7 +1828,7 @@ public:
       std::for_each(m_cubes.begin(), m_cubes.end(), [](auto& c) {
         Vector3 p = c->getPosition();
         if (p.x() < -1.0f) {
-          c->roll(90, Vector3(1.0f, 0.0f, 0.0f));
+          c->roll(DegreesRoll, Vector3(1.0f, 0.0f, 0.0f));
         }
       });
       break;
@@ -1833,7 +1836,7 @@ public:
       std::for_each(m_cubes.begin(), m_cubes.end(), [](auto& c) {
         Vector3 p = c->getPosition();
         if (p.x() > 1.0f) {
-          c->roll(90, Vector3(1.0f, 0.0f, 0.0f));
+          c->roll(DegreesRoll, Vector3(1.0f, 0.0f, 0.0f));
         }
       });
       break;
@@ -1841,7 +1844,7 @@ public:
       std::for_each(m_cubes.begin(), m_cubes.end(), [](auto& c) {
         Vector3 p = c->getPosition();
         if (p.x() > 1.0f) {
-          c->roll(90, Vector3(-1.0f, 0.0f, 0.0f));
+          c->roll(DegreesRoll, Vector3(-1.0f, 0.0f, 0.0f));
         }
       });
       break;
@@ -1849,7 +1852,7 @@ public:
       std::for_each(m_cubes.begin(), m_cubes.end(), [](auto& c) {
         Vector3 p = c->getPosition();
         if (p.z() > 1.0f) {
-          c->roll(90, Vector3(0.0f, 0.0f, 1.0f));
+          c->roll(DegreesRoll, Vector3(0.0f, 0.0f, 1.0f));
         }
       });
       break;
@@ -1857,7 +1860,7 @@ public:
       std::for_each(m_cubes.begin(), m_cubes.end(), [](auto& c) {
         Vector3 p = c->getPosition();
         if (p.z() > 1.0f) {
-          c->roll(90, Vector3(0.0f, 0.0f, -1.0f));
+          c->roll(DegreesRoll, Vector3(0.0f, 0.0f, -1.0f));
         }
       });
       break;
@@ -1865,7 +1868,7 @@ public:
       std::for_each(m_cubes.begin(), m_cubes.end(), [](auto& c) {
         Vector3 p = c->getPosition();
         if (p.z() < -1.0f) {
-          c->roll(90, Vector3(0.0f, 0.0f, -1.0f));
+          c->roll(DegreesRoll, Vector3(0.0f, 0.0f, -1.0f));
         }
       });
       break;
@@ -1873,7 +1876,7 @@ public:
       std::for_each(m_cubes.begin(), m_cubes.end(), [](auto& c) {
         Vector3 p = c->getPosition();
         if (p.z() <- 1.0f) {
-          c->roll(90, Vector3(0.0f, 0.0f, 1.0f));
+          c->roll(DegreesRoll, Vector3(0.0f, 0.0f, 1.0f));
         }
       });
       break;
@@ -1881,7 +1884,7 @@ public:
       std::for_each(m_cubes.begin(), m_cubes.end(), [](auto& c) {
         Vector3 p = c->getPosition();
         if (p.y() > 1.0f) {
-          c->roll(90, Vector3(0.0f, 1.0f, 0.0f));
+          c->roll(DegreesRoll, Vector3(0.0f, 1.0f, 0.0f));
         }
       });
       break;
@@ -1889,7 +1892,7 @@ public:
       std::for_each(m_cubes.begin(), m_cubes.end(), [](auto& c) {
         Vector3 p = c->getPosition();
         if (p.y() > 1.0f) {
-          c->roll(90, Vector3(0.0f, -1.0f, 0.0f));
+          c->roll(DegreesRoll, Vector3(0.0f, -1.0f, 0.0f));
         }
       });
       break;
@@ -1897,7 +1900,7 @@ public:
       std::for_each(m_cubes.begin(), m_cubes.end(), [](auto& c) {
         Vector3 p = c->getPosition();
         if (p.y() < -1.0f) {
-          c->roll(90, Vector3(0.0f, -1.0f, 0.0f));
+          c->roll(DegreesRoll, Vector3(0.0f, -1.0f, 0.0f));
         }
       });
       break;
@@ -1905,7 +1908,7 @@ public:
       std::for_each(m_cubes.begin(), m_cubes.end(), [](auto& c) {
         Vector3 p = c->getPosition();
         if (p.y() < -1.0f) {
-          c->roll(90, Vector3(0.0f, 1.0f, 0.0f));
+          c->roll(DegreesRoll, Vector3(0.0f, 1.0f, 0.0f));
         }
       });
       break;
@@ -2043,6 +2046,16 @@ void Rublk::taskStart()
 void Rublk::taskFinished()
 {
   --m_pImpl->m_taskCount;
+}
+
+void Rublk::setRollSpeed(Int degrees)
+{
+  m_pImpl->m_degrees = degrees;
+}
+
+Int Rublk::rollSpeed() const
+{
+  return m_pImpl->m_degrees;
 }
 
 void orthonormalizeOnObject(Object3D *o)

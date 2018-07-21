@@ -7,6 +7,7 @@ using namespace Magnum;
 
 class MagnumRublk
     : public Platform::Application
+    , public Interconnect::Receiver
 {
   friend class Rublk;
   friend class Cube;
@@ -15,15 +16,21 @@ public:
   explicit MagnumRublk(const Arguments& arguments);
 
   void setFps(Float f);
+  void enableApplyButton(const std::string&);
+  void apply();
+  void roll();
 
 private:
   void viewportEvent(const Vector2i& size) override;
   void drawEvent() override;
   void mousePressEvent(MouseEvent& event) override;
   void mouseMoveEvent(MouseMoveEvent& event) override;
+  void mouseReleaseEvent(MouseEvent& event) override;
+  void keyPressEvent(KeyEvent& event) override;
   void keyReleaseEvent(KeyEvent& event) override;
+  void textInputEvent(TextInputEvent& event) override;
 
-  void setCameraPos();
+  void setCameraDefaultPos();
 
   Scene3D _scene;
   SceneGraph::DrawableGroup3D _drawables;
