@@ -42,11 +42,8 @@ MagnumRublk::MagnumRublk(const Arguments& arguments)
 {
   using namespace Math::Literals;
 
-  //  GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
   GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
   GL::Renderer::setClearColor(0x000000_rgbf);
-
-  _rublk = std::make_unique<Rublk>(&_scene, &_drawables, &_animables, 3);
 
   _cameraObject = std::make_unique<Object3D>(&_scene);
   setCameraDefaultPos();
@@ -55,6 +52,8 @@ MagnumRublk::MagnumRublk(const Arguments& arguments)
   _camera->setAspectRatioPolicy(SceneGraph::AspectRatioPolicy::Extend)
       .setProjectionMatrix(Matrix4::perspectiveProjection(35.0_degf, 1.0f, 0.01f, 100.0f))
       .setViewport(GL::defaultFramebuffer.viewport().size());
+
+  _rublk = std::make_unique<Rublk>(&_scene, &_drawables, &_animables, 3);
 
   Utility::Arguments args;
   args.addBooleanOption('c', "clean").setHelp("clean", "clean the rublk")
@@ -155,8 +154,8 @@ void MagnumRublk::roll()
 void MagnumRublk::drawEvent()
 {
   _animables.step(_timeline.previousFrameTime(), _timeline.previousFrameDuration());
-
   GL::defaultFramebuffer.clear(GL::FramebufferClear::Color | GL::FramebufferClear::Depth);
+  
   GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
   _camera->draw(_drawables);
   GL::Renderer::disable(GL::Renderer::Feature::DepthTest);
@@ -190,8 +189,6 @@ void MagnumRublk::mousePressEvent(MouseEvent& event)
 
 void MagnumRublk::mouseMoveEvent(MouseMoveEvent& event)
 {
-  static Int count = 0;
-
   if(_ui->handleMoveEvent(event.position())) {
     // UI handles it
     return;
@@ -205,11 +202,11 @@ void MagnumRublk::mouseMoveEvent(MouseMoveEvent& event)
       Vector2{event.position() - _previousMousePosition}/
       Vector2{GL::defaultFramebuffer.viewport().size()};
 
-  (*_cameraObject)
-      .rotate(Rad{-delta.y()}, _cameraObject->transformation().right().normalized())
-      .rotateY(Rad{-delta.x()});
+  _cameraObject->rotate(Rad{-delta.y()}, _cameraObject->transformation().right().normalized())
+    .rotateY(Rad{-delta.x()});
 
   // 每50次，对cameraObject的Matrix做正交化，消除浮点数计算的误差累积
+  static Int count = 0;
   if (++count > 50) {
     orthonormalizeOnObject(_cameraObject.get());
     count = 0;
@@ -264,13 +261,7 @@ void MagnumRublk::keyReleaseEvent(KeyEvent& event)
     if (alt) {
       SDL_Window* w = window();
       bool fullScreen(SDL_GetWindowFlags(w) & SDL_WINDOW_FULLSCREEN);
-      if (!fullScreen) {
-        SDL_SetWindowFullscreen(w, SDL_WINDOW_FULLSCREEN);
-        fullScreen = true;
-      } else {
-        SDL_SetWindowFullscreen(w, 0);
-        fullScreen = false;
-      }
+      SDL_SetWindowFullscreen(w, fullScreen? 0: SDL_WINDOW_FULLSCREEN);
     } else {
       setCameraDefaultPos();
     }

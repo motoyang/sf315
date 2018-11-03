@@ -1,3 +1,39 @@
+# ----------------------------------
+# diff 和 patch
+
+# 补丁实际上就是diff的输出结果，我们可以直接将输出结果保存成文件，也可以使用管道符号做这件事，如下：
+diff original.txt updated.txt > mypatch.patch
+# 这时我们就有了一个补丁文件，可以将original文件更新了updated文件了。参数-b所以还有生成一个.org后缀的文件它是打补丁前的源文件
+patch original.txt -i my patch.patch -o updated-1.txt
+
+# -c是上下文模式，会在mypatch2.patch文件中保留源和目标文件名，在patch命令中就不需要输入文件名了。
+diff -c original.txt updated.txt > mypath2.path
+# 应用补丁，这里如果不指定输出文件的话，源文件就会被更新（这本来就是补丁文件的作用）。
+patch -i mypatch2.patch -o updated.txt
+
+# 对多个文件应用补丁，首先生成一个补丁文件，我们还是用上下文的格式，-r是比较子目录中的内容。
+diff -c original update > directory.patch
+# 在一个新的目录下拷贝 original 文件夹和补丁文件，执行 patch -i directory.patch，此时会提示找不到文件，因为patch会在当前文件夹查找文件（默认情况下patch会将文件名前的所有文件夹去掉）因为此时补丁文件在文件夹外面，所以我们应当告诉patch不要这么做，使用-p参数。
+patch -p0 -i directory.patch
+
+# 有时候版本需要进行回撤，这时可以使用 -R 参数。
+patch -p0 -R -i directory.patch
+
+# 常使用的 patch 参数：
+-p 指定目录级别（从路径全称中除去几层目录），如果补丁文件包含路径名称 /curds/whey/src/blurfl/blurfl.c，那么：
+-p0 使用完整路径名
+-p1 除去前导斜杠，留下 curds/whey/src/blurfl/blurfl.c
+-p4 除去前导斜杠和前三个目录，留下 blurfl/blurfl.c
+-d Directory，打补丁前，更改当前目录到指定目录
+-i PatchFile，从指定文件，而不是从标准输入中读取补丁信息
+-R 逆向补丁，这个选项在防止打错补丁很有用处
+
+--------------------------------------------------------------------------------
+
+sudo apt install bumblebee-nvidia bumblebee primus
+
+--------------------------------------------------------------------------------
+
 # grub引导时加入内核参数 pci=nomsi
 
 # 1、打开终端，修改/etc/default/grub引导文件
@@ -645,6 +681,22 @@ sudo tar -C /mnt/macos -g macOSinfo -cJvpf macOS_diff_`date +%Y%m%d-%H%M%S`.tar.
 sudo tar -C /mnt/macos -g macOSinfo -cvpf - . 2>err.txt | parallel --pipe --recend "" -k -j4 xz -zc > macOS_snapshot_`date +%Y%m%d-%H%M%S`.tar.xz
 
 sudo tar -C /mnt/macos -g macOSinfo -cvpf - . 2>err.txt | parallel --pipe --recend "" -k -j4 xz -zc > macOS_diff_`date +%Y%m%d-%H%M%S`.tar.xz
+
+
+# --分区备份和恢复------------------------
+
+# 备份分区信息，如下两个命令都可以：
+sudo fdisk -l
+sudo parted -l
+
+# 备份gpt分区表：
+sudo dd if=/dev/sda of=st_gpt.img bs=512 count=34
+
+# 克隆分区到压缩文件
+sudo dd if=/dev/nvme0n1p2 | parallel --pipe --recend "" -k -j4 xz -zc > macOS_snapshot_`date +%Y%m%d-%H%M%S`.img.xz
+
+# 从压缩文件中恢复克隆的分区
+parallel --pipe --recend "" -k -j4 xz -dc macOS_snapshot_20180082.img.xz | sudo dd of=/dev/nvme0n1p2
 
 # --hfs分区的操作------------------------
 
