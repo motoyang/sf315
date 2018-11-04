@@ -30,13 +30,21 @@
 #include <memory>
 #include <utility>
 #include <vector>
+#include <string>
 
 #include <Corrade/Utility/Assert.h>
+#include <Corrade/PluginManager/Manager.h>
+#include <Corrade/Utility/Directory.h>
 
+#include <Magnum/Image.h>
+#include <Magnum/PixelFormat.h>
 #include <Magnum/GL/Buffer.h>
 #include <Magnum/GL/DefaultFramebuffer.h>
+#include <Magnum/GL/Framebuffer.h>
 #include <Magnum/GL/Mesh.h>
 #include <Magnum/GL/Renderer.h>
+#include <Magnum/GL/Renderbuffer.h>
+#include <Magnum/GL/RenderbufferFormat.h>
 #include <Magnum/MeshTools/Interleave.h>
 #include <Magnum/MeshTools/CompressIndices.h>
 #include <Magnum/Platform/Sdl2Application.h>
@@ -59,6 +67,8 @@
 #include <Magnum/Shaders/VertexColor.h>
 #include <Magnum/Trade/MeshData2D.h>
 #include <Magnum/Trade/MeshData3D.h>
+#include <Magnum/Trade/AbstractImageConverter.h>
+#include <Magnum/Trade/AbstractImporter.h>
 
 namespace Magnum { namespace Examples {
 
@@ -362,8 +372,11 @@ class PrimitivesExample: public Platform::Application {
         void drawEvent() override;
         void keyReleaseEvent(KeyEvent& event) override;
 
-        std::unique_ptr<PrimitivesDraw> createPrimitives(int index);
+        std::pair<std::string, std::unique_ptr<PrimitivesDraw>> createPrimitives(int index);
+        void savePng();
+
         std::unique_ptr<PrimitivesDraw> _primitivesDraw;
+        std::string _name;
         Int _index = 0;
 };
 
@@ -372,9 +385,8 @@ PrimitivesExample::PrimitivesExample(const Arguments& arguments):
 {
     GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
     GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
-    GL::Renderer::setLineWidth(5.5f);
 
-    _primitivesDraw = createPrimitives(_index++);
+    std::tie(_name, _primitivesDraw) = createPrimitives(_index++);
 }
 
 void PrimitivesExample::drawEvent() 
@@ -386,53 +398,75 @@ void PrimitivesExample::drawEvent()
     swapBuffers();
 }
 
-std::unique_ptr<PrimitivesDraw> PrimitivesExample::createPrimitives(int index)
+void PrimitivesExample::savePng()
 {
-    static std::vector<std::function<std::unique_ptr<PrimitivesDraw>()>> fn = {
-        [](){return std::make_unique<D2Draw>(Primitives::axis2D());},
-        [](){return std::make_unique<D3Draw>(Primitives::axis3D());},
-        [](){return std::make_unique<Flat2DDraw>(Primitives::capsule2DWireframe(8, 1, 0.75f));},
-        [](){return std::make_unique<Flat2DDraw>(Primitives::circle2DWireframe(32));},
-        [](){return std::make_unique<Flat2DDraw>(Primitives::crosshair2D());},
-        [](){return std::make_unique<Flat2DDraw>(Primitives::line2D());},
-        [](){return std::make_unique<Flat2DDraw>(Primitives::squareWireframe());},
-        [](){return std::make_unique<Flat3DDraw>(Primitives::capsule3DWireframe(8, 1, 16, 1.0f));},
-        [](){return std::make_unique<Flat3DDraw>(Primitives::circle3DWireframe(32));},
-        [](){return std::make_unique<Flat3DDraw>(Primitives::crosshair3D());},
-        [](){return std::make_unique<Flat3DDraw>(Primitives::coneWireframe(32, 1.25f));},
-        [](){return std::make_unique<Flat3DDraw>(Primitives::cubeWireframe());},
-        [](){return std::make_unique<Flat3DDraw>(Primitives::cylinderWireframe(1, 32, 1.0f));},
-        [](){return std::make_unique<Flat3DDraw>(Primitives::grid3DWireframe({5, 3}));},
-        [](){return std::make_unique<Flat3DDraw>(Primitives::line3D());},
-        [](){return std::make_unique<Flat3DDraw>(Primitives::planeWireframe());},
-        [](){return std::make_unique<Flat3DDraw>(Primitives::uvSphereWireframe(16, 32));},
-        [](){return std::make_unique<VisualizerDraw>(Primitives::circle2DSolid(16));},
-        [](){return std::make_unique<VisualizerDraw>(Primitives::squareSolid());},
-        [](){return std::make_unique<VisualizerDraw>(Primitives::capsule3DSolid(4, 1, 12, 0.75f));},
-        [](){return std::make_unique<VisualizerDraw>(Primitives::circle3DSolid(16));},
-        [](){return std::make_unique<SoldDraw>(Primitives::capsule3DSolid(4, 1, 12, 0.75f));},
-        [](){return std::make_unique<SoldDraw>(Primitives::circle3DSolid(16));},
-        [](){return std::make_unique<SoldDraw>(Primitives::coneSolid(1, 12, 1.25f, Primitives::ConeFlag::CapEnd));},
-        [](){return std::make_unique<SoldDraw>(Primitives::cubeSolid());},
-        [](){return std::make_unique<SoldDraw>(Primitives::cylinderSolid(1, 12, 1.0f, Primitives::CylinderFlag::CapEnds));},
-        [](){return std::make_unique<SoldDraw>(Primitives::grid3DSolid({5, 3}));},
-        [](){return std::make_unique<SoldDraw>(Primitives::icosphereSolid(1));},
-        [](){return std::make_unique<SoldDraw>(Primitives::planeSolid());},
-        [](){return std::make_unique<SoldDraw>(Primitives::uvSphereSolid(8, 16));},
-        [](){return std::make_unique<SoldDraw>(Primitives::uvSphereSolid(16, 32));},
-        [](){return std::make_unique<SoldDraw>(Primitives::uvSphereSolid(32, 64));}
-        };
-        
-    return fn.at(index % fn.size())();
+    PluginManager::Manager<Trade::AbstractImageConverter> converterManager;
+    std::unique_ptr<Trade::AbstractImageConverter> converter = converterManager.loadAndInstantiate("PngImageConverter");
+    if(!converter) {
+        Error() << "Cannot load image converter plugin";
+    }
+
+    Vector2i imageSize{GL::defaultFramebuffer.viewport().size()};
+
+    GL::Renderbuffer color;
+    color.setStorage(GL::RenderbufferFormat::RGBA8, imageSize);
+    GL::Framebuffer framebuffer{{{}, imageSize}};
+    framebuffer.attachRenderbuffer(GL::Framebuffer::ColorAttachment{0}, color);
+
+    GL::AbstractFramebuffer::blit(GL::defaultFramebuffer, framebuffer, framebuffer.viewport(), GL::FramebufferBlit::Color);
+    Image2D result = framebuffer.read(framebuffer.viewport(), {PixelFormat::RGBA8Unorm});
+    converter->exportToFile(result, Utility::Directory::join("./", "primitives2-" + _name));
+}
+
+std::pair<std::string, std::unique_ptr<PrimitivesDraw>> PrimitivesExample::createPrimitives(int index)
+{
+    static std::vector<std::function<std::pair<std::string, std::unique_ptr<PrimitivesDraw>>()>> fn2 = {
+        [](){return std::make_pair(std::string("axis2D"), std::make_unique<D2Draw>(Primitives::axis2D()));},
+        [](){return std::make_pair(std::string("axis3D"), std::make_unique<D3Draw>(Primitives::axis3D()));},
+        [](){return std::make_pair(std::string("capsule2DWireframe"), std::make_unique<Flat2DDraw>(Primitives::capsule2DWireframe(8, 1, 0.75f)));},
+        [](){return std::make_pair(std::string("circle2DWireframe"), std::make_unique<Flat2DDraw>(Primitives::circle2DWireframe(32)));},
+        [](){return std::make_pair(std::string("crosshair2D"), std::make_unique<Flat2DDraw>(Primitives::crosshair2D()));},
+        [](){return std::make_pair(std::string("line2D"), std::make_unique<Flat2DDraw>(Primitives::line2D()));},
+        [](){return std::make_pair(std::string("squareWireframe"), std::make_unique<Flat2DDraw>(Primitives::squareWireframe()));},
+        [](){return std::make_pair(std::string("capsule3DWireframe"), std::make_unique<Flat3DDraw>(Primitives::capsule3DWireframe(8, 1, 16, 1.0f)));},
+        [](){return std::make_pair(std::string("circle3DWireframe"), std::make_unique<Flat3DDraw>(Primitives::circle3DWireframe(32)));},
+        [](){return std::make_pair(std::string("crosshair3D"), std::make_unique<Flat3DDraw>(Primitives::crosshair3D()));},
+        [](){return std::make_pair(std::string("coneWireframe"), std::make_unique<Flat3DDraw>(Primitives::coneWireframe(32, 1.25f)));},
+        [](){return std::make_pair(std::string("cubeWireframe"), std::make_unique<Flat3DDraw>(Primitives::cubeWireframe()));},
+        [](){return std::make_pair(std::string("cylinderWireframe"), std::make_unique<Flat3DDraw>(Primitives::cylinderWireframe(1, 32, 1.0f)));},
+        [](){return std::make_pair(std::string("grid3DWireframe"), std::make_unique<Flat3DDraw>(Primitives::grid3DWireframe({5, 3})));},
+        [](){return std::make_pair(std::string("line3D"), std::make_unique<Flat3DDraw>(Primitives::line3D()));},
+        [](){return std::make_pair(std::string("planeWireframe"), std::make_unique<Flat3DDraw>(Primitives::planeWireframe()));},
+        [](){return std::make_pair(std::string("uvSphereWireframe"), std::make_unique<Flat3DDraw>(Primitives::uvSphereWireframe(16, 32)));},
+        [](){return std::make_pair(std::string("circle2DSolid"), std::make_unique<VisualizerDraw>(Primitives::circle2DSolid(16)));},
+        [](){return std::make_pair(std::string("squareSolid"), std::make_unique<VisualizerDraw>(Primitives::squareSolid()));},
+        [](){return std::make_pair(std::string("capsule3DSolid"), std::make_unique<VisualizerDraw>(Primitives::capsule3DSolid(4, 1, 12, 0.75f)));},
+        [](){return std::make_pair(std::string("circle3DSolid"), std::make_unique<VisualizerDraw>(Primitives::circle3DSolid(16)));},
+        [](){return std::make_pair(std::string("capsule3DSolid"), std::make_unique<SoldDraw>(Primitives::capsule3DSolid(4, 1, 12, 0.75f)));},
+        [](){return std::make_pair(std::string("circle3DSolid"), std::make_unique<SoldDraw>(Primitives::circle3DSolid(16)));},
+        [](){return std::make_pair(std::string("coneSolid"), std::make_unique<SoldDraw>(Primitives::coneSolid(1, 12, 1.25f, Primitives::ConeFlag::CapEnd)));},
+        [](){return std::make_pair(std::string("cubeSolid"), std::make_unique<SoldDraw>(Primitives::cubeSolid()));},
+        [](){return std::make_pair(std::string("cylinderSolid"), std::make_unique<SoldDraw>(Primitives::cylinderSolid(1, 12, 1.0f, Primitives::CylinderFlag::CapEnds)));},
+        [](){return std::make_pair(std::string("grid3DSolid"), std::make_unique<SoldDraw>(Primitives::grid3DSolid({5, 3})));},
+        [](){return std::make_pair(std::string("icosphereSolid"), std::make_unique<SoldDraw>(Primitives::icosphereSolid(1)));},
+        [](){return std::make_pair(std::string("planeSolid"), std::make_unique<SoldDraw>(Primitives::planeSolid()));},
+        [](){return std::make_pair(std::string("uvSphereSolid"), std::make_unique<SoldDraw>(Primitives::uvSphereSolid(8, 16)));}
+    };
+    return fn2.at(index % fn2.size())();
 }
 
 void PrimitivesExample::keyReleaseEvent(KeyEvent& event)
 {
   switch (event.key()) {
   case KeyEvent::Key::Space:
-    _primitivesDraw =  createPrimitives(_index++);
+    std::tie(_name, _primitivesDraw) =  createPrimitives(_index++);
     redraw();
     break;
+    
+  case KeyEvent::Key::S:
+    savePng();
+    break;
+
   default:
     return;
   }
