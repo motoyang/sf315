@@ -21,9 +21,13 @@ int main(int argc, char **argv) {
 	opt.parse_argv(argc, argv);
 
   // generate formatted usage information for all options
-  if (opt.is_true('h')) {
+  if (opt.is_true('h')
+    || ((opt.is_true('s') && opt.is_true('d'))
+    || (opt.is_true('s') && opt.is_true('c'))
+    || (opt.is_true('d') && opt.is_true('c'))
+    || (!opt.is_true('d') && !opt.is_true('s') && !opt.is_true('c')))) {
     std::cout << opt.auto_usage();
-    exit(0);
+    return 0;
   }
 
   // 根据参数，做不同的事情

@@ -28,8 +28,9 @@ namespace rpcpp2 {
 
 
     void reqProcess(const char* url) {
-
-      NodeRequest node(url);
+      std::string withSuffix(url);
+      withSuffix += ".RepReq";
+      NodeRequest node(withSuffix.c_str());
 
       std::string fn1("repFun1");
       std::string fn2("repFun2");
@@ -43,6 +44,12 @@ namespace rpcpp2 {
       std::string info;
       callOn(node, fn3, info);
       std::cout << info << std::endl;
+
+      using namespace std::chrono_literals;
+      std::this_thread::sleep_for(10s);
+
+      callOn(node, fn3, info);
+      std::cout << "222------" << info << std::endl;
       callOn(node, fn4, result);
       std::cout << "result4: " << result << std::endl;
     }
@@ -54,7 +61,19 @@ namespace rpcpp2 {
                   << s << std::endl;
       };
 
-      NodeSubscriber node(url);
+      std::string withSuffix(url);
+      withSuffix += ".PubSub";
+      NodeSubscriber node(withSuffix.c_str());
+      node.receive(f);
+    }
+
+    void subProcess2(NodeSubscriber& node) {
+      auto f = [](msgpack::object_handle const& oh) {
+        std::string s = oh.get().as<std::string>();
+        std::cout << "Received " << s.size() << " bytes:" << std::endl
+                  << s << std::endl;
+      };
+
       node.receive(f);
     }
 
@@ -66,9 +85,23 @@ namespace rpcpp2 {
       std::threadpool pool(1);
       gp_client = &pool;
 
-      gp_client->commit(subProcess, url.c_str());
+      //      auto fu =
+      //      gp_client->commit(subProcess, url.c_str());
 
-//      reqProcess(url.c_str());
+      std::string withSuffix(url);
+      withSuffix += ".PubSub";
+      NodeSubscriber node(withSuffix.c_str());
+      gp_client->commit(subProcess2, node);
+
+      using namespace std::chrono_literals;
+      std::this_thread::sleep_for(5s);
+      node.close();
+
+      reqProcess(url.c_str());
+
+      pool.stop();
+      pool.join_all();
+
       return r;
     }
   }

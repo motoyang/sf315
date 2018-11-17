@@ -499,7 +499,7 @@ const char *Anyarg::auto_usage()
 	int nindent = 28;
 
 	help_.clear();
-	help_.append("Options\n");
+	help_.append("Usages:\n");
 
 	for (int i = 0; i < options_.size(); i++) {
 		const Option &opt = options_[i];

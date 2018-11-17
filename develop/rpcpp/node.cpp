@@ -4,7 +4,7 @@
 #include <chrono>
 #include <thread>
 
-//#include <nanolog/nanolog.hpp>
+#include <nanolog/nanolog.hpp>
 
 #include <nng/nng.h>
 #include <nng/protocol/reqrep0/rep.h>

@@ -16,6 +16,7 @@ namespace rpcpp2 {
       NodeSubscriber(const char* url);
       ~NodeSubscriber();
 
+      void close();
       void receive(std::function<void(msgpack::object_handle const&)>&& f) const;
     };
 

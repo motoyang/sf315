@@ -87,7 +87,13 @@ int initReply(const char* url) {
       .exportMethod("sub", &AddObject::sub);
   r.show();
 
-  rpcpp2::server::repProcess(url, reply);
+  std::string withSuffix(url);
+  withSuffix += ".RepReq";
+
+  LOG_INFO << "repProcess started...";
+  rpcpp2::server::repProcess(withSuffix.c_str(), reply);
+  LOG_INFO << "repProcess end.";
+
   return 0;
 }
 
@@ -102,7 +108,13 @@ int initPublish(const char* url) {
     return ss2.str();
   };
 
-  rpcpp2::server::pubProcess(url, f);
+  std::string withSuffix(url);
+  withSuffix += ".PubSub";
+
+  LOG_INFO << "pubProcess start.";
+  rpcpp2::server::pubProcess(withSuffix.c_str(), f);
+  LOG_INFO << "pubProcess end.";
+
   return 0;
 }
 
@@ -111,16 +123,17 @@ int initPublish(const char* url) {
 int startServer(const Anyarg& opt) {
   std::string url = opt.get_value_str('u');
 
-  // 全局线程池，在本函数退出时，析构pool时，会退出所有线程
-  std::threadpool pool(2);
+  // 服务器的线程池
+  std::threadpool pool(4);
   gp_server = &pool;
 
-//  std::future<int> r = gp_server->commit(initReply, url.c_str());
+  std::future<int> r = gp_server->commit(initReply, url.c_str());
   std::future<int> r2 = gp_server->commit(initPublish, url.c_str());
 
-//  pool.stop(); // 仅仅是调试时需要！！！
+//  pool.stop();
+  pool.join_all();
 
-//  LOG_INFO << "initReply return: " << r.get();
+  LOG_INFO << "initReply return: " << r.get();
   LOG_INFO << "initPublish return: " << r2.get();
 
   return 0;

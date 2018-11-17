@@ -2,6 +2,8 @@
 #include <sstream>
 #include <functional>
 
+#include <nanolog/nanolog.hpp>
+
 #include <msgpack.hpp>
 
 #include <nng/nng.h>
@@ -72,6 +74,10 @@ namespace rpcpp2 {
 
     NodeSubscriber::~NodeSubscriber()
     {
+    }
+
+    void NodeSubscriber::close()
+    {
       int rv;
       if ((rv = nng_close(_sock)) != 0) {
         FATAL_EXIT(rv);
@@ -84,21 +90,23 @@ namespace rpcpp2 {
       while (gp_client->runable()) {
         char *buf = NULL;
         size_t sz;
-        if ((rv = nng_recv(_sock, &buf, &sz, NNG_FLAG_ALLOC | NNG_FLAG_NONBLOCK)) != 0) {
-          if (rv == NNG_EAGAIN) {
-            continue;
-          } else {
-            FATAL_EXIT(rv);
+        //        if ((rv = nng_recv(_sock, &buf, &sz, NNG_FLAG_ALLOC | NNG_FLAG_NONBLOCK)) != 0) {
+        if ((rv = nng_recv(_sock, &buf, &sz, NNG_FLAG_ALLOC)) != 0) {
+          //          if (rv == NNG_EAGAIN) {
+          //            continue;
+          //          } else {
+          if (rv == NNG_ECLOSED) {
+            LOG_INFO << "socket subscribe closed.";
+            break;
           }
+          FATAL_EXIT(rv);
         }
         msgpack::object_handle oh = msgpack::unpack(buf, sz);
         f(oh);
         nng_free(buf, sz);
       }
-
     }
-
-
-
   }
 }
+
+
