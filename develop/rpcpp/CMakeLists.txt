@@ -31,7 +31,7 @@ FILE(GLOB SRC_FILES "./*.cpp")
 #同理，查找当前文件夹中所有的头文件  
 FILE(GLOB HEAD_FILES "./*.h")   
   
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-inconsistent-missing-override")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-inconsistent-missing-override -Wno-braced-scalar-init")
 
 #创建工程文件  
 add_executable(${PROJECT_NAME} ${SRC_FILES} ${HEAD_FILES})  

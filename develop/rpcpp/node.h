@@ -18,6 +18,7 @@ public:
     return _running;
   }
   int close() {
+    LOG_INFO << "node will be closed.";
     _running = false;
     return nng_close(_sock);
   }
@@ -25,5 +26,23 @@ public:
     return nng_strerror(e);
   }
 };
+
+// --
+
+class PushNode: public Node {
+public:
+  PushNode(const std::string& url);
+  int send(void *buf, size_t len);
+};
+
+// --
+
+class PullNode: public Node {
+public:
+  PullNode(const std::string& url);
+  int recv(char **buf, size_t *len);
+};
+
+// --
 
 }

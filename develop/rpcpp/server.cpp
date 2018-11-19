@@ -10,15 +10,16 @@
 
 #include <nanolog/nanolog.hpp>
 
-#include <msgpack.hpp>
+#include <msgpack-c/msgpack.hpp>
 
 #include <nng/nng.h>
 #include <nng/protocol/reqrep0/rep.h>
 #include <nng/protocol/reqrep0/req.h>
 
-#include "register.h"
 #include "anyarg.h"
 #include "threadpool.h"
+#include "rpcpp.h"
+#include "register.h"
 #include "node.h"
 #include "nodeserver.h"
 #include "task.h"
@@ -46,9 +47,18 @@ std::string reply(const char *buf, size_t len) {
   return result;
 }
 
+std::future<int> commitResponder(const std::string& url) {
+  auto p = std::make_unique<rpcpp2::server::ReplyTask>(url + ".RepReq");
+  p->init(initRep, 33);
+  p->reply(reply);
+  std::future<int> r = g_poolServer->commit(*p);
+  g_tmServer->AddTask("Rep1", std::move(p));
+  return r;
+}
+
 // --
 
-std::string pub1(int i) {
+std::string publish(int i) {
   std::time_t t = std::time(nullptr);
   std::stringstream ss;
   ss << std::put_time(std::localtime(&t), "%F %T");
@@ -63,10 +73,72 @@ void interval() {
   std::this_thread::sleep_for(2s);
 }
 
+std::future<int> commitPublisher(const std::string& url) {
+  auto p = std::make_unique<rpcpp2::server::PublishTask>(url + ".PubSub");
+  p->publish(publish, 23);
+  p->interval(interval);
+  std::future<int> r = g_poolServer->commit(*p);
+  g_tmServer->AddTask("Pub1", std::move(p));
+  return r;
+}
+
+// --
+
+void pull(const char* buf, size_t len) {
+  msgpack::object_handle oh = msgpack::unpack(buf, len);
+  std::string s = oh.get().as<std::string>();
+  std::cout << "Puller get " << s.size() << " bytes:" << std::endl
+            << s << std::endl;
+}
+
+std::future<int> commitPuller(const std::string& url) {
+  auto p = std::make_unique<rpcpp2::PullTask>(url + ".P2C1");
+  p->init([](){return true;});
+  p->pull(pull);
+  std::future<int> r = g_poolServer->commit(*p);
+  g_tmServer->AddTask("P2C1", std::move(p));
+  return r;
+}
+
+// --
+
+std::string say(int i, double d, const std::string s) {
+  std::time_t t = std::time(nullptr);
+  std::stringstream ss;
+  ss << "Server say: i = " << i << ", d = " << d << ", s = " << s << std::endl;
+  ss << std::put_time(std::localtime(&t), "%F %T");
+  std::stringstream ss2;
+  msgpack::pack(ss2, ss.str());
+  return ss2.str();
+}
+
+void hear(const char* buf, size_t len) {
+  msgpack::object_handle oh = msgpack::unpack(buf, len);
+  std::string s = oh.get().as<std::string>();
+  std::cout << "Server hear " << s.size() << " bytes:" << std::endl
+            << s << std::endl;
+}
+
+void interval3() {
+  using namespace std::chrono_literals;
+  std::this_thread::sleep_for(2s);
+}
+
+std::future<int> commitPairServer(const std::string& url) {
+  auto p = std::make_unique<rpcpp2::server::PairServerTask>(url + ".Pair");
+  p->interval(interval3);
+  p->hear(hear);
+  p->say(say, 32, 6.6, "a good boy.");
+  std::future<int> r = g_poolServer->commit(*p);
+  g_tmServer->AddTask("Pair1", std::move(p));
+  return r;
+}
+
 // --
 
 int startServer(const Anyarg& opt) {
   std::string url = opt.get_value_str('u');
+  LOG_INFO << "url getted: " << url;
 
   // 服务器的线程池
   rpcpp2::threadpool pool(6);
@@ -75,23 +147,18 @@ int startServer(const Anyarg& opt) {
   rpcpp2::TaskManager tm;
   g_tmServer = &tm;
 
-  auto p1 = std::make_unique<rpcpp2::server::PublishTask>(url + ".PubSub");
-  p1->publish(pub1, 23);
-  p1->interval(interval);
-  std::future<int> r = pool.commit(*p1);
-  tm.AddTask("Pub1", std::move(p1));
-
-  auto p2 = std::make_unique<rpcpp2::server::ReplyTask>(url + ".RepReq");
-  p2->init(initRep, 33);
-  p2->reply(reply);
-  std::future<int> r2 = pool.commit(*p2);
-  tm.AddTask("Rep1", std::move(p2));
+  std::future<int> r1 = commitResponder(url);
+  std::future<int> r2 = commitPublisher(url);
+  std::future<int> r3 = commitPuller(url);
+  std::future<int> r4 = commitPairServer(url);
 
 //  pool.stop();
   pool.join_all();
 
-  LOG_INFO << "initReply return: " << r.get();
-  LOG_INFO << "initPublish return: " << r2.get();
+  LOG_INFO << "Responder return: " << r1.get();
+  LOG_INFO << "Publisher return: " << r2.get();
+  LOG_INFO << "Puller return: " << r3.get();
+  LOG_INFO << "PairServer return: " << r4.get();
 
   return 0;
 }

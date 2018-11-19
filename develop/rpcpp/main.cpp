@@ -31,21 +31,22 @@ int main(int argc, char **argv) {
   }
 
   // 根据参数，做不同的事情
+  unsigned int log_file_count = 5;
   int r = 0;
   if (opt.is_true('d')) {
-    nanolog::initialize(nanolog::GuaranteedLogger(), "/tmp/", "rpcppd", 1, 3);
+    nanolog::initialize(nanolog::GuaranteedLogger(), "/tmp/", "rpcppd", 1, log_file_count);
     LOG_INFO << "rpcpp started as a deamon services.";
 
     r = startDaemon(opt);
   }
   if (opt.is_true('s')) {
-    nanolog::initialize(nanolog::GuaranteedLogger(), "/tmp/", "rpcpps", 1, 3);
+    nanolog::initialize(nanolog::GuaranteedLogger(), "/tmp/", "rpcpps", 1, log_file_count);
     LOG_INFO << "rpcpp started as a server process.";
 
     r = startServer(opt);
   }
   if (opt.is_true('c')) {
-    nanolog::initialize(nanolog::GuaranteedLogger(), "/tmp/", "rpcppc", 1, 3);
+    nanolog::initialize(nanolog::GuaranteedLogger(), "/tmp/", "rpcppc", 1, log_file_count);
     LOG_INFO << "rpcpp started as a client program.";
 
     r = startClient(opt);

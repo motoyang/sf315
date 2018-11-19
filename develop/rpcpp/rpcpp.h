@@ -7,6 +7,7 @@
 // --
 
 #define FATAL_EXIT(err) fatal(err, __FILE__, __func__, __LINE__)
+#define LOG_TRACK (LOG_INFO << " haha...")
 
 // --
 

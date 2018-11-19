@@ -8,12 +8,13 @@
 
 #include <nanolog/nanolog.hpp>
 
-#include <msgpack.hpp>
+#include <msgpack-c/msgpack.hpp>
 
 #include <nng/nng.h>
 #include <nng/protocol/reqrep0/rep.h>
 #include <nng/protocol/pubsub0/pub.h>
 
+#include "rpcpp.h"
 #include "node.h"
 #include "nodeclient.h"
 #include "task.h"
@@ -33,10 +34,12 @@ SubscribeTask::SubscribeTask(const std::string &url)
 
 int SubscribeTask::operator()()
 {
+  LOG_TRACK;
   if (!_init()) {
     return -1;
   }
 
+  LOG_INFO << "_init() passed in operator().";
   int rv;
   while (_node.run()) {
     char *buf = NULL;
@@ -50,6 +53,7 @@ int SubscribeTask::operator()()
     nng_free(buf, sz);
   }
 
+  LOG_INFO << "operator() will return with 0.";
   return 0;
 }
 
@@ -64,7 +68,7 @@ msgpack::object_handle RequestTask::sendAndRecv(const std::string &s)
 {
   int rv = 0;
   if ((rv = _node.send((void*)s.data(), s.size())) != 0) {
-    if (rv != NNG_ECLOSED) {
+    if (rv == NNG_ECLOSED) {
       return msgpack::object_handle();
     }
   }
@@ -72,7 +76,7 @@ msgpack::object_handle RequestTask::sendAndRecv(const std::string &s)
   char *buf = NULL;
   size_t sz = 0;
   if ((rv = _node.recv(&buf, &sz)) != 0) {
-    if (rv != NNG_ECLOSED) {
+    if (rv == NNG_ECLOSED) {
       return msgpack::object_handle();
     }
   }
@@ -90,7 +94,9 @@ RequestTask::RequestTask(const std::string &url)
 
 int RequestTask::operator()()
 {
+  LOG_TRACK;
   int r = _request();
+  LOG_INFO << "operator() will return with 0.";
   return r;
 }
 

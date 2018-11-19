@@ -2,7 +2,12 @@
 
 // --
 namespace rpcpp2 {
+
 namespace client {
+
+// --
+
+using PairClientTask = PairTask<PairNode>;
 
 // --
 
@@ -47,14 +52,17 @@ public:
 
   template <typename R, typename... Args>
   int call(const std::string &fn, R &result, Args&&... args) {
+    int r = -1;
     std::stringstream ss;
     msgpack::pack(ss, fn);
     ((msgpack::pack(ss, std::forward<Args>(args)), ...));
 
     msgpack::object_handle oh = sendAndRecv(ss.str());
-    oh.get().convert(result);
-
-    return 0;
+    if (!oh.get().is_nil()) {
+      oh.get().convert(result);
+      r = 0;
+    }
+    return r;
   }
 
   template <typename... Args>

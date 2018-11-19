@@ -12,6 +12,7 @@
 #include <atomic>
 #include <queue>
 #include <fstream>
+#include <sstream>
 #include <iomanip>
 
 namespace nanolog
@@ -91,6 +92,18 @@ namespace nanolog
 
 		template<typename T>
 		constexpr bool is_c_string_v = is_c_string<T>::value;
+
+		template<typename T>
+		struct is_std_string;
+
+		template<typename T>
+		struct is_std_string: std::integral_constant<bool, std::is_same_v<std::string, std::remove_cv_t<
+				std::remove_reference_t<T>>>>
+		{
+		};
+
+		template<typename T>
+		constexpr bool is_std_string_v = is_std_string<T>::value;
 	} // anonymous namespace
 
 	inline char const * to_string(LogLevel loglevel)
@@ -155,6 +168,12 @@ namespace nanolog
 			}
 			else if constexpr(is_c_string_v<Arg>) {
 				encode_c_string(arg);
+			} else if constexpr(is_std_string_v<Arg>) {
+				encode_c_string(arg.c_str());
+			} else {
+				std::stringstream ss;
+				ss << arg;
+				encode_c_string(ss.str().c_str());
 			}
 
 			return *this;

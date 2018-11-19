@@ -7,6 +7,11 @@ namespace server {
 
 // --
 
+using PairServerTask = PairTask<PairNode>;
+
+
+// --
+
 class PublishTask: public Task {
   PublishNode _node;
   std::function<void()> _interval;

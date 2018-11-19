@@ -3,7 +3,7 @@
 #include <sstream>
 #include <unordered_map>
 
-#include <msgpack.hpp>
+#include <msgpack-c/msgpack.hpp>
 #include <nanolog/nanolog.hpp>
 #include <nng/nng.h>
 #include <nng/protocol/reqrep0/rep.h>
@@ -41,6 +41,7 @@ std::string demangle(const char *name)
 }
 
 void Register::show() const {
+  LOG_INFO << _map;
   std::cout << _map << std::endl;
   std::cout << _queryFunMap << std::endl;
   std::cout << _queryMethodMap << std::endl;

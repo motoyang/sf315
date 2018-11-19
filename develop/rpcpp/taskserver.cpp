@@ -7,7 +7,7 @@
 
 #include <nanolog/nanolog.hpp>
 
-#include <msgpack.hpp>
+#include <msgpack-c/msgpack.hpp>
 
 #include <nng/nng.h>
 #include <nng/protocol/reqrep0/rep.h>
@@ -35,6 +35,8 @@ PublishTask::PublishTask(const std::string &url)
 
 int PublishTask::operator() ()
 {
+  LOG_TRACK;
+
   while (_node.run()) {
     std::string s = _publish();
 
@@ -49,6 +51,7 @@ int PublishTask::operator() ()
   }
   _node.close();
 
+  LOG_INFO << "operator() will return with 0.";
   return 0;
 }
 
@@ -66,9 +69,11 @@ ReplyTask::ReplyTask(const std::string &url)
 
 int ReplyTask::operator()()
 {
+  LOG_TRACK;
   if (!_init()) {
     return -1;
   }
+  LOG_INFO << "_init() passed in operator().";
 
   while (_node.run()) {
     char *buf = NULL;
@@ -89,6 +94,7 @@ int ReplyTask::operator()()
     }
   }
 
+  LOG_INFO << "operator() will return with 0.";
   return 0;
 }
 

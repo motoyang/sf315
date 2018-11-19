@@ -24,5 +24,12 @@ public:
 
 // --
 
+class PairNode: public Node {
+public:
+  PairNode(const std::string& url);
+  int recv(char **buf, size_t *len);
+  int send(void *buf, size_t len);
+};
+
 }
 }
