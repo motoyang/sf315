@@ -11,98 +11,89 @@
 
 #include "anyarg.h"
 #include "threadpool.h"
-#include "nodeClient.h"
+#include "node.h"
+#include "nodeclient.h"
+#include "task.h"
+#include "taskclient.h"
 #include "client.h"
 
 // --
 
-namespace {
+rpcpp2::threadpool* g_poolClient = nullptr;
+rpcpp2::TaskManager* g_tmClient = nullptr;
 
-}
 // --
 
-std::threadpool* gp_client = nullptr;
+void subscribe(const char* buf, size_t len) {
+  msgpack::object_handle oh = msgpack::unpack(buf, len);
+  std::string s = oh.get().as<std::string>();
+  std::cout << "Received " << s.size() << " bytes:" << std::endl
+            << s << std::endl;
+}
 
-namespace rpcpp2 {
-  namespace client {
+// --
 
+int request(rpcpp2::client::RequestTask* rt) {
+  std::string fn1("repFun1");
+  std::string fn2("repFun2");
+  std::string fn3("query");
+  std::string fn4("quit");
+  int result;
+  rt->call(fn1, result, 55, std::string("client coming."));
+  std::cout << "result: " << result << std::endl;
+  rt->call(fn2, result, 66, std::string("client2 coming2."));
+  std::cout << "result2: " << result << std::endl;
+  std::string info;
+  rt->call(fn3, info);
+  std::cout << info << std::endl;
 
-    void reqProcess(const char* url) {
-      std::string withSuffix(url);
-      withSuffix += ".RepReq";
-      NodeRequest node(withSuffix.c_str());
+  using namespace std::chrono_literals;
+  std::this_thread::sleep_for(15s);
 
-      std::string fn1("repFun1");
-      std::string fn2("repFun2");
-      std::string fn3("query");
-      std::string fn4("quit");
-      int result;
-      callOn(node, fn1, result, 55, std::string("client coming."));
-      std::cout << "result: " << result << std::endl;
-      callOn(node, fn2, result, 66, std::string("client2 coming2."));
-      std::cout << "result2: " << result << std::endl;
-      std::string info;
-      callOn(node, fn3, info);
-      std::cout << info << std::endl;
+  rt->call(fn3, info);
+  std::cout << "222------" << std::endl
+            << info << std::endl;
+  rt->callAndClose(fn4);
+  std::cout << "result4: quit" << std::endl;
 
-      using namespace std::chrono_literals;
-      std::this_thread::sleep_for(10s);
+  return 99;
+}
 
-      callOn(node, fn3, info);
-      std::cout << "222------" << info << std::endl;
-      callOn(node, fn4, result);
-      std::cout << "result4: " << result << std::endl;
-    }
+// --
 
-    void subProcess(const char* url) {
-      auto f = [](msgpack::object_handle const& oh) {
-        std::string s = oh.get().as<std::string>();
-        std::cout << "Received " << s.size() << " bytes:" << std::endl
-                  << s << std::endl;
-      };
+int startClient(const Anyarg &opt) {
+  int r = 0;
+  std::string url = opt.get_value_str('u');
 
-      std::string withSuffix(url);
-      withSuffix += ".PubSub";
-      NodeSubscriber node(withSuffix.c_str());
-      node.receive(f);
-    }
+  // 全局线程池，在本函数退出时，析构pool时，会退出所有线程
+  rpcpp2::threadpool pool(2);
+  g_poolClient = &pool;
 
-    void subProcess2(NodeSubscriber& node) {
-      auto f = [](msgpack::object_handle const& oh) {
-        std::string s = oh.get().as<std::string>();
-        std::cout << "Received " << s.size() << " bytes:" << std::endl
-                  << s << std::endl;
-      };
+  rpcpp2::TaskManager tm;
+  g_tmClient = &tm;
 
-      node.receive(f);
-    }
+  auto p1 = std::make_unique<rpcpp2::client::SubscribeTask>(url + ".PubSub");
+  p1->init([]() {return true;});
+  p1->subscribe(subscribe);
+  std::future<int> f1 = pool.commit(*p1);
+  tm.AddTask("Sub1", std::move(p1));
 
-    int startClient(const Anyarg &opt) {
-      int r = 0;
-      std::string url = opt.get_value_str('u');
+  auto p2 = std::make_unique<rpcpp2::client::RequestTask>(url + ".RepReq");
+  p2->request(request, p2.get());
+  std::future<int> f2 = pool.commit(*p2);
+  tm.AddTask("Req1", std::move(p2));
 
-      // 全局线程池，在本函数退出时，析构pool时，会退出所有线程
-      std::threadpool pool(1);
-      gp_client = &pool;
+  std::cout << "wait for 20s..." << std::endl;
+  using namespace std::chrono_literals;
+  std::this_thread::sleep_for(20s);
+  std::cout << "quit." << std::endl;
 
-      //      auto fu =
-      //      gp_client->commit(subProcess, url.c_str());
+  tm.stop();
+  pool.stop();
+  pool.join_all();
 
-      std::string withSuffix(url);
-      withSuffix += ".PubSub";
-      NodeSubscriber node(withSuffix.c_str());
-      gp_client->commit(subProcess2, node);
+  std::cout << "f1 = " << f1.get() <<  std::endl;
+  std::cout << "f2 = " << f2.get() <<  std::endl;
 
-      using namespace std::chrono_literals;
-      std::this_thread::sleep_for(5s);
-      node.close();
-
-      reqProcess(url.c_str());
-
-      pool.stop();
-      pool.join_all();
-
-      return r;
-    }
-  }
+  return r;
 }

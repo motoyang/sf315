@@ -10,7 +10,7 @@
 #include <nng/protocol/reqrep0/req.h>
 
 #include <pp/prettyprint.h>
-#include "Register.h"
+#include "register.h"
 
 namespace std {
 

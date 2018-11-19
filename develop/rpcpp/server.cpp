@@ -16,42 +16,21 @@
 #include <nng/protocol/reqrep0/rep.h>
 #include <nng/protocol/reqrep0/req.h>
 
+#include "register.h"
 #include "anyarg.h"
 #include "threadpool.h"
 #include "node.h"
-#include "Register.h"
+#include "nodeserver.h"
+#include "task.h"
+#include "taskserver.h"
 #include "server.h"
 
 // --
 
-std::threadpool* gp_server = nullptr;
+rpcpp2::threadpool* g_poolServer = nullptr;
+rpcpp2::TaskManager* g_tmServer = nullptr;
 
 // --
-
-int repFun1(int i, const std::string &s) {
-  std::cout << __FUNCTION__ << " was called." << std::endl;
-  std::cout << i << ", " << s << std::endl;
-
-  return 3;
-}
-
-int repFun2(int i, const std::string &s) {
-  std::cout << __FUNCTION__ << " was called." << std::endl;
-  std::cout << i << ", " << s << std::endl;
-
-  return 6;
-}
-
-int quit() {
-  std::cout << __FUNCTION__ << " was called." << std::endl;
-  gp_server->stop();
-  return 0;
-}
-
-std::string query() {
-  std::cout << __FUNCTION__ << " was called." << std::endl;
-  return rpcpp2::server::Register::instance().query();
-}
 
 std::string reply(const char *buf, size_t len) {
   std::size_t off = 0;
@@ -69,53 +48,19 @@ std::string reply(const char *buf, size_t len) {
 
 // --
 
-class AddObject {
-public:
-  int add(int i, int j) { return (i + j) * 2; }
-  int sub(int i, int j) { return (i - j) * 2; }
-};
+std::string pub1(int i) {
+  std::time_t t = std::time(nullptr);
+  std::stringstream ss;
+  ss << std::put_time(std::localtime(&t), "%F %T");
+  std::stringstream ss2;
+  msgpack::pack(ss2, ss.str());
 
-// --
-
-int initReply(const char* url) {
-  rpcpp2::server::Register &r = rpcpp2::server::Register::instance();
-
-  r.exportFun("repFun1", repFun1).exportFun("repFun2", repFun2)
-      .exportFun("quit", quit).exportFun("query", query);
-  r.defineClass(std::string(rpcpp2::server::demangle(typeid(AddObject).name())))
-      .exportMethod("add", &AddObject::add)
-      .exportMethod("sub", &AddObject::sub);
-  r.show();
-
-  std::string withSuffix(url);
-  withSuffix += ".RepReq";
-
-  LOG_INFO << "repProcess started...";
-  rpcpp2::server::repProcess(withSuffix.c_str(), reply);
-  LOG_INFO << "repProcess end.";
-
-  return 0;
+  return ss2.str();
 }
 
-int initPublish(const char* url) {
-  auto f = []() {
-    std::time_t t = std::time(nullptr);
-    std::stringstream ss;
-    ss << std::put_time(std::localtime(&t), "%F %T");
-    std::stringstream ss2;
-    msgpack::pack(ss2, ss.str());
-
-    return ss2.str();
-  };
-
-  std::string withSuffix(url);
-  withSuffix += ".PubSub";
-
-  LOG_INFO << "pubProcess start.";
-  rpcpp2::server::pubProcess(withSuffix.c_str(), f);
-  LOG_INFO << "pubProcess end.";
-
-  return 0;
+void interval() {
+  using namespace std::chrono_literals;
+  std::this_thread::sleep_for(2s);
 }
 
 // --
@@ -124,11 +69,23 @@ int startServer(const Anyarg& opt) {
   std::string url = opt.get_value_str('u');
 
   // 服务器的线程池
-  std::threadpool pool(4);
-  gp_server = &pool;
+  rpcpp2::threadpool pool(6);
+  g_poolServer = &pool;
 
-  std::future<int> r = gp_server->commit(initReply, url.c_str());
-  std::future<int> r2 = gp_server->commit(initPublish, url.c_str());
+  rpcpp2::TaskManager tm;
+  g_tmServer = &tm;
+
+  auto p1 = std::make_unique<rpcpp2::server::PublishTask>(url + ".PubSub");
+  p1->publish(pub1, 23);
+  p1->interval(interval);
+  std::future<int> r = pool.commit(*p1);
+  tm.AddTask("Pub1", std::move(p1));
+
+  auto p2 = std::make_unique<rpcpp2::server::ReplyTask>(url + ".RepReq");
+  p2->init(initRep, 33);
+  p2->reply(reply);
+  std::future<int> r2 = pool.commit(*p2);
+  tm.AddTask("Rep1", std::move(p2));
 
 //  pool.stop();
   pool.join_all();
@@ -147,3 +104,5 @@ int startDaemon(const Anyarg& opt) {
 
   return startServer(opt);
 }
+
+// --

@@ -11,7 +11,7 @@
 
 #include <cxxabi.h>
 
-#include "FuncTraits.h"
+#include "functraits.h"
 
 // --
 
@@ -83,7 +83,6 @@ public:
     std::optional<ValueType> r;
     auto i = _map.find(name);
     if (i != _map.end()) {
-      // std::cout << i->second.first << std::endl;
       r = i->second;
     }
     return r;

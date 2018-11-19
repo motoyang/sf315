@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
     nanolog::initialize(nanolog::GuaranteedLogger(), "/tmp/", "rpcppc", 1, 3);
     LOG_INFO << "rpcpp started as a client program.";
 
-    r = rpcpp2::client::startClient(opt);
+    r = startClient(opt);
   }
   LOG_INFO << "rpcpp quit with return code: " << r;
 
