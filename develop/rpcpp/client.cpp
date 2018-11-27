@@ -1,17 +1,20 @@
-#include <string>
+#include <functional>
 #include <iostream>
 #include <sstream>
+
+#include <pp/prettyprint.h>
 
 #include <nanolog/nanolog.hpp>
 
 #include <msgpack-c/msgpack.hpp>
 
 #include <nng/nng.h>
-#include <nng/protocol/reqrep0/req.h>
 
+#include "caseoutput.h"
 #include "anyarg.h"
 #include "threadpool.h"
 #include "rpcpp.h"
+#include "resolver.h"
 #include "node.h"
 #include "nodeclient.h"
 #include "task.h"
@@ -20,160 +23,115 @@
 
 // --
 
-rpcpp2::threadpool* g_poolClient = nullptr;
-rpcpp2::TaskManager* g_tmClient = nullptr;
+rpcpp::ThreadPool *g_poolClient = nullptr;
+rpcpp::Manager *g_omClient = nullptr;
 
 // --
-namespace  {
+namespace {
 
-void subscribe(const char* buf, size_t len) {
-  msgpack::object_handle oh = msgpack::unpack(buf, len);
-  std::string s = oh.get().as<std::string>();
-  std::cout << "Received " << s.size() << " bytes:" << std::endl
-            << s << std::endl;
+void ff1(int i, const std::string &s, double d) {
+  std::cout << "recv tid: " << std::this_thread::get_id() << std::endl;
+  std::cout << "ff1: " << i << ", " << s << ", " << d << std::endl;
 }
 
-std::future<int> commitSubscriber(const std::string& url) {
-  auto p = std::make_unique<rpcpp2::client::SubscribeTask>(url + ".PubSub");
-  p->init([]() {return true;});
-  p->subscribe(subscribe);
-  std::future<int> r = g_poolClient->commit(*p);
-  g_tmClient->AddTask("Sub1", std::move(p));
-  return r;
+void ff2(const std::string &s, float f) {
+  std::cout << "recv2 tid: " << std::this_thread::get_id() << std::endl;
+  std::cout << "ff2: " << s << ", " << f << std::endl;
 }
 
-// --
-
-int request(rpcpp2::client::RequestTask* rt) {
-  std::string fn1("repFun1");
-  std::string fn2("repFun2");
-  std::string fn3("query");
-  std::string fn4("quit");
-  int result;
-  rt->call(fn1, result, 55, std::string("client coming."));
-  std::cout << "result: " << result << std::endl;
-  rt->call(fn2, result, 66, std::string("client2 coming2."));
-  std::cout << "result2: " << result << std::endl;
-  std::string info;
-  rt->call(fn3, info);
-  std::cout << info << std::endl;
-
-  using namespace std::chrono_literals;
-  std::this_thread::sleep_for(5s);
-
-  rt->call(fn3, info);
-  std::cout << "222------" << std::endl
-            << info << std::endl;
-  rt->callAndClose(fn4);
-  std::cout << "result4: quit" << std::endl;
-
-  return 99;
+void ff3(int i, double d) {
+  std::cout << "recv3 tid: " << std::this_thread::get_id() << std::endl;
+  std::cout << "ff3: " << i << ", " << d << std::endl;
 }
 
-std::future<int> commitRequester(const std::string& url) {
-  auto p = std::make_unique<rpcpp2::client::RequestTask>(url + ".RepReq");
-  p->request(request, p.get());
-  std::future<int> r = g_poolClient->commit(*p);
-  g_tmClient->AddTask("Req1", std::move(p));
-  return r;
+void request_chunk(rpcpp::RequestNode<std::string> *n) {
+  int i1;
+  n->request(i1, std::string("f1"), 12, 23);
+  std::cout << "f1(12, 13) = " << i1 << std::endl;
+
+  std::string s;
+  n->request(s, std::string("f2"), "goodboy");
+  std::cout << "f2(goodboy) = " << s << std::endl;
+
+  std::intptr_t oid;
+  n->request(oid, std::string("getObject"), "e1");
+  std::cout << "getObject(\"e1\") = " << oid << std::endl;
+
+  int i2;
+  n->requestOnObj(i2, std::string("Ex"), std::string("f"), oid, 29);
+  std::cout << "Ex::f(29) = " << i2 << std::endl;
 }
 
-// --
+} // namespace
 
-std::string push(int i, std::string s, double d) {
-  std::stringstream ss;
-  ss << "i = " << i << ", s = " << s << ", d = " << d << std::endl;
+void case1_pull(const std::string &url) {
+  CaseOutput co(__func__);
 
-  std::time_t t = std::time(nullptr);
-  ss << std::put_time(std::localtime(&t), "%F %T");
+  auto p = std::make_unique<rpcpp::Resolver<std::string>>();
+  p->defineFun("f1", ff1);
+  p->defineFun("f2", ff2);
+  p->defineFun("f3", ff3);
+  rpcpp::PullNode<std::string> mp(std::move(p));
 
-  std::stringstream ss2;
-  msgpack::pack(ss2, ss.str());
-
-  return ss2.str();
+  mp.dial((url + ".Pipeline").c_str());
+  mp.transact();
+  mp.transact();
+  mp.transact();
 }
 
-void interval2() {
-  using namespace std::chrono_literals;
-  std::this_thread::sleep_for(1s);
+void case2_request(const std::string &url) {
+  CaseOutput co(__func__);
+
+  rpcpp::RequestNode<std::string> r;
+  r.dial((url + ".RepReq").c_str());
+
+  request_chunk(&r);
 }
 
-std::future<int> commitPusher(const std::string& url) {
-  auto p = std::make_unique<rpcpp2::PushTask>(url + ".P2C1");
-  p->push(push, 128, "have a good day.", 8.88);
-  p->interval(interval2);
-  std::future r = g_poolClient->commit(*p);
-  g_tmClient->AddTask("P2S1", std::move(p));
-  return r;
-}
+std::future<int> case3_requestTask(const std::string &url) {
+  CaseOutput co(__func__);
 
-// --
+  std::string n = "req1";
+  std::future<int> f;
+  auto node = std::make_unique<rpcpp::RequestNode<std::string>>();
+  node->dial((url + ".RepReq").c_str());
 
-std::string say(int i, double d, const std::string s) {
-  std::time_t t = std::time(nullptr);
-  std::stringstream ss;
-  ss << "Client say: i = " << i << ", d = " << d << ", s = " << s << std::endl;
-  ss << std::put_time(std::localtime(&t), "%F %T");
-  std::stringstream ss2;
-  msgpack::pack(ss2, ss.str());
-  return ss2.str();
-}
+  auto t = std::make_unique<rpcpp::RequestTask<std::string>>(n, std::move(node));
+  f = g_poolClient->commit(std::ref(*t), 100);
 
-void hear(const char* buf, size_t len) {
-  msgpack::object_handle oh = msgpack::unpack(buf, len);
-  std::string s = oh.get().as<std::string>();
-  std::cout << "Client hear " << s.size() << " bytes:" << std::endl
-            << s << std::endl;
-}
+  g_omClient->add(std::move(t));
 
-void interval4() {
-  using namespace std::chrono_literals;
-  std::this_thread::sleep_for(1s);
-}
+  rpcpp::RequestTask<std::string> *p =
+      (rpcpp::RequestTask<std::string> *)g_omClient->getObjectPointer(n);
+  p->addChunk(request_chunk);
 
-std::future<int> commitPairClient(const std::string& url) {
-  auto p = std::make_unique<rpcpp2::client::PairClientTask>(url + ".Pair");
-  p->interval(interval4);
-  p->hear(hear);
-  p->say(say, 32, 6.6, "a good boy.");
-  std::future<int> r = g_poolClient->commit(*p);
-  g_tmClient->AddTask("Pair1", std::move(p));
-  return r;
-}
-
+  return f;
 }
 
 // --
 
 int startClient(const Anyarg &opt) {
-  int r = 0;
   std::string url = opt.get_value_str('u');
+  LOG_INFO << "url: " << url;
 
   // 全局线程池，在本函数退出时，析构pool时，会退出所有线程
-  rpcpp2::threadpool pool(6);
+  rpcpp::ThreadPool pool(6);
   g_poolClient = &pool;
 
-  rpcpp2::TaskManager tm;
-  g_tmClient = &tm;
+  rpcpp::Manager om("c_om1");
+  g_omClient = &om;
 
-  std::future<int> f1 = commitSubscriber(url);
-  std::future<int> f2 = commitRequester(url);
-  std::future<int> f3 = commitPusher(url);
-  std::future<int> f4 = commitPairClient(url);
+  case1_pull(url);
+  case2_request(url);
+  case3_requestTask(url);
 
-  std::cout << "wait for 10s..." << std::endl;
-  using namespace std::chrono_literals;
-  std::this_thread::sleep_for(10s);
-  std::cout << "quit." << std::endl;
+  std::this_thread::sleep_for(std::chrono::milliseconds(10000));
 
-  tm.stop();
+  om.close();
   pool.stop();
   pool.join_all();
 
-  std::cout << "f1 = " << f1.get() << std::endl;
-  std::cout << "f2 = " << f2.get() << std::endl;
-  std::cout << "f3 = " << f3.get() << std::endl;
-  std::cout << "f4 = " << f4.get() << std::endl;
-
-  return r;
+  return 0;
 }
+
+// --

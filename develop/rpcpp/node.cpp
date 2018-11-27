@@ -10,64 +10,31 @@
 #include <nng/protocol/pipeline0/pull.h>
 #include <nng/protocol/pipeline0/push.h>
 
-#include "threadpool.h"
 #include "rpcpp.h"
 #include "node.h"
 
 // --
 
-namespace rpcpp2 {
+namespace rpcpp {
 
-PushNode::PushNode(const std::string &url)
-{
-  LOG_INFO << "url: " << url;
+Node::Node(Socket::OpenFun f) : _sock(f) {}
 
-  int rv = 0;
-  if ((rv = nng_push0_open(&_sock)) != 0) {
-    FATAL_EXIT(rv);
-  }
-  if ((rv = nng_dial(_sock, url.c_str(), NULL, 0)) != 0) {
-    FATAL_EXIT(rv);
-  }
+bool Node::isRunning() const { return _sock.socketId() > 0; }
+
+int Node::close() {
+  return _sock.close();
 }
 
-int PushNode::send(void *buf, size_t len)
-{
-  int rv = 0;
-  if ((rv = nng_send(_sock, buf, len, 0)) != 0) {
-    if (rv != NNG_ECLOSED) {
-      FATAL_EXIT(rv);
-    }
- }
-  return rv;
-}
+int Node::dial(const char *url) { return _sock.dial(url); }
 
-PullNode::PullNode(const std::string &url)
-{
-  LOG_INFO << "url: " << url;
+int Node::listen(const char *url) { return _sock.listen(url); }
 
-  int rv = 0;
-  if ((rv = nng_pull0_open(&_sock)) != 0) {
-    FATAL_EXIT(rv);
-  }
-  if ((rv = nng_listen(_sock, url.c_str(), NULL, 0)) != 0) {
-    FATAL_EXIT(rv);
-  }
-}
+int Node::recv(char **buf, size_t *len) { return _sock.recv(buf, len); }
 
-int PullNode::recv(char **buf, size_t *len)
-{
-  int rv= 0;
-  if ((rv = nng_recv(_sock, buf, len, NNG_FLAG_ALLOC)) != 0) {
-    if (rv != NNG_ECLOSED) {
-      FATAL_EXIT(rv);
-    }
-  }
-  return rv;
-}
+int Node::send(void *data, size_t len) { return _sock.send(data, len); }
 
-}
+const char *Node::strerror(int e) { return nng_strerror(e); }
 
+// --
 
-
-
+} // namespace rpcpp

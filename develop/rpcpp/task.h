@@ -1,141 +1,131 @@
 #pragma once
 
-bool initRep(int i);
+#include "concurrentqueue.h"
+#include "objects.h"
+#include "node.h"
 
 // --
 
-namespace rpcpp2 {
+namespace rpcpp {
 
 // --
 
-class Task {
+class Task : public Object {
 public:
-  virtual void close() = 0;
+  Task(const std::string &n) : Object(n) {}
 };
 
 // --
 
-class PushTask: public Task {
-  PushNode _node;
-  std::function<std::string()> _push;
-  std::function<void()> _interval;
+template <typename T> class PassiveTask : public Task {
+  std::unique_ptr<T> _node;
 
 public:
-  PushTask(std::string const& url);
-  int operator() ();
+  PassiveTask(const std::string &name, std::unique_ptr<T> &&node)
+      : Task(name), _node(std::forward<decltype(node)>(node)) {}
 
-  template<typename F, typename... Args>
-  void push(F&& f, Args&&... args) {
-    _push = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
-  }
-
-  template<typename F, typename... Args>
-  void interval(F&& f, Args&&... args) {
-    _interval = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
-  }
-
-  virtual void close() override;
-};
-
-// --
-
-class PullTask: public Task{
-  PullNode _node;
-  std::function<bool()> _init;
-  std::function<void(const char*, size_t len)> _pull;
-
-public:
-  PullTask(const std::string& url);
-  int operator() ();
-
-  template<typename F, typename... Args>
-  void init(F&& f, Args&&... args) {
-    _init = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
-  }
-
-  void pull(std::function<void(const char*, size_t len)>&& f) {
-    _pull = f;
-  }
-
-  virtual void close() override;
-};
-
-// --
-
-template<typename Node>
-class PairTask: public Task {
-  Node _node;
-  std::function<void()> _interval;
-  std::function<std::string()> _say;
-  std::function<void(const char*, size_t len)> _hear;
-
-public:
-  PairTask(std::string const& url) : _node(url) {}
-  int operator() () {
-    LOG_TRACK;
-    while (_node.run()) {
-      char *buf = NULL;
-      size_t sz = 0;
-      int rv = 0;
-      if ((rv = _node.recv(&buf, &sz)) == 0) {
-        _hear(buf, sz);
-      }
-      if (rv == NNG_ECLOSED) {
-        break;
-      }
-
-      _interval();
-
-      std::string s = _say();
-      if ((rv = _node.send(s.data(), s.size())) != 0) {
-        if (rv == NNG_ECLOSED) {
-          break;
-        }
-      }
-
+  int operator()() {
+    while (_node->isRunning()) {
+      _node->transact();
     }
-    _node.close();
-
-    LOG_INFO << "operator() will return with 0.";
     return 0;
   }
 
-  void hear(std::function<void(const char*, size_t len)>&& f) {
-    _hear = f;
-  }
-
-  template<typename F, typename... Args>
-  void say(F&& f, Args&&... args) {
-    _say = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
-  }
-
-  template<typename F, typename... Args>
-  void interval(F&& f, Args&&... args) {
-    _interval = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
-  }
-
-  virtual void close() override {
-    _node.close();
-  }
+  virtual void close() override { _node->close(); }
 };
 
 // --
 
-class TaskManager {
-  std::map<std::string, std::unique_ptr<Task>> _tasks;
+template<typename T> using PullTask = PassiveTask<PullNode<T>>;
+template<typename T> using SubscribeTask = PassiveTask<SubscribeNode<T>>;
+template<typename T> using ReplyTask = PassiveTask<ReplyNode<T>>;
+template<typename T> using ResponseTask = PassiveTask<ResponseNode<T>>;
+
+// --
+
+template <typename T> class ActiveTask : public Task {
+public:
+  using ChunkFun = std::function<void(T *)>;
+
+private:
+  std::unique_ptr<T> _node;
+  moodycamel::ConcurrentQueue<ChunkFun> _que;
 
 public:
-  void AddTask(const std::string& n, std::unique_ptr<Task>&& t) {
-    _tasks.insert(std::make_pair(n, std::forward<decltype(t)>(t)));
-  };
+  ActiveTask(const std::string &name, std::unique_ptr<T> &&n)
+      : Task(name), _node(std::forward<decltype(n)>(n)) {}
 
-  void stop() {
-    for (auto& p: _tasks) {
-      p.second->close();
+  int operator()(int ms) {
+    while (_node->isRunning()) {
+      ChunkFun f;
+      while (_que.try_dequeue(f)) {
+        f(_node.get());
+      }
+      if (ms > 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+      }
     }
+    return 0;
   }
+
+  bool addChunk(ChunkFun &&f) {
+    return _que.enqueue(std::forward<ChunkFun>(f));
+  }
+
+  T *node() const { return _node.get(); }
+
+  virtual void close() override { _node->close(); }
 };
 
 // --
 
-}
+template<typename T> using PushTask = ActiveTask<PushNode<T>>;
+template<typename T> using PublishTask = ActiveTask<PublishNode<T>>;
+template<typename T> using RequestTask = ActiveTask<RequestNode<T>>;
+
+// --
+
+template <typename T> class MixedTask : public Task {
+public:
+  using ChunkFun = std::function<void(T *)>;
+
+private:
+  std::unique_ptr<T> _node;
+  moodycamel::ConcurrentQueue<ChunkFun> _que;
+
+public:
+  MixedTask(const std::string &name, std::unique_ptr<T> &&n)
+      : Task(name), _node(std::forward<decltype(n)>(n)) {}
+
+  int operator()(int ms) {
+    while (_node->isRunning()) {
+      ChunkFun f;
+      while (_que.try_dequeue(f)) {
+        f(_node.get());
+      }
+
+      _node->transact();
+
+      if (ms > 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+      }
+    }
+    return 0;
+  }
+
+  bool addChunk(ChunkFun &&f) {
+    return _que.enqueue(std::forward<ChunkFun>(f));
+  }
+
+  T *node() const { return _node.get(); }
+
+  virtual void close() override { _node->close(); }
+};
+
+// --
+
+template<typename T> using PairTask = MixedTask<PairNode<T>>;
+template<typename T> using BusTask = MixedTask<BusNode<T>>;
+template<typename T> using SurveyTask = MixedTask<SurveyNode<T>>;
+
+} // namespace rpcpp

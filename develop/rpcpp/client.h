@@ -5,7 +5,7 @@
 #pragma once
 
 // --
-//namespace rpcpp2 {
+//namespace rpcpp {
 //  namespace client {
 
     int startClient(const Anyarg& opt);

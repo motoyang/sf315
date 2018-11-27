@@ -3,12 +3,18 @@
 #include <stack>
 #include <tuple>
 #include <utility>
+#include <sstream>
+
+#include <msgpack-c/msgpack.hpp>
 
 // --
 
 template <typename T, typename Function, typename Tuple, std::size_t... Index>
 decltype(auto) obj_invoke_impl(T *obj, Function &&func, Tuple &&t,
                                std::index_sequence<Index...>) {
+                                //  return obj->f33(92);
+  auto f = std::mem_fn(std::forward<Function>(func));
+  return f(obj, std::get<Index>(std::forward<Tuple>(t))...);
   return (obj->*func)(std::get<Index>(std::forward<Tuple>(t))...);
 }
 
@@ -155,7 +161,7 @@ struct Call3 {
   typedef typename FuncTraits3<FnPtr>::Params Params;
 
   static std::string f(std::ptrdiff_t pf, const char *buffer, std::size_t len,
-                       std::size_t off) {
+                       std::size_t off, std::size_t o) {
     FnPtr const &fnptr = reinterpret_cast<FnPtr>(pf);
 
     std::stack<msgpack::object_handle> soh;
@@ -175,7 +181,7 @@ struct Call3 {
 template <class FnPtr> struct Call3<FnPtr, void> {
   typedef typename FuncTraits3<FnPtr>::Params Params;
   static std::string f(std::ptrdiff_t pf, const char *buffer, std::size_t len,
-                       std::size_t off) {
+                       std::size_t off, std::size_t o) {
 
     FnPtr const &fnptr = reinterpret_cast<FnPtr const>(pf);
 
@@ -198,13 +204,13 @@ struct CallMember3 {
   typedef typename FuncTraits3<MemFnPtr>::Params Params;
 
   static std::string f(std::ptrdiff_t pf, const char *buffer, std::size_t len,
-                       std::size_t off) {
-    MemFnPtr const &fnptr = *(MemFnPtr const *)&pf;
+                       std::size_t off, std::size_t o) {
+    MemFnPtr const fnptr = *(MemFnPtr const *)pf;
 
-    size_t o;
+    std::intptr_t oid;
     msgpack::object_handle oh = msgpack::unpack(buffer, len, off);
-    oh.get().convert(o);
-    T* obj = (T*)o;
+    oh.get().convert(oid);
+    T *obj = (T *)oid;
 
     std::stack<msgpack::object_handle> soh;
     while (off != len) {
@@ -219,19 +225,18 @@ struct CallMember3 {
   }
 };
 
-template <class MemFnPtr>
-struct CallMember3 <MemFnPtr, void> {
-  typedef typename FuncTraits3 <MemFnPtr>::ClassType T;
-  typedef typename FuncTraits3 <MemFnPtr>::Params Params;
+template <class MemFnPtr> struct CallMember3<MemFnPtr, void> {
+  typedef typename FuncTraits3<MemFnPtr>::ClassType T;
+  typedef typename FuncTraits3<MemFnPtr>::Params Params;
 
-  static std::string f (std::ptrdiff_t pf, const char *buffer, std::size_t len,
-                        std::size_t off) {
-    MemFnPtr const &fnptr = *(MemFnPtr const *)&pf;
+  static std::string f(std::ptrdiff_t pf, const char *buffer, std::size_t len,
+                       std::size_t off, std::size_t o) {
+    MemFnPtr const fnptr = *(MemFnPtr const *)pf;
 
-    size_t o;
+    std::intptr_t oid;
     msgpack::object_handle oh = msgpack::unpack(buffer, len, off);
-    oh.get().convert(o);
-    T* obj = (T*)o;
+    oh.get().convert(oid);
+    T *obj = (T *)oid;
 
     std::stack<msgpack::object_handle> soh;
     while (off != len) {
@@ -244,6 +249,5 @@ struct CallMember3 <MemFnPtr, void> {
     return std::string();
   }
 };
-
 
 // -- end of Call3
