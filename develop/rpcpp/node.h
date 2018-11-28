@@ -39,11 +39,11 @@ public:
     char *data = nullptr;
     size_t len = 0, offset = 0;
     int r = ((D *)this)->recv(&data, &len);
-
-    std::string result = ((D *)this)->resolver()->resolve(data, len, offset);
-    nng_free(data, len);
-
-    return 0;
+    if (0 == r) {
+      std::string result = ((D *)this)->resolver()->resolve(data, len, offset);
+      nng_free(data, len);
+    }
+    return r;
   }
 };
 
@@ -54,10 +54,13 @@ public:
   int transact() {
     char *data = nullptr;
     size_t len = 0, offset = 0;
-    int r = ((D *)this)->recv(&data, &len);
+    std::string result;
 
-    std::string result = ((D *)this)->replier()->reply(data, len, offset);
-    nng_free(data, len);
+    int r = ((D *)this)->recv(&data, &len);
+    if (0 == r) {
+      result = ((D *)this)->replier()->reply(data, len, offset);
+      nng_free(data, len);
+    }
 
     if (result.size() > 0) {
       r = ((D *)this)->send(result.data(), result.size());
@@ -143,6 +146,8 @@ public:
 template <typename T>
 class PushNode : public Node, public Send<T, PushNode<T>> {
 public:
+  using TagType = T;
+
   PushNode() : Node(OpenAsPush) {}
 };
 
@@ -151,6 +156,7 @@ public:
 template <typename T>
 class PublishNode : public Node, public Send<T, PublishNode<T>> {
 public:
+  using TagType = T;
   PublishNode() : Node(OpenAsPub) {}
 };
 
@@ -160,6 +166,7 @@ template <typename T> class PullNode : public Node, public Recv<PullNode<T>> {
   std::unique_ptr<Resolver<T>> _resolver;
 
 public:
+  using TagType = T;
   PullNode(std::unique_ptr<Resolver<T>> &&r)
       : Node(OpenAsPull), _resolver(std::forward<decltype(r)>(r)) {}
 
@@ -173,10 +180,17 @@ class SubscribeNode : public Node, public Recv<SubscribeNode<T>> {
   std::unique_ptr<Resolver<T>> _resolver;
 
 public:
+  using TagType = T;
   SubscribeNode(std::unique_ptr<Resolver<T>> &&r)
-      : Node(OpenAsSub), _resolver(std::forward<decltype(r)>(r)) {}
+      : Node(OpenAsSub), _resolver(std::forward<decltype(r)>(r)) {
+    setTopics("");
+  }
 
   Resolver<T> *resolver() const { return _resolver.get(); }
+
+  int setTopics(const std::string &topics) {
+    return _sock.setOpt(NNG_OPT_SUB_SUBSCRIBE, topics.c_str(), topics.size());
+  }
 };
 
 // --
@@ -184,6 +198,7 @@ public:
 template <typename T>
 class RequestNode : public Node, public Request<T, RequestNode<T>> {
 public:
+  using TagType = T;
   RequestNode() : Node(OpenAsReq) {}
 };
 
@@ -194,6 +209,7 @@ class ReplyNode : public Node, public Reply<ReplyNode<T>> {
   std::unique_ptr<Replier<T>> _replier;
 
 public:
+  using TagType = T;
   ReplyNode(std::unique_ptr<Replier<T>> &&r)
       : Node(OpenAsRep), _replier(std::forward<decltype(r)>(r)) {}
 
@@ -209,10 +225,13 @@ class PairNode : public Node,
   std::unique_ptr<Resolver<T>> _resolver;
 
 public:
-  PairNode(std::unique_ptr<Resolver<T>> &&r)
-      : Node(OpenAsPair), _resolver(std::forward<decltype(r)>(r)) {}
+  using TagType = T;
+  PairNode(std::unique_ptr<Resolver<T>> &&r, nng_duration timeout_ms = 100)
+      : Node(OpenAsPair), _resolver(std::forward<decltype(r)>(r)) {
+    _sock.setOpt(NNG_OPT_RECVTIMEO, &timeout_ms, sizeof(timeout_ms));
+  }
 
-  Resolver<T> *resolver() const { return _resolver; }
+  Resolver<T> *resolver() const { return _resolver.get(); }
 };
 
 // --
@@ -223,23 +242,29 @@ class SurveyNode : public Node,
   std::unique_ptr<Resolver<T>> _resolver;
 
 public:
-  SurveyNode(std::unique_ptr<Resolver<T>> &&r)
-      : Node(OpenAsSurveyor), _resolver(std::forward<decltype(r)>(r)) {}
+  using TagType = T;
+  SurveyNode(std::unique_ptr<Resolver<T>> &&r, nng_duration timeout_ms = 100)
+      : Node(OpenAsSurveyor), _resolver(std::forward<decltype(r)>(r)) {
+    _sock.setOpt(NNG_OPT_RECVTIMEO, &timeout_ms, sizeof(timeout_ms));
+  }
 
-  Resolver<T> *resolver() const { return _resolver; }
+  Resolver<T> *resolver() const { return _resolver.get(); }
 };
 
 // --
 
 template <typename T>
-class ResponseNode : public Node, public Reply<ResponseNode<T>> {
-  std::unique_ptr<Replier<T>> _replier;
+class ResponseNode : public Node,
+                     public Recv<ResponseNode<T>>,
+                     public Send<T, ResponseNode<T>> {
+  std::unique_ptr<Resolver<T>> _resolver;
 
 public:
-  ResponseNode(std::unique_ptr<Replier<T>> &&r)
-      : Node(OpenAsRespondent), _replier(std::forward<decltype(r)>(r)) {}
+  using TagType = T;
+  ResponseNode(std::unique_ptr<Resolver<T>> &&r)
+      : Node(OpenAsRespondent), _resolver(std::forward<decltype(r)>(r)) {}
 
-  Replier<T> *replier() const { return _replier.get(); }
+  Resolver<T> *resolver() const { return _resolver.get(); }
 };
 
 // --
@@ -251,10 +276,11 @@ class BusNode : public Node,
   std::unique_ptr<Resolver<T>> _resolver;
 
 public:
+  using TagType = T;
   BusNode(std::unique_ptr<Resolver<T>> &&r)
       : Node(OpenAsBus), _resolver(std::forward<decltype(r)>(r)) {}
 
-  Resolver<T> *resolver() const { return _resolver; }
+  Resolver<T> *resolver() const { return _resolver.get(); }
 };
 
 // --

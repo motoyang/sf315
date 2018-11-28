@@ -205,7 +205,7 @@ struct CallMember3 {
 
   static std::string f(std::ptrdiff_t pf, const char *buffer, std::size_t len,
                        std::size_t off, std::size_t o) {
-    MemFnPtr const fnptr = *(MemFnPtr const *)pf;
+    MemFnPtr const &fnptr = *(MemFnPtr const *)pf;
 
     std::intptr_t oid;
     msgpack::object_handle oh = msgpack::unpack(buffer, len, off);
@@ -231,7 +231,7 @@ template <class MemFnPtr> struct CallMember3<MemFnPtr, void> {
 
   static std::string f(std::ptrdiff_t pf, const char *buffer, std::size_t len,
                        std::size_t off, std::size_t o) {
-    MemFnPtr const fnptr = *(MemFnPtr const *)pf;
+    MemFnPtr const &fnptr = *(MemFnPtr const *)pf;
 
     std::intptr_t oid;
     msgpack::object_handle oh = msgpack::unpack(buffer, len, off);

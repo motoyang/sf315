@@ -23,26 +23,65 @@ Socket::Socket(OpenFun f) { f(&_sock); }
 
 int Socket::close() {
   int r = nng_close(_sock);
+  if (r) {
+    FATAL_EXIT(r);
+  }
   _sock = NNG_SOCKET_INITIALIZER;
   LOG_INFO << "socket closed: " << r;
-  return  r;
+  return r;
 }
 
-int Socket::dial(const char *url) { return nng_dial(_sock, url, 0, 0); }
+int Socket::dial(const char *url) {
+  int r = nng_dial(_sock, url, 0, 0);
+  if (r) {
+    FATAL_EXIT(r);
+  }
+  return r;
+}
 
-int Socket::listen(const char *url) { return nng_listen(_sock, url, 0, 0); }
+int Socket::listen(const char *url) {
+  int r = nng_listen(_sock, url, 0, 0);
+  if (r) {
+    FATAL_EXIT(r);
+  }
+  return r;
+}
 
 int Socket::recv(void *data, size_t *len) {
-  return nng_recv(_sock, data, len, NNG_FLAG_ALLOC);
+  int r = nng_recv(_sock, data, len, NNG_FLAG_ALLOC);
+  if (r && (NNG_ETIMEDOUT != r) && (NNG_ECLOSED != r)) {
+    FATAL_EXIT(r);
+  }
+  return r;
 }
 
 int Socket::send(void *data, size_t len) {
-  return nng_send(_sock, data, len, 0);
+  int r = nng_send(_sock, data, len, 0);
+  if (r) {
+    FATAL_EXIT(r);
+  }
+  return r;
 }
 int Socket::setOpt(const char *opt, const void *val, size_t valsz) {
-  return nng_setopt(_sock, opt, val, valsz);
+  int r = nng_setopt(_sock, opt, val, valsz);
+  if (r) {
+    FATAL_EXIT(r);
+  }
+  return r;
 }
+
 int Socket::getOpt(const char *opt, void *val, size_t *valszp) {
-  return nng_getopt(_sock, opt, val, valszp);
+  int r = nng_getopt(_sock, opt, val, valszp);
+  if (r) {
+    FATAL_EXIT(r);
+  }
+  return r;
 }
-int Socket::socketId() const { return nng_socket_id(_sock); }
+
+int Socket::socketId() const {
+  int r = nng_socket_id(_sock);
+  // if (r) {
+  //   FATAL_EXIT(r);
+  // }
+  return r;
+}

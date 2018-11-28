@@ -10,7 +10,7 @@
 // --
 namespace rpcpp {
 
-#define FATAL_EXIT(err) fatal(err, __FILE__, __func__, __LINE__)
+#define FATAL_EXIT(err) rpcpp::fatal(err, __FILE__, __func__, __LINE__)
 #define LOG_TRACK (LOG_INFO << " haha...")
 #define LOG_FAIL_EXIT(condition, message)                                      \
   do {                                                                         \
