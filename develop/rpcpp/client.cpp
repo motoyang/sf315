@@ -116,11 +116,11 @@ void case3_request(const std::string &url) {
 std::future<int> case4_requestTask(const std::string &url) {
   CaseOutput co(__func__);
 
-  std::string n = "req1";
   std::future<int> f;
   auto node = std::make_unique<rpcpp::RequestNode<std::string>>();
   node->dial((url + ".RepReq").c_str());
 
+  std::string n = "req1";
   auto t =
       std::make_unique<rpcpp::RequestTask<std::string>>(n, std::move(node));
   f = g_poolClient->commit(std::ref(*t), 100);
@@ -155,11 +155,11 @@ std::future<int> case6_subscribeTask(const std::string &url) {
   auto r = std::make_unique<rpcpp::Resolver<int>>();
   r->defineFun(1, f1_sub).defineFun(2, f2_sub).defineFun(3, f3_sub);
 
-  std::string n = "sub1";
   std::future<int> f;
   auto node = std::make_unique<rpcpp::SubscribeNode<int>>(std::move(r));
   node->dial((url + ".PubSub").c_str());
 
+  std::string n = "sub1";
   auto t = std::make_unique<rpcpp::SubscribeTask<int>>(n, std::move(node));
   f = g_poolClient->commit(std::ref(*t));
 
@@ -202,7 +202,7 @@ std::future<int> case8_pairClientTask(const std::string &url) {
 
   std::string name("pairClientTask");
   auto t = std::make_unique<rpcpp::PairTask<int>>(name, std::move(node));
-  std::future<int> f = g_poolClient->commit(std::ref(*t), 100);
+  std::future<int> f = g_poolClient->commit(std::ref(*t));
   g_omClient->add(std::move(t));
 
   return f;
@@ -250,12 +250,53 @@ std::future<int> case10_responseTask(const std::string &url) {
 
   std::string name("responseTask");
   auto t = std::make_unique<rpcpp::ResponseTask<int>>(name, std::move(node));
-  std::future<int> f = g_poolClient->commit(std::ref(*t), 1);
+  std::future<int> f = g_poolClient->commit(std::ref(*t));
   // std::cout << "this3 = " << t.get() << std::endl;
 
   g_omClient->add(std::move(t));
 
   return f;
+}
+
+// --
+
+void f1_bus(int i, const std::string &s, float f) {
+  std::cout << "f1_bus: i = " << i << ", s = " << s << ", f = " << f
+            << std::endl;
+}
+
+void f2_bus(double d, const std::string &s) {
+  std::cout << "f2_bus: d = " << d << ", s = " << s << std::endl;
+}
+
+std::future<int> case12_busClientTask(const std::string &url) {
+  CaseOutput co(__func__);
+
+  auto r = std::make_unique<rpcpp::Resolver<int>>();
+  r->defineFun(1, f1_bus).defineFun(2, f2_bus);
+
+  auto node = std::make_unique<rpcpp::BusNode<int>>(std::move(r));
+  node->dial((url + ".Bus").c_str());
+
+  std::string name("busClientTask");
+  auto t = std::make_unique<rpcpp::BusTask<int>>(name, std::move(node));
+  std::future<int> f = g_poolClient->commit(std::ref(*t));
+  g_omClient->add(std::move(t));
+
+  return f;
+}
+
+void post_busClient(const std::string &n) {
+  // 向任务中post信息
+  auto p = (rpcpp::PairTask<int> *)g_omClient->getObjectPointer(n);
+  for (int i = 0; i < 30; ++i) {
+    if (i % 3 == 0)
+      p->post(11, 3.3f, std::string("from client of bus, 11"), 33);
+    if (i % 7 == 0)
+      p->post(12, 103, std::string("from client of bus, 12"));
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  }
 }
 
 // --
@@ -280,8 +321,10 @@ int startClient(const Anyarg &opt) {
   std::future<int> f3 = case6_subscribeTask(url);
   std::future<int> f4 = case8_pairClientTask(url);
   std::future<int> f5 = case10_responseTask(url);
+  std::future<int> f6 = case12_busClientTask(url);
 
   g_poolClient->commit(post_pairClient, "pairClientTask");
+  g_poolClient->commit(post_busClient, "busClientTask");
 
   std::cout << "wait for 50s" << std::endl;
   std::this_thread::sleep_for(std::chrono::milliseconds(50000));
@@ -294,6 +337,7 @@ int startClient(const Anyarg &opt) {
   std::cout << "f3 = " << f3.get() << std::endl;
   std::cout << "f4 = " << f4.get() << std::endl;
   std::cout << "f5 = " << f5.get() << std::endl;
+  std::cout << "f6 = " << f6.get() << std::endl;
 
   pool.join_all();
 

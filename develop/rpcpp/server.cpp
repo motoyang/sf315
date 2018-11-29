@@ -230,7 +230,7 @@ std::future<int> case8_pairServerTask(const std::string &url) {
 
   std::string name("pairServerTask");
   auto t = std::make_unique<rpcpp::PairTask<int>>(name, std::move(node));
-  std::future<int> f = g_poolServer->commit(std::ref(*t), 100);
+  std::future<int> f = g_poolServer->commit(std::ref(*t));
   g_omServer->add(std::move(t));
 
   return f;
@@ -263,7 +263,7 @@ std::future<int> case10_surveyTask(const std::string &url) {
   auto r = std::make_unique<rpcpp::Resolver<int>>();
   r->defineFun(1, f1_survey).defineFun(2, f2_survey);
 
-  auto node = std::make_unique<rpcpp::SurveyNode<int>>(std::move(r), 200);
+  auto node = std::make_unique<rpcpp::SurveyNode<int>>(std::move(r));
   node->listen((url + ".SurRes").c_str());
 
   std::string name("surveyTask");
@@ -285,6 +285,45 @@ void post_survey(const std::string &n) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   }
 }
+
+// --
+
+void f11_bus(float f, const std::string s, int i) {
+  std::cout << "f11_bus: f = " << f << ", s = " << s  << ", i = " << i << std::endl;
+}
+
+void f12_bus(int i, const std::string& s) {
+  std::cout << "f12_bus: i = " << i << ", s = " << s << std::endl;
+}
+
+std::future<int> case12_busServerTask(const std::string &url) {
+  CaseOutput co(__func__);
+
+  auto r = std::make_unique<rpcpp::Resolver<int>>();
+  r->defineFun(11, f11_bus).defineFun(12, f12_bus);
+
+  auto node = std::make_unique<rpcpp::BusNode<int>>(std::move(r));
+  node->listen((url + ".Bus").c_str());
+
+  std::string name("busServerTask");
+  auto t = std::make_unique<rpcpp::BusTask<int>>(name, std::move(node));
+  std::future<int> f = g_poolServer->commit(std::ref(*t));
+  g_omServer->add(std::move(t));
+
+  return f;
+}
+
+void post_busServer(const std::string &n) {
+  // 向任务中post信息
+  auto p = (rpcpp::BusTask<int> *)g_omServer->getObjectPointer(n);
+  for (int i = 0; i < 50; ++i) {
+    if (i % 3 == 0)
+      p->post(1, 123, std::string("from server of bus, 1"), 12.3f);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  }
+}
+
 // --
 
 int startServer(const Anyarg &opt) {
@@ -309,11 +348,13 @@ int startServer(const Anyarg &opt) {
   std::future<int> f3 = case6_publishTask(url);
   std::future<int> f4 = case8_pairServerTask(url);
   std::future<int> f5 = case10_surveyTask(url);
+  std::future<int> f6 = case12_busServerTask(url);
 
   g_poolServer->commit(post_push, "pushtask");
   g_poolServer->commit(post_publish, "publishtask");
   g_poolServer->commit(post_pairServer, "pairServerTask");
   g_poolServer->commit(post_survey, "surveyTask");
+  g_poolServer->commit(post_busServer, "busServerTask");
 
   std::cout << "wait for 50s" << std::endl;
   std::this_thread::sleep_for(std::chrono::milliseconds(50000));
@@ -326,6 +367,7 @@ int startServer(const Anyarg &opt) {
   std::cout << "f3 = " << f3.get() << std::endl;
   std::cout << "f4 = " << f4.get() << std::endl;
   std::cout << "f5 = " << f5.get() << std::endl;
+  std::cout << "f6 = " << f6.get() << std::endl;
 
   pool.join_all();
 

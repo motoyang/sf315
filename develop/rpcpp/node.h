@@ -181,16 +181,12 @@ class SubscribeNode : public Node, public Recv<SubscribeNode<T>> {
 
 public:
   using TagType = T;
-  SubscribeNode(std::unique_ptr<Resolver<T>> &&r)
+  SubscribeNode(std::unique_ptr<Resolver<T>> &&r, const std::string& topics = "")
       : Node(OpenAsSub), _resolver(std::forward<decltype(r)>(r)) {
-    setTopics("");
+    _sock.setOpt(NNG_OPT_SUB_SUBSCRIBE, topics.c_str(), topics.size());
   }
 
   Resolver<T> *resolver() const { return _resolver.get(); }
-
-  int setTopics(const std::string &topics) {
-    return _sock.setOpt(NNG_OPT_SUB_SUBSCRIBE, topics.c_str(), topics.size());
-  }
 };
 
 // --
@@ -243,7 +239,7 @@ class SurveyNode : public Node,
 
 public:
   using TagType = T;
-  SurveyNode(std::unique_ptr<Resolver<T>> &&r, nng_duration timeout_ms = 100)
+  SurveyNode(std::unique_ptr<Resolver<T>> &&r, nng_duration timeout_ms = 1000)
       : Node(OpenAsSurveyor), _resolver(std::forward<decltype(r)>(r)) {
     _sock.setOpt(NNG_OPT_RECVTIMEO, &timeout_ms, sizeof(timeout_ms));
   }
@@ -261,8 +257,10 @@ class ResponseNode : public Node,
 
 public:
   using TagType = T;
-  ResponseNode(std::unique_ptr<Resolver<T>> &&r)
-      : Node(OpenAsRespondent), _resolver(std::forward<decltype(r)>(r)) {}
+  ResponseNode(std::unique_ptr<Resolver<T>> &&r, nng_duration timeout_ms = 100)
+      : Node(OpenAsRespondent), _resolver(std::forward<decltype(r)>(r)) {
+    _sock.setOpt(NNG_OPT_RECVTIMEO, &timeout_ms, sizeof(timeout_ms));
+  }
 
   Resolver<T> *resolver() const { return _resolver.get(); }
 };
@@ -277,8 +275,10 @@ class BusNode : public Node,
 
 public:
   using TagType = T;
-  BusNode(std::unique_ptr<Resolver<T>> &&r)
-      : Node(OpenAsBus), _resolver(std::forward<decltype(r)>(r)) {}
+  BusNode(std::unique_ptr<Resolver<T>> &&r, nng_duration timeout_ms = 100)
+      : Node(OpenAsBus), _resolver(std::forward<decltype(r)>(r)) {
+    _sock.setOpt(NNG_OPT_RECVTIMEO, &timeout_ms, sizeof(timeout_ms));
+  }
 
   Resolver<T> *resolver() const { return _resolver.get(); }
 };

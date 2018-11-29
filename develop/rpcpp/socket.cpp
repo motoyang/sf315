@@ -6,6 +6,8 @@
 #include "rpcpp.h"
 #include "socket.h"
 
+// --
+
 Socket::OpenFun OpenAsReq = nng_req_open;
 Socket::OpenFun OpenAsRep = nng_rep_open;
 Socket::OpenFun OpenAsPub = nng_pub_open;
@@ -57,7 +59,7 @@ int Socket::recv(void *data, size_t *len) {
 
 int Socket::send(void *data, size_t len) {
   int r = nng_send(_sock, data, len, 0);
-  if (r) {
+  if (r && (NNG_ETIMEDOUT != r) && (NNG_ECLOSED != r)) {
     FATAL_EXIT(r);
   }
   return r;
@@ -79,9 +81,5 @@ int Socket::getOpt(const char *opt, void *val, size_t *valszp) {
 }
 
 int Socket::socketId() const {
-  int r = nng_socket_id(_sock);
-  // if (r) {
-  //   FATAL_EXIT(r);
-  // }
-  return r;
+  return nng_socket_id(_sock);
 }
