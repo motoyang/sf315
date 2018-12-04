@@ -37,13 +37,26 @@ void test_idle(const std::unique_ptr<LoopT> &loop) {
 void test_timer(const std::unique_ptr<LoopT> &loop) {
   int counter = 0;
   TimerT timer(loop);
-  timer.start([&timer, &counter]() {
-    ++counter;
-    if (counter > 10) {
-      timer.stop();
-      timer.close([]() { std::cout << "timer closed." << std::endl; });
-    }
-  }, 1000, 200);
+  timer.start(
+      [&timer, &counter]() {
+        ++counter;
+        if (counter > 10) {
+          timer.stop();
+          if (counter == 11) {
+            std::cout << "repeat is " << timer.repeat()
+                      << ". set repeat to 1000 and again. now is "
+                      << timer.loop()->now() << std::endl;
+            timer.repeat(1000);
+            timer.again();
+          } else {
+            timer.close([&timer]() {
+              std::cout << "timer closed. repeat is " << timer.repeat()
+                        << ". now is " << timer.loop()->now() << std::endl;
+            });
+          }
+        }
+      },
+      1000, 200);
   timer.data(&counter);
 
   std::cout << "Timer..." << std::endl;
@@ -67,7 +80,7 @@ int main() {
 
   // test_idle(loop);
   test_timer(loop);
-  
+
   loop->close();
   return 0;
 }

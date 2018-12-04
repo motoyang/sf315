@@ -34,6 +34,10 @@ int LoopT::close() { return uv_loop_close(_impl->_loop.get()); }
 
 int LoopT::run(LoopT::RunMode mode) { return uv_run(_impl->_loop.get(), mode); }
 
+uint64_t LoopT::now() const {
+  return uv_now(get());
+}
+
 uv_loop_t *LoopT::get() const { return _impl->_loop.get(); }
 
 // --
