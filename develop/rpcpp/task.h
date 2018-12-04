@@ -17,10 +17,6 @@ protected:
 public:
   Task(const std::string &n, std::unique_ptr<T> &&node)
       : Object(n), _node(std::forward<decltype(node)>(node)) {}
-  // Task(const Task &t) : Object(t._name) { assert(false); }
-  // Task(Task &&t) : Object(std::forward<Task>(t)._name) {
-  //   LOG_INFO << "move task.";
-  // }
 
   virtual void close() override { _node->close(); }
 };
@@ -189,6 +185,14 @@ public:
     msgpack::pack(ss, tag);
     ((msgpack::pack(ss, std::forward<Args>(args)), ...));
     return _que.enqueue(ss.str());
+  }
+
+  template <typename... Args> int send(TagType const &tag, Args &&... args) {
+    return Task<T>::_node->transmit(tag, std::forward<Args>(args)...);
+    // std::stringstream ss;
+    // msgpack::pack(ss, tag);
+    // ((msgpack::pack(ss, std::forward<Args>(args)), ...));
+    // return Task<T>::_node->send(ss.str().data(), ss.str().size());
   }
 };
 

@@ -98,7 +98,7 @@ std::future<int> case2_pullTask(const std::string &url) {
 
   auto t =
       std::make_unique<rpcpp::PullTask<std::string>>("pulltask", std::move(pn));
-  std::future<int> f = g_poolClient->commit(std::ref(*t));
+  std::future<int> f = g_poolClient->execute(std::ref(*t));
   g_omClient->add(std::move(t));
 
   return f;
@@ -123,7 +123,7 @@ std::future<int> case4_requestTask(const std::string &url) {
   std::string n = "req1";
   auto t =
       std::make_unique<rpcpp::RequestTask<std::string>>(n, std::move(node));
-  f = g_poolClient->commit(std::ref(*t), 100);
+  f = g_poolClient->execute(std::ref(*t), 100);
 
   g_omClient->add(std::move(t));
 
@@ -161,7 +161,7 @@ std::future<int> case6_subscribeTask(const std::string &url) {
 
   std::string n = "sub1";
   auto t = std::make_unique<rpcpp::SubscribeTask<int>>(n, std::move(node));
-  f = g_poolClient->commit(std::ref(*t));
+  f = g_poolClient->execute(std::ref(*t));
 
   g_omClient->add(std::move(t));
 
@@ -173,11 +173,15 @@ void f10_pair(int i, const std::string &s, float f) {
             << std::endl;
 }
 
+void f11_pair(const std::string &s) {
+  std::cout << "f11_pair: s = " << s << std::endl;
+}
+
 void cast7_pairClient(const std::string &url) {
   CaseOutput(__func__);
 
   auto r = std::make_unique<rpcpp::Resolver<int>>();
-  r->defineFun(10, f10_pair);
+  r->defineFun(10, f10_pair).defineFun(11, f11_pair);
   auto node = std::make_unique<rpcpp::PairNode<int>>(std::move(r));
   node->dial((url + ".Pair").c_str());
 
@@ -195,14 +199,14 @@ std::future<int> case8_pairClientTask(const std::string &url) {
   CaseOutput co(__func__);
 
   auto r = std::make_unique<rpcpp::Resolver<int>>();
-  r->defineFun(10, f10_pair);
+  r->defineFun(10, f10_pair).defineFun(11, f11_pair);
 
   auto node = std::make_unique<rpcpp::PairNode<int>>(std::move(r));
   node->dial((url + ".Pair").c_str());
 
   std::string name("pairClientTask");
   auto t = std::make_unique<rpcpp::PairTask<int>>(name, std::move(node));
-  std::future<int> f = g_poolClient->commit(std::ref(*t));
+  std::future<int> f = g_poolClient->execute(std::ref(*t));
   g_omClient->add(std::move(t));
 
   return f;
@@ -250,7 +254,7 @@ std::future<int> case10_responseTask(const std::string &url) {
 
   std::string name("responseTask");
   auto t = std::make_unique<rpcpp::ResponseTask<int>>(name, std::move(node));
-  std::future<int> f = g_poolClient->commit(std::ref(*t));
+  std::future<int> f = g_poolClient->execute(std::ref(*t));
   // std::cout << "this3 = " << t.get() << std::endl;
 
   g_omClient->add(std::move(t));
@@ -280,7 +284,7 @@ std::future<int> case12_busClientTask(const std::string &url) {
 
   std::string name("busClientTask");
   auto t = std::make_unique<rpcpp::BusTask<int>>(name, std::move(node));
-  std::future<int> f = g_poolClient->commit(std::ref(*t));
+  std::future<int> f = g_poolClient->execute(std::ref(*t));
   g_omClient->add(std::move(t));
 
   return f;
@@ -299,6 +303,20 @@ void post_busClient(const std::string &n) {
   }
 }
 
+void send_pairClient(char c) {
+  std::string s(20, c);
+  auto p = (rpcpp::PairTask<int> *)g_omClient->getObjectPointer("pairClientTask");
+  for (int i = 0; i < 50; ++i) {
+    p->send(23, s);
+  }
+}
+
+void test_pairClient(int threads) {
+  for (int i = 0; i < threads; ++i) {
+    g_poolClient->execute(send_pairClient, '0' + i);
+  }
+}
+
 // --
 
 int startClient(const Anyarg &opt) {
@@ -306,7 +324,7 @@ int startClient(const Anyarg &opt) {
   LOG_INFO << "url: " << url;
 
   // 全局线程池，在本函数退出时，析构pool时，会退出所有线程
-  rpcpp::ThreadPool pool(16);
+  rpcpp::ThreadPool pool(66);
   g_poolClient = &pool;
 
   rpcpp::Manager om("c_om1");
@@ -316,15 +334,17 @@ int startClient(const Anyarg &opt) {
   // case3_request(url);
   // case5_subscribe(url);
   // cast7_pairClient(url);
-  std::future<int> f1 = case2_pullTask(url);
-  std::future<int> f2 = case4_requestTask(url);
-  std::future<int> f3 = case6_subscribeTask(url);
-  std::future<int> f4 = case8_pairClientTask(url);
-  std::future<int> f5 = case10_responseTask(url);
-  std::future<int> f6 = case12_busClientTask(url);
 
-  g_poolClient->commit(post_pairClient, "pairClientTask");
-  g_poolClient->commit(post_busClient, "busClientTask");
+  // std::future<int> f1 = case2_pullTask(url);
+  // std::future<int> f2 = case4_requestTask(url);
+  // std::future<int> f3 = case6_subscribeTask(url);
+  std::future<int> f4 = case8_pairClientTask(url);
+  // std::future<int> f5 = case10_responseTask(url);
+  // std::future<int> f6 = case12_busClientTask(url);
+  test_pairClient(10);
+
+  // g_poolClient->execute(post_pairClient, "pairClientTask");
+  // g_poolClient->execute(post_busClient, "busClientTask");
 
   std::cout << "wait for 50s" << std::endl;
   std::this_thread::sleep_for(std::chrono::milliseconds(50000));
@@ -332,12 +352,12 @@ int startClient(const Anyarg &opt) {
   om.close();
   pool.stop();
 
-  std::cout << "f1 = " << f1.get() << std::endl;
-  std::cout << "f2 = " << f2.get() << std::endl;
-  std::cout << "f3 = " << f3.get() << std::endl;
+  // std::cout << "f1 = " << f1.get() << std::endl;
+  // std::cout << "f2 = " << f2.get() << std::endl;
+  // std::cout << "f3 = " << f3.get() << std::endl;
   std::cout << "f4 = " << f4.get() << std::endl;
-  std::cout << "f5 = " << f5.get() << std::endl;
-  std::cout << "f6 = " << f6.get() << std::endl;
+  // std::cout << "f5 = " << f5.get() << std::endl;
+  // std::cout << "f6 = " << f6.get() << std::endl;
 
   pool.join_all();
 

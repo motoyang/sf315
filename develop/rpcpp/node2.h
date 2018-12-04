@@ -12,6 +12,7 @@
 
 #include "socket.h"
 #include "resolver.h"
+#include "objects.h"
 
 // --
 
@@ -19,7 +20,7 @@ namespace rpcpp {
 
 // --
 
-template <typename T, typename D> class Send {
+template <typename T, typename D> class Send2 {
 public:
   template <typename... Args> int transmit(T const &tag, Args &&... args) {
     int r = -1;
@@ -33,8 +34,7 @@ public:
 
 // --
 
-template <typename D> class Recv {
-public:
+template <typename D> class Recv2 {
   int transact() {
     char *data = nullptr;
     size_t len = 0, offset = 0;
@@ -45,12 +45,19 @@ public:
     }
     return r;
   }
+
+public:
+  int watch () {
+    while (((D*)this)->isRunning()) {
+      transact();
+    }
+    return 0;
+  }
 };
 
 // --
 
-template <typename D> class Reply {
-public:
+template <typename D> class Reply2 {
   int transact() {
     char *data = nullptr;
     size_t len = 0, offset = 0;
@@ -68,9 +75,16 @@ public:
 
     return r;
   }
+public:
+  int watch() {
+    while (((D*)this)->isRunning()) {
+      transact();
+    }
+    return 0;
+  }
 };
 
-template <typename T, typename D> class Request {
+template <typename T, typename D> class Request2 {
 public:
   template <typename R, typename... Args>
   int write(R &result, T const &tag, Args &&... args) {
@@ -124,51 +138,53 @@ public:
 
 // --
 
-class Node {
+class Node2 : public Object {
 protected:
   Socket _sock;
-
-public:
-  Node(Socket::OpenFun f);
-  virtual ~Node() {}
-
-  bool isRunning() const;
-  int close();
-  int dial(const char *url);
-  int listen(const char *url);
   int recv(char **buf, size_t *len);
   int send(void *data, size_t len);
+
+public:
+  Node2(const std::string &n, Socket::OpenFun f);
+  virtual ~Node2() {}
+
+  bool isRunning() const;
+  int listen(const char *url);
+  int dial(const char *url);
   const char *strerror(int e);
+  virtual void close();
 };
 
 // --
 
 template <typename T>
-class PushNode : public Node, public Send<T, PushNode<T>> {
-public:
-  using TagType = T;
+class PushNode2 : public Node2, public Send2<T, PushNode2<T>> {
+  friend class Send2<T, PushNode2<T>>;
 
-  PushNode() : Node(OpenAsPush) {}
+public:
+  PushNode2(const std::string &n) : Node2(n, OpenAsPush) {}
 };
 
 // --
 
 template <typename T>
-class PublishNode : public Node, public Send<T, PublishNode<T>> {
+class PublishNode2 : public Node2, public Send2<T, PublishNode2<T>> {
+  friend class Send2<T, PublishNode2<T>>;
+
 public:
-  using TagType = T;
-  PublishNode() : Node(OpenAsPub) {}
+  PublishNode2(const std::string &n) : Node2(n, OpenAsPub) {}
 };
 
 // --
 
-template <typename T> class PullNode : public Node, public Recv<PullNode<T>> {
+template <typename T>
+class PullNode2 : public Node2, public Recv2<PullNode2<T>> {
+  friend class Recv2<PullNode2<T>>;
   std::unique_ptr<Resolver<T>> _resolver;
 
 public:
-  using TagType = T;
-  PullNode(std::unique_ptr<Resolver<T>> &&r)
-      : Node(OpenAsPull), _resolver(std::forward<decltype(r)>(r)) {}
+  PullNode2(const std::string &n, std::unique_ptr<Resolver<T>> &&r)
+      : Node2(n, OpenAsPull), _resolver(std::forward<decltype(r)>(r)) {}
 
   Resolver<T> *resolver() const { return _resolver.get(); }
 };
@@ -176,14 +192,14 @@ public:
 // --
 
 template <typename T>
-class SubscribeNode : public Node, public Recv<SubscribeNode<T>> {
+class SubscribeNode2 : public Node2, public Recv2<SubscribeNode2<T>> {
+  friend class Recv2<SubscribeNode2<T>>;
   std::unique_ptr<Resolver<T>> _resolver;
 
 public:
-  using TagType = T;
-  SubscribeNode(std::unique_ptr<Resolver<T>> &&r,
-                const std::string &topics = "")
-      : Node(OpenAsSub), _resolver(std::forward<decltype(r)>(r)) {
+  SubscribeNode2(const std::string &n, std::unique_ptr<Resolver<T>> &&r,
+                 const std::string &topics = "")
+      : Node2(n, OpenAsSub), _resolver(std::forward<decltype(r)>(r)) {
     _sock.setOpt(NNG_OPT_SUB_SUBSCRIBE, topics.c_str(), topics.size());
   }
 
@@ -193,22 +209,23 @@ public:
 // --
 
 template <typename T>
-class RequestNode : public Node, public Request<T, RequestNode<T>> {
+class RequestNode2 : public Node2, public Request2<T, RequestNode2<T>> {
+  friend class Request2<T, RequestNode2<T>>;
+
 public:
-  using TagType = T;
-  RequestNode() : Node(OpenAsReq) {}
+  RequestNode2(const std::string &n) : Node2(n, OpenAsReq) {}
 };
 
 // --
 
 template <typename T>
-class ReplyNode : public Node, public Reply<ReplyNode<T>> {
+class ReplyNode2 : public Node2, public Reply2<ReplyNode2<T>> {
+  friend class Reply2<ReplyNode2<T>>;
   std::unique_ptr<Replier<T>> _replier;
 
 public:
-  using TagType = T;
-  ReplyNode(std::unique_ptr<Replier<T>> &&r)
-      : Node(OpenAsRep), _replier(std::forward<decltype(r)>(r)) {}
+  ReplyNode2(const std::string &n, std::unique_ptr<Replier<T>> &&r)
+      : Node2(n, OpenAsRep), _replier(std::forward<decltype(r)>(r)) {}
 
   Replier<T> *replier() const { return _replier.get(); }
 };
@@ -216,15 +233,18 @@ public:
 // --
 
 template <typename T>
-class PairNode : public Node,
-                 public Recv<PairNode<T>>,
-                 public Send<T, PairNode<T>> {
+class PairNode2 : public Node2,
+                  public Recv2<PairNode2<T>>,
+                  public Send2<T, PairNode2<T>> {
+  friend class Recv2<PairNode2<T>>;
+  friend class Send2<T, PairNode2<T>>;
   std::unique_ptr<Resolver<T>> _resolver;
 
 public:
   using TagType = T;
-  PairNode(std::unique_ptr<Resolver<T>> &&r, nng_duration timeout_ms = 100)
-      : Node(OpenAsPair), _resolver(std::forward<decltype(r)>(r)) {
+  PairNode2(const std::string &n, std::unique_ptr<Resolver<T>> &&r,
+            nng_duration timeout_ms = 100)
+      : Node2(n, OpenAsPair), _resolver(std::forward<decltype(r)>(r)) {
     _sock.setOpt(NNG_OPT_RECVTIMEO, &timeout_ms, sizeof(timeout_ms));
   }
 
@@ -233,33 +253,17 @@ public:
 
 // --
 template <typename T>
-class SurveyNode : public Node,
-                   public Recv<SurveyNode<T>>,
-                   public Send<T, SurveyNode<T>> {
+class SurveyNode2 : public Node2,
+                    public Recv2<SurveyNode2<T>>,
+                    public Send2<T, SurveyNode2<T>> {
+  friend class Recv2<SurveyNode2<T>>;
+  friend class Send2<T, SurveyNode2<T>>;
   std::unique_ptr<Resolver<T>> _resolver;
 
 public:
-  using TagType = T;
-  SurveyNode(std::unique_ptr<Resolver<T>> &&r, nng_duration timeout_ms = 1000)
-      : Node(OpenAsSurveyor), _resolver(std::forward<decltype(r)>(r)) {
-    _sock.setOpt(NNG_OPT_RECVTIMEO, &timeout_ms, sizeof(timeout_ms));
-  }
-
-  Resolver<T> *resolver() const { return _resolver.get(); }
-};
-
-// --
-
-template <typename T>
-class ResponseNode : public Node,
-                     public Recv<ResponseNode<T>>,
-                     public Send<T, ResponseNode<T>> {
-  std::unique_ptr<Resolver<T>> _resolver;
-
-public:
-  using TagType = T;
-  ResponseNode(std::unique_ptr<Resolver<T>> &&r, nng_duration timeout_ms = 100)
-      : Node(OpenAsRespondent), _resolver(std::forward<decltype(r)>(r)) {
+  SurveyNode2(const std::string &n, std::unique_ptr<Resolver<T>> &&r,
+              nng_duration timeout_ms = 1000)
+      : Node2(n, OpenAsSurveyor), _resolver(std::forward<decltype(r)>(r)) {
     _sock.setOpt(NNG_OPT_RECVTIMEO, &timeout_ms, sizeof(timeout_ms));
   }
 
@@ -269,15 +273,38 @@ public:
 // --
 
 template <typename T>
-class BusNode : public Node,
-                public Recv<BusNode<T>>,
-                public Send<T, BusNode<T>> {
+class ResponseNode2 : public Node2,
+                      public Recv2<ResponseNode2<T>>,
+                      public Send2<T, ResponseNode2<T>> {
+  friend class Recv<ResponseNode2<T>>;
+  friend class Send<T, ResponseNode2<T>>;
   std::unique_ptr<Resolver<T>> _resolver;
 
 public:
   using TagType = T;
-  BusNode(std::unique_ptr<Resolver<T>> &&r, nng_duration timeout_ms = 100)
-      : Node(OpenAsBus), _resolver(std::forward<decltype(r)>(r)) {
+  ResponseNode2(const std::string &n, std::unique_ptr<Resolver<T>> &&r,
+                nng_duration timeout_ms = 100)
+      : Node2(n, OpenAsRespondent), _resolver(std::forward<decltype(r)>(r)) {
+    _sock.setOpt(NNG_OPT_RECVTIMEO, &timeout_ms, sizeof(timeout_ms));
+  }
+
+  Resolver<T> *resolver() const { return _resolver.get(); }
+};
+
+// --
+
+template <typename T>
+class BusNode2 : public Node2,
+                 public Recv2<BusNode2<T>>,
+                 public Send2<T, BusNode2<T>> {
+  friend class Recv2<BusNode2<T>>;
+  friend class Send2<T, BusNode2<T>>;
+  std::unique_ptr<Resolver<T>> _resolver;
+
+public:
+  BusNode2(const std::string &n, std::unique_ptr<Resolver<T>> &&r,
+          nng_duration timeout_ms = 100)
+      : Node2(n, OpenAsBus), _resolver(std::forward<decltype(r)>(r)) {
     _sock.setOpt(NNG_OPT_RECVTIMEO, &timeout_ms, sizeof(timeout_ms));
   }
 

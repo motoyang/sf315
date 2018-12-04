@@ -16,8 +16,8 @@ class ThreadPool {
   using Task = function<void()>;
   vector<thread> _pool;
   moodycamel::ConcurrentQueue<Task> _tasks;
-  atomic<bool> _running {true};
-  atomic<int> _idle {0};
+  atomic<bool> _running{true};
+  atomic<int> _idle{0};
 
 public:
   inline ThreadPool(unsigned short size) { addThread(size); }
@@ -28,8 +28,8 @@ public:
   }
 
 public:
-  template <class F, class... Args>
-  auto commit(F &&f, Args &&... args) -> future<decltype(f(args...))> {
+  template <typename F, typename... Args>
+  auto execute(F &&f, Args &&... args) -> future<decltype(f(args...))> {
     using RetType = decltype(f(args...));
     if (!_running) {
       return future<RetType>();
