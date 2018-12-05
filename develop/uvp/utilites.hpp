@@ -12,6 +12,14 @@
     }                                                                          \
   } while (false)
 
+#define LOG_IF_ERROR_RETURN(e)                                                 \
+  do {                                                                         \
+    if (e) {                                                                   \
+      LOG_UV_ERROR(e);                                                         \
+      return (e);                                                              \
+    }                                                                          \
+  } while (false)
+
 #define LOG_IF_ERROR_EXIT(e)                                                   \
   do {                                                                         \
     if (e) {                                                                   \

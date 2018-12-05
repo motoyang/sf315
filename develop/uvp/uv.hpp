@@ -1,8 +1,12 @@
+#pragma once
+
 #include <uv.h>
 
 #include <functional>
 #include <memory>
 #include <initializer_list>
+
+// #include <req.hpp>
 
 // --
 
@@ -18,7 +22,7 @@ public:
   using RunMode = uv_run_mode;
   using LoopOperation = uv_loop_option;
 
-  using WalkCallback = std::function<void(void *)>;
+  using WalkCallback = std::function<void(HandleI *, void *)>;
 
   static std::unique_ptr<LoopT> defaultLoop();
   static size_t size();
@@ -46,23 +50,22 @@ public:
 
 private:
   friend std::unique_ptr<LoopT> defaultLoop();
-  friend class HandleI;
   LoopT(uv_loop_t *l);
 };
 
 // --
 
 class HandleI {
+protected:
   class Impl;
   std::unique_ptr<Impl> _impl;
 
-protected:
   virtual uv_handle_t *getHandle() const = 0;
 
 public:
   using Type = uv_handle_type;
 
-  using AllocCallback = std::function<void(uv_handle_t *, size_t, BufT *)>;
+  using AllocCallback = std::function<void(size_t, BufT *)>;
   using CloseCallback = std::function<void()>;
 
   static size_t size(Type t);
@@ -86,7 +89,7 @@ public:
   // The following handles are supported: TCP, pipes, TTY, UDP and poll. Passing
   // any other handle type will fail with UV_EINVAL.
   int fileno(OsFdT *fd);
-  std::unique_ptr<LoopT> loop() const;
+  LoopT *loop() const;
   void *data() const;
   void *data(void *data);
   Type type() const;
@@ -130,7 +133,7 @@ protected:
   virtual uv_idle_t *getIdle() const override;
 
 public:
-  IdleT(const std::unique_ptr<LoopT> &loop);
+  IdleT(LoopT *loop);
   virtual ~IdleT();
 };
 
@@ -164,8 +167,91 @@ protected:
   virtual uv_timer_t *getTimer() const override;
 
 public:
-  TimerT(const std::unique_ptr<LoopT> &loop);
+  TimerT(LoopT *loop);
   virtual ~TimerT();
 };
 
 // --
+
+class StreamT;
+class StreamI : public HandleI {
+  class Impl;
+  std::unique_ptr<Impl> _impl;
+
+protected:
+  virtual uv_stream_t *getStream() const = 0;
+
+public:
+  
+  using ReadCallback = std::function<void(ssize_t, const BufT *)>;
+  using WriteCallback = std::function<void(uv_write_t*, int)>;
+  using ConnectCallback = std::function<void(int)>;
+  using ShutdownCallback = std::function<void(int)>;
+  using ConnectionCallback = std::function<void(int)>;
+
+  StreamI();
+  virtual ~StreamI();
+
+  int shutdown(uv_shutdown_t *req, ShutdownCallback &&cb);
+  int listen(int backlog, ConnectionCallback &&cb);
+  int accept(StreamT *client);
+  int readStart(AllocCallback &&alloc, ReadCallback &&cb);
+  int readStop();
+  int write(uv_write_t* req, BufT bufs[], unsigned int nbufs, WriteCallback &&cb);
+  int write2(uv_write_t* req, BufT bufs[], unsigned int nbufs, StreamT *sendstream,
+             WriteCallback &&cb);
+  int tryWrite(BufT bufs[], unsigned int nbufs);
+  int isReadable() const;
+  int isWritable() const;
+  int setBlocking(int blocking);
+  int getWriteQueueSize() const;
+};
+
+class StreamT : public StreamI {
+  friend class StreamI;
+  uv_stream_t _stream;
+
+protected:
+  virtual uv_handle_t *getHandle() const;
+  virtual uv_stream_t *getStream() const;
+
+public:
+  StreamT();
+  virtual ~StreamT();
+};
+
+// --
+
+class PipeI : public StreamI {
+protected:
+  // class Impl;
+  // std::unique_ptr<Impl> _impl;
+
+  virtual uv_pipe_t *getPipe() const = 0;
+
+public:
+  using File = uv_file;
+  
+  int open(File file);
+  int bind(const char* name);
+  // int connect(ConnectT* req, const char* name, ConnectCallback&& cb);
+  // int getSockname(char* buffer, size_t* size) const;
+  // int getPeername(char* buffer, size_t* size) const;
+  // int pendingInstances(int count);
+  // int pendingCount(PipeT* pipe);
+  // HandleI::Type pendingType();
+  // int chmod();
+};
+
+class PipeT : public PipeI {
+  uv_pipe_t _pipe;
+
+protected:
+  virtual uv_handle_t *getHandle() const override;
+  virtual uv_stream_t* getStream() const override;
+  virtual uv_pipe_t *getPipe() const override;
+
+public:
+  PipeT(LoopT *loop, int ipc);
+  ~PipeT();
+};

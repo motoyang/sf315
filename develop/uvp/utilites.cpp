@@ -12,7 +12,6 @@ std::ostream &operator<<(std::ostream &stream, const rpcpp::FunType &ft) {
 */
 // --
 
-// hex_dump is not a part of msgpack-c.
 std::ostream &hex_dump(std::ostream &o, std::string const &v) {
   std::ios::fmtflags f(o.flags());
   o << std::hex;
