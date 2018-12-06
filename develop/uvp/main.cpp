@@ -44,26 +44,26 @@ void test_idle(LoopT *loop) {
 void test_timer(LoopT *loop) {
   int counter = 0;
   TimerT timer(loop);
-  timer.start(
-      [&timer, &counter]() {
-        ++counter;
-        if (counter > 10) {
-          timer.stop();
-          if (counter == 11) {
-            std::cout << "repeat is " << timer.repeat()
-                      << ". set repeat to 1000 and again. now is "
-                      << timer.loop()->now() << std::endl;
-            timer.repeat(1000);
-            timer.again();
-          } else {
-            timer.close([&timer]() {
-              std::cout << "timer closed. repeat is " << timer.repeat()
-                        << ". now is " << timer.loop()->now() << std::endl;
-            });
-          }
-        }
-      },
-      1000, 200);
+  auto cb = [&timer, &counter]() {
+    ++counter;
+    if (counter > 10) {
+      timer.stop();
+      if (counter == 11) {
+        std::cout << "repeat is " << timer.repeat()
+                  << ". set repeat to 1000 and again. now is "
+                  << timer.loop()->now() << std::endl;
+        timer.repeat(1000);
+        timer.again();
+      } else {
+        timer.close([&timer]() {
+          std::cout << "timer closed. repeat is " << timer.repeat()
+                    << ". now is " << timer.loop()->now() << std::endl;
+        });
+      }
+    }
+  };
+  timer.timerCallback(cb);
+  timer.start(1000, 200);
   timer.data(&counter);
 
   loop->walk(
@@ -142,62 +142,11 @@ void test_cat(LoopT *loop, const char *filename) {
 
 // --
 
-typedef struct {
-  uv_write_t req;
-  uv_buf_t buf;
-} write_req_t;
+void write_data(StreamI *dest, size_t size, const BufT *buf) {
+  BufT n_buf = uv_buf_init((char *)malloc(size), size);
+  memcpy(n_buf.base, buf->base, size);
 
-uv_loop_t *loop;
-uv_pipe_t stdin_pipe;
-uv_pipe_t stdout_pipe;
-uv_pipe_t file_pipe;
-
-void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
-  *buf = uv_buf_init((char *)malloc(suggested_size), suggested_size);
-}
-
-void free_write_req(uv_write_t *req) {
-  write_req_t *wr = (write_req_t *)req;
-  free(wr->buf.base);
-  free(wr);
-}
-
-void on_stdout_write(uv_write_t *req, int status) { free_write_req(req); }
-
-void on_file_write(uv_write_t *req, int status) { free_write_req(req); }
-
-void write_data(uv_stream_t *dest, size_t size, uv_buf_t buf, uv_write_cb cb) {
-  write_req_t *req = (write_req_t *)malloc(sizeof(write_req_t));
-  req->buf = uv_buf_init((char *)malloc(size), size);
-  memcpy(req->buf.base, buf.base, size);
-  uv_write((uv_write_t *)req, (uv_stream_t *)dest, &req->buf, 1, cb);
-}
-
-void write_data2(StreamI *dest, size_t size, const BufT *buf,
-                 StreamI::WriteCallback &&cb) {
-  write_req_t *req = (write_req_t *)malloc(sizeof(write_req_t));
-  req->buf = uv_buf_init((char *)malloc(size), size);
-  memcpy(req->buf.base, buf->base, size);
-
-  dest->write((uv_write_t *)req, &req->buf, 1, std::forward<decltype(cb)>(cb));
-}
-
-void read_stdin(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
-  if (nread < 0) {
-    if (nread == UV_EOF) {
-      // end of file
-      uv_close((uv_handle_t *)&stdin_pipe, NULL);
-      uv_close((uv_handle_t *)&stdout_pipe, NULL);
-      uv_close((uv_handle_t *)&file_pipe, NULL);
-    }
-  } else if (nread > 0) {
-    write_data((uv_stream_t *)&stdout_pipe, nread, *buf, on_stdout_write);
-    write_data((uv_stream_t *)&file_pipe, nread, *buf, on_file_write);
-  }
-
-  // OK to free buffer as write_data copies it.
-  if (buf->base)
-    free(buf->base);
+  dest->write(&n_buf, 1);
 }
 
 void test_tee(LoopT *loop, const char *filename) {
@@ -213,32 +162,30 @@ void test_tee(LoopT *loop, const char *filename) {
   PipeT file_pipe(loop, 0);
   file_pipe.open(fd);
 
-  stdin_pipe.readStart(
-      [](size_t len, BufT *buf) {
-        *buf = uv_buf_init((char *)malloc(len), len);
-      },
-      [&stdin_pipe, &stdout_pipe, &file_pipe](ssize_t nread, const BufT *buf) {
-        if (nread < 0) {
-          if (nread == UV_EOF) {
-            // end of file
-            stdin_pipe.close(
-                []() { std::cout << "stdin closed." << std::endl; });
-            stdout_pipe.close(
-                []() { std::cout << "stdout closed." << std::endl; });
-            file_pipe.close([]() { std::cout << "file closed." << std::endl; });
-          }
-        } else if (nread > 0) {
-          write_data2(&stdout_pipe, nread, buf,
-                      [](uv_write_t *req, int status) { free_write_req(req); });
-          write_data2(&file_pipe, nread, buf,
-                      [](uv_write_t *req, int status) { free_write_req(req); });
-        }
+  stdin_pipe.readCallback([&stdin_pipe, &stdout_pipe,
+                           &file_pipe](ssize_t nread, const BufT *buf) {
+    if (nread < 0) {
+      if (nread == UV_EOF) {
+        // end of file
+        stdin_pipe.close([]() { std::cout << "stdin closed." << std::endl; });
+        stdout_pipe.close([]() { std::cout << "stdout closed." << std::endl; });
+        file_pipe.close([]() { std::cout << "file closed." << std::endl; });
+      }
+    } else if (nread > 0) {
+      write_data(&stdout_pipe, nread, buf);
+      write_data(&file_pipe, nread, buf);
+    }
+  });
+  auto cb = [](int status, BufT *bufs, int nbufs) {
+    for (int i = 0; i < nbufs; ++i) {
+      char *p = (bufs + i)->base;
+      free(p);
+    }
+  };
+  stdout_pipe.writeCallback(cb);
+  file_pipe.writeCallback(cb);
 
-        // OK to free buffer as write_data copies it.
-        if (buf->base)
-          free(buf->base);
-      });
-
+  stdin_pipe.readStart();
   loop->run(UV_RUN_DEFAULT);
 }
 
@@ -253,10 +200,10 @@ int main(int argc, char *argv[]) {
   auto loop = LoopT::defaultLoop();
   // auto loop = std::make_unique<LoopT>();
 
-  test_tee(loop.get(), argv[1]);
+  // test_tee(loop.get(), argv[1]);
   // test_cat(loop.get(), argv[1]);
   // test_idle(loop.get());
-  // test_timer(loop.get());
+  test_timer(loop.get());
 
   loop->close();
   return 0;

@@ -1,6 +1,65 @@
+#include <queue>
+#include <list>
+
 // #include <req.hpp>
 #include <uv.hpp>
 #include <utilites.hpp>
+
+// --
+
+// 注意：此处返回的BufT中，base是bufs的地址，len是nbufs。这个与正常的BufT不同！
+static BufT *shadowCopyBuffers(const BufT bufs[], unsigned int nbufs) {
+  auto p = (uv_buf_t *)malloc(sizeof(uv_buf_t));
+  LOG_NOMEM_EXIT(p);
+  p->base = (char *)malloc(sizeof(uv_buf_t) * nbufs);
+  LOG_NOMEM_EXIT(p->base);
+  memcpy(p->base, bufs, sizeof(uv_buf_t) * nbufs);
+  p->len = nbufs;
+  return p;
+}
+
+// 释放上一个函数申请的BufT
+static void freeBuffer(BufT *p) {
+  free(p->base);
+  free(p);
+}
+
+// --
+
+template <typename T> class RequestManager {
+  std::queue<T *> _reqQueue;
+  size_t _capacity;
+
+public:
+  RequestManager(size_t capacity) : _capacity(capacity) {}
+  virtual ~RequestManager() {
+    while (_reqQueue.size() > 0) {
+      T *p = _reqQueue.front();
+      _reqQueue.pop();
+      delete p;
+    }
+  }
+
+  T *alloc() {
+    T *p = nullptr;
+    if (_reqQueue.size() > 0) {
+      p = _reqQueue.front();
+      _reqQueue.pop();
+    } else {
+      p = new T;
+      LOG_NOMEM_EXIT(p);
+    }
+    return p;
+  }
+
+  void free(T *p) {
+    if (_reqQueue.size() > _capacity) {
+      delete p;
+    } else {
+      _reqQueue.push(p);
+    }
+  }
+};
 
 // --
 
@@ -108,13 +167,58 @@ uv_loop_t *LoopT::get() const { return _impl->_loop.get(); }
 // --
 
 struct HandleI::Impl {
+  virtual ~Impl();
+
   void *_data = 0;
+  size_t _bufSize = 0;
+  size_t _queueSize = 1;
+  std::queue<BufT> _buffers;
+
   AllocCallback _allocCallback;
+  FreeCallback _freeCallback;
   CloseCallback _closeCallback;
+
+  void defualtAllocCallback(size_t len, BufT *buf);
+  void defaultFreeCallback(BufT buf);
+  void defaultCloseCallback();
+
   static void alloc_callback(uv_handle_t *handle, size_t suggested_size,
                              BufT *buf);
   static void close_callback(uv_handle_t *handle);
 };
+
+HandleI::Impl::~Impl() {
+  while (_buffers.size()) {
+    auto p = _buffers.front();
+    _buffers.pop();
+
+    delete[] p.base;
+    LOG_INFO << "delete p.base.";
+  }
+}
+
+void HandleI::Impl::defualtAllocCallback(size_t len, BufT *buf) {
+  if (_buffers.size() > 0) {
+    *buf = _buffers.front();
+    _buffers.pop();
+  } else {
+    if (_bufSize) {
+      len = _bufSize;
+    }
+    buf->len = len;
+    buf->base = new char[len];
+  }
+}
+
+void HandleI::Impl::defaultFreeCallback(BufT buf) {
+  if (_buffers.size() < _queueSize) {
+    _buffers.push(buf);
+  } else {
+    delete[] buf.base;
+  }
+}
+
+void HandleI::Impl::defaultCloseCallback() {}
 
 void HandleI::Impl::alloc_callback(uv_handle_t *handle, size_t suggested_size,
                                    BufT *buf) {
@@ -135,7 +239,15 @@ const char *HandleI::typeName(HandleI::Type type) {
   return uv_handle_type_name(type);
 }
 
-HandleI::HandleI() : _impl(std::make_unique<HandleI::Impl>()) {}
+HandleI::HandleI() : _impl(std::make_unique<HandleI::Impl>()) {
+  _impl->_allocCallback =
+      std::bind(&HandleI::Impl::defualtAllocCallback, _impl.get(),
+                std::placeholders::_1, std::placeholders::_2);
+  _impl->_freeCallback = std::bind(&HandleI::Impl::defaultFreeCallback,
+                                   _impl.get(), std::placeholders::_1);
+  _impl->_closeCallback =
+      std::bind(&HandleI::Impl::defaultCloseCallback, _impl.get());
+}
 
 HandleI::~HandleI() {}
 
@@ -174,6 +286,34 @@ void *HandleI::data() const { return _impl->_data; }
 void *HandleI::data(void *data) { return _impl->_data = data; }
 
 HandleI::Type HandleI::type() const { return uv_handle_get_type(getHandle()); }
+
+HandleI::AllocCallback
+HandleI::setAllocCallback(const HandleI::AllocCallback &cb) {
+  auto old = _impl->_allocCallback;
+  _impl->_allocCallback = cb;
+  return old;
+}
+
+HandleI::FreeCallback
+HandleI::setFreeCallback(const HandleI::FreeCallback &cb) {
+  auto old = _impl->_freeCallback;
+  _impl->_freeCallback = cb;
+  return old;
+}
+
+HandleI::CloseCallback
+HandleI::setCloseCallback(const HandleI::CloseCallback &cb) {
+  auto old = _impl->_closeCallback;
+  _impl->_closeCallback = cb;
+  return old;
+}
+
+void HandleI::close() { uv_close(getHandle(), HandleI::Impl::close_callback); }
+
+void HandleI::setDefaultSize(size_t bufSize, size_t queueSize) {
+  _impl->_bufSize = bufSize;
+  _impl->_queueSize = queueSize;
+}
 
 // --
 
@@ -238,7 +378,9 @@ struct TimerI::Impl {
 
 void TimerI::Impl::timer_callback(uv_timer_t *handle) {
   auto p = (TimerI *)uv_handle_get_data((uv_handle_t *)handle);
-  p->_impl->_timerCallback();
+  if (p->_impl->_timerCallback) {
+    p->_impl->_timerCallback();
+  }
 }
 
 // --
@@ -247,9 +389,7 @@ TimerI::TimerI() : _impl(std::make_unique<TimerI::Impl>()) {}
 
 TimerI::~TimerI() {}
 
-int TimerI::start(TimerI::TimerCallback &&cb, uint64_t timeout,
-                  uint64_t repeat) {
-  _impl->_timerCallback = std::forward<decltype(cb)>(cb);
+int TimerI::start(uint64_t timeout, uint64_t repeat) {
   int r =
       uv_timer_start(getTimer(), TimerI::Impl::timer_callback, timeout, repeat);
   LOG_IF_ERROR(r);
@@ -274,6 +414,14 @@ void TimerI::repeat(uint64_t repeat) {
 
 uint64_t TimerI::repeat() const { return uv_timer_get_repeat(getTimer()); }
 
+void TimerI::timerCallback(const TimerI::TimerCallback &cb) {
+  _impl->_timerCallback = cb;
+}
+
+TimerI::TimerCallback TimerI::timerCallback() const {
+  return _impl->_timerCallback;
+}
+
 // --
 
 uv_handle_t *TimerT::getHandle() const { return (uv_handle_t *)&_timer; }
@@ -292,12 +440,19 @@ TimerT::~TimerT() {}
 // --
 
 struct StreamI::Impl {
+  Impl();
+
+  RequestManager<uv_connect_t> _connectReqestManager;
+  RequestManager<uv_write_t> _writeReqestManager;
+  RequestManager<uv_shutdown_t> _shutdownRequestMananger;
+
+  ConnectCallback _connectCallback;
   ReadCallback _readCallback;
   WriteCallback _writeCallback;
-  ConnectCallback _connectCallback;
   ShutdownCallback _shutdownCallback;
   ConnectionCallback _connectionCallback;
 
+  static void connect_callback(uv_connect_t *req, int status);
   static void read_callback(uv_stream_t *stream, ssize_t nread,
                             const BufT *buf);
   static void write_callback(uv_write_t *req, int status);
@@ -305,47 +460,70 @@ struct StreamI::Impl {
   static void connection_callback(uv_stream_t *server, int status);
 };
 
+StreamI::Impl::Impl()
+    : _connectReqestManager(2), _writeReqestManager(10),
+      _shutdownRequestMananger(1) {}
+
+void StreamI::Impl::connect_callback(uv_connect_t *req, int status) {
+  uv_stream_t *h = req->handle;
+  auto p = (StreamI *)uv_handle_get_data((uv_handle_t *)h);
+
+  if (p->_impl->_connectCallback) {
+    p->_impl->_connectCallback(status);
+  }
+
+  // 释放在connect()中申请的req
+  p->_impl->_connectReqestManager.free(req);
+}
+
 void StreamI::Impl::read_callback(uv_stream_t *stream, ssize_t nread,
                                   const BufT *buf) {
   auto p = (StreamI *)uv_handle_get_data((uv_handle_t *)stream);
-  p->_impl->_readCallback(nread, buf);
+  if (p->_impl->_readCallback) {
+    p->_impl->_readCallback(nread, buf);
+  }
+  p->HandleI::_impl->_freeCallback(*buf);
 }
 
 void StreamI::Impl::write_callback(uv_write_t *req, int status) {
+  auto b = (uv_buf_t *)req->data;
   uv_stream_t *h = req->handle;
   auto p = (StreamI *)uv_handle_get_data((uv_handle_t *)h);
-  p->_impl->_writeCallback(req, status);
+
+  // 在回调函数中，删除buf.base是用户的责任。
+  if (p->_impl->_writeCallback) {
+    p->_impl->_writeCallback(status, (uv_buf_t *)b->base, b->len);
+  }
+
+  // 删除在write函数中申请的memory。
+  freeBuffer(b);
+
+  // 释放_write_req_t，这也是在write函数中申请的。
+  p->_impl->_writeReqestManager.free(req);
 }
 
 void StreamI::Impl::shutdown_callback(uv_shutdown_t *req, int status) {
   uv_stream_t *h = req->handle;
   auto p = (StreamI *)uv_handle_get_data((uv_handle_t *)h);
-  p->_impl->_shutdownCallback(status);
+
+  if (p->_impl->_shutdownCallback) {
+    p->_impl->_shutdownCallback(status);
+  }
+
+  // 释放在shutdown()中申请的req
+  p->_impl->_shutdownRequestMananger.free(req);
 }
 
 void StreamI::Impl::connection_callback(uv_stream_t *server, int status) {
   auto p = (StreamI *)uv_handle_get_data((uv_handle_t *)server);
-  p->_impl->_connectionCallback(status);
+  if (p->_impl->_connectionCallback) {
+    p->_impl->_connectionCallback(status);
+  }
 }
 
 StreamI::StreamI() : _impl(std::make_unique<StreamI::Impl>()) {}
 
 StreamI::~StreamI() {}
-
-int StreamI::shutdown(uv_shutdown_t *req, StreamI::ShutdownCallback &&cb) {
-  _impl->_shutdownCallback = std::forward<decltype(cb)>(cb);
-  int r = uv_shutdown(req, getStream(),
-                      StreamI::Impl::shutdown_callback);
-  LOG_IF_ERROR(r);
-  return r;
-}
-
-int StreamI::listen(int backlog, StreamI::ConnectionCallback &&cb) {
-  _impl->_connectionCallback = std::forward<decltype(cb)>(cb);
-  int r = uv_listen(getStream(), backlog, StreamI::Impl::connection_callback);
-  LOG_IF_ERROR(r);
-  return r;
-}
 
 int StreamI::accept(StreamT *client) {
   int r = uv_accept(getStream(), client->getStream());
@@ -353,36 +531,8 @@ int StreamI::accept(StreamT *client) {
   return r;
 }
 
-int StreamI::readStart(StreamI::AllocCallback &&alloc,
-                       StreamI::ReadCallback &&cb) {
-  HandleI::_impl->_allocCallback = std::forward<decltype(alloc)>(alloc);
-  _impl->_readCallback = std::forward<decltype(cb)>(cb);
-  int r = uv_read_start(getStream(), HandleI::Impl::alloc_callback,
-                        StreamI::Impl::read_callback);
-  LOG_IF_ERROR(r);
-  return r;
-}
-
 int StreamI::readStop() {
   int r = uv_read_stop(getStream());
-  LOG_IF_ERROR(r);
-  return r;
-}
-
-int StreamI::write(uv_write_t *req, BufT bufs[], unsigned int nbufs,
-                   StreamI::WriteCallback &&cb) {
-  _impl->_writeCallback = std::forward<decltype(cb)>(cb);
-  int r = uv_write(req, getStream(), bufs, nbufs,
-                   StreamI::Impl::write_callback);
-  LOG_IF_ERROR(r);
-  return r;
-}
-
-int StreamI::write2(uv_write_t *req, BufT bufs[], unsigned int nbufs,
-                    StreamT *sendstream, WriteCallback &&cb) {
-  _impl->_writeCallback = std::forward<decltype(cb)>(cb);
-  int r = uv_write2(req, getStream(), bufs, nbufs,
-                    sendstream->getStream(), StreamI::Impl::write_callback);
   LOG_IF_ERROR(r);
   return r;
 }
@@ -407,6 +557,79 @@ int StreamI::getWriteQueueSize() const {
   return uv_stream_get_write_queue_size(getStream());
 }
 
+void StreamI::shutdownCallback(const StreamI::ShutdownCallback &cb) {
+  _impl->_shutdownCallback = cb;
+}
+
+StreamI::ShutdownCallback StreamI::shutdownCallback() const {
+  return _impl->_shutdownCallback;
+}
+
+void StreamI::connectionCallback(const StreamI::ConnectionCallback &cb) {
+  _impl->_connectionCallback = cb;
+}
+
+StreamI::ConnectionCallback StreamI::connectionCallback() const {
+  return _impl->_connectionCallback;
+}
+
+void StreamI::readCallback(const StreamI::ReadCallback &cb) {
+  _impl->_readCallback = cb;
+}
+
+StreamI::ReadCallback StreamI::readCallback() const {
+  return _impl->_readCallback;
+}
+
+void StreamI::writeCallback(const StreamI::WriteCallback &cb) {
+  _impl->_writeCallback = cb;
+}
+
+StreamI::WriteCallback StreamI::writeCallback() const {
+  return _impl->_writeCallback;
+}
+
+int StreamI::shutdown() {
+  uv_shutdown_t *req = _impl->_shutdownRequestMananger.alloc();
+  int r = uv_shutdown(req, getStream(), StreamI::Impl::shutdown_callback);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int StreamI::listen(int backlog) {
+  int r = uv_listen(getStream(), backlog, StreamI::Impl::connection_callback);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int StreamI::readStart() {
+  int r = uv_read_start(getStream(), HandleI::Impl::alloc_callback,
+                        StreamI::Impl::read_callback);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int StreamI::write(const BufT bufs[], unsigned int nbufs) {
+  uv_write_t *req = _impl->_writeReqestManager.alloc();
+  req->data = shadowCopyBuffers(bufs, nbufs);
+
+  int r =
+      uv_write(req, getStream(), bufs, nbufs, StreamI::Impl::write_callback);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int StreamI::write2(const BufT bufs[], unsigned int nbufs,
+                    StreamI *sendstream) {
+  uv_write_t *req = _impl->_writeReqestManager.alloc();
+  req->data = shadowCopyBuffers(bufs, nbufs);
+
+  int r = uv_write2(req, getStream(), bufs, nbufs, sendstream->getStream(),
+                    StreamI::Impl::write_callback);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
 // --
 
 uv_handle_t *StreamT::getHandle() const { return (uv_handle_t *)&_stream; }
@@ -419,7 +642,7 @@ StreamT::~StreamT() {}
 
 // --
 
-int PipeI::open(PipeI::File file) {
+int PipeI::open(File file) {
   int r = uv_pipe_open(getPipe(), file);
   LOG_IF_ERROR(r);
   return r;
@@ -429,6 +652,49 @@ int PipeI::bind(const char *name) {
   int r = uv_pipe_bind(getPipe(), name);
   LOG_IF_ERROR(r);
   return r;
+}
+
+void PipeI::connect(const char *name) {
+  uv_connect_t *req = StreamI::_impl->_connectReqestManager.alloc();
+  uv_pipe_connect(req, getPipe(), name, StreamI::Impl::connect_callback);
+}
+
+int PipeI::getSockname(char *buffer, size_t *size) const {
+  int r = uv_pipe_getsockname(getPipe(), buffer, size);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int PipeI::getPeername(char *buffer, size_t *size) const {
+  int r = uv_pipe_getpeername(getPipe(), buffer, size);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+void PipeI::pendingInstances(int count) {
+  uv_pipe_pending_instances(getPipe(), count);
+}
+
+int PipeI::pendingCount() {
+  int r = uv_pipe_pending_count(getPipe());
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+HandleI::Type PipeI::pendingType() { return uv_pipe_pending_type(getPipe()); }
+
+int PipeI::chmod(int flags) {
+  int r = uv_pipe_chmod(getPipe(), flags);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+void PipeI::connectCallback(const PipeI::ConnectCallback &cb) {
+  _impl->_connectCallback = cb;
+}
+
+PipeI::ConnectCallback PipeI::connectCallback() const {
+  return _impl->_connectCallback;
 }
 
 // --
@@ -447,3 +713,297 @@ PipeT::PipeT(LoopT *loop, int ipc) {
 }
 
 PipeT::~PipeT() {}
+
+// --
+
+int TcpI::open(OsSock sock) {
+  int r = uv_tcp_open(getTcp(), sock);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int TcpI::nodelay(int enable) {
+  int r = uv_tcp_nodelay(getTcp(), enable);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int TcpI::keepalive(int enable, unsigned int delay) {
+  int r = uv_tcp_keepalive(getTcp(), enable, delay);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int TcpI::simultaneousAcepts(int enable) {
+  int r = uv_tcp_simultaneous_accepts(getTcp(), enable);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int TcpI::bind(const struct sockaddr *addr, unsigned int flags) {
+  int r = uv_tcp_bind(getTcp(), addr, flags);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int TcpI::getsockname(struct sockaddr *name, int *namelen) {
+  int r = uv_tcp_getsockname(getTcp(), name, namelen);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int TcpI::getpeername(struct sockaddr *name, int *namelen) {
+  int r = uv_tcp_getpeername(getTcp(), name, namelen);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int TcpI::connect(const struct sockaddr *addr) {
+  uv_connect_t *req = StreamI::_impl->_connectReqestManager.alloc();
+  int r = uv_tcp_connect(req, getTcp(), addr, StreamI::Impl::connect_callback);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+// --
+
+uv_handle_t *TcpT::getHandle() const { return (uv_handle_t *)&_tcp; }
+
+uv_stream_t *TcpT::getStream() const { return (uv_stream_t *)&_tcp; }
+
+uv_tcp_t *TcpT::getTcp() const { return (uv_tcp_t *)&_tcp; }
+
+TcpT::TcpT(LoopT *loop) {
+  int r = uv_tcp_init(loop->get(), &_tcp);
+  LOG_IF_ERROR_EXIT(r);
+
+  uv_handle_set_data(getHandle(), this);
+}
+
+TcpT::TcpT(LoopT *loop, unsigned int flags) {
+  int r = uv_tcp_init_ex(loop->get(), &_tcp, flags);
+  LOG_IF_ERROR_EXIT(r);
+
+  uv_handle_set_data(getHandle(), this);
+}
+
+TcpT::~TcpT() {}
+
+// --
+
+int TtyI::resetMode() {
+  int r = uv_tty_reset_mode();
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int TtyI::setMode(TtyI::TtyMode mode) {
+  int r = uv_tty_set_mode(getTty(), mode);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int TtyI::getWinsize(int *width, int *height) {
+  int r = uv_tty_get_winsize(getTty(), width, height);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+// --
+
+uv_handle_t *TtyT::getHandle() const { return (uv_handle_t *)&_tty; }
+
+uv_stream_t *TtyT::getStream() const { return (uv_stream_t *)&_tty; }
+
+uv_tty_t *TtyT::getTty() const { return (uv_tty_t *)&_tty; }
+
+TtyT::TtyT(LoopT *loop, File fd, int unused) {
+  int r = uv_tty_init(loop->get(), &_tty, fd, unused);
+  LOG_IF_ERROR_EXIT(r);
+
+  uv_handle_set_data(getHandle(), this);
+}
+
+TtyT::~TtyT() {}
+
+// --
+
+struct UdpI::Impl {
+  Impl();
+
+  RequestManager<uv_udp_send_t> _udpSendRequestManager;
+
+  SendCallback _sendCallback;
+  RecvCallback _recvCallback;
+
+  static void send_callback(uv_udp_send_t *req, int status);
+  static void recv_callback(uv_udp_t *handle, ssize_t nread,
+                            const uv_buf_t *buf, const struct sockaddr *addr,
+                            unsigned flags);
+};
+
+UdpI::Impl::Impl() : _udpSendRequestManager(3) {}
+
+void UdpI::Impl::send_callback(uv_udp_send_t *req, int status) {
+  auto b = (uv_buf_t *)req->data;
+  uv_udp_t *h = req->handle;
+  auto p = (UdpI *)uv_handle_get_data((uv_handle_t *)h);
+
+  if (p->_impl->_sendCallback) {
+    p->_impl->_sendCallback(status, (uv_buf_t *)b->base, b->len);
+  }
+
+  // 删除在send函数中申请的memory
+  freeBuffer(b);
+
+  // 释放在connect()中申请的req
+  p->_impl->_udpSendRequestManager.free(req);
+}
+
+void UdpI::Impl::recv_callback(uv_udp_t *handle, ssize_t nread,
+                               const uv_buf_t *buf, const struct sockaddr *addr,
+                               unsigned flags) {
+  auto p = (UdpI *)uv_handle_get_data((uv_handle_t *)handle);
+  if (p->_impl->_recvCallback) {
+    p->_impl->_recvCallback(nread, buf, addr, flags);
+  }
+}
+
+// --
+
+UdpI::UdpI() : _impl(std::make_unique<UdpI::Impl>()) {}
+
+UdpI::~UdpI() {}
+
+int UdpI::open(OsSock sock) {
+  int r = uv_udp_open(getUdp(), sock);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int UdpI:: bind(const struct sockaddr *addr, unsigned int flags) {
+  int r = uv_udp_bind(getUdp(), addr, flags);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int UdpI::getsockname(struct sockaddr *name, int *namelen) const {
+  int r = uv_udp_getsockname(getUdp(), name, namelen);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int UdpI::setMembership(const char *multicast_addr, const char *interface_addr,
+                        MemberShip membership) {
+  int r = uv_udp_set_membership(getUdp(), multicast_addr, interface_addr,
+                                membership);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int UdpI::setMulticastLoop(int on) {
+  int r = uv_udp_set_multicast_loop(getUdp(), on);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int UdpI::setMulticastTtl(int ttl) {
+  int r = uv_udp_set_multicast_ttl(getUdp(), ttl);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int UdpI::setMulticastInterface(const char *interface_addr) {
+  int r = uv_udp_set_multicast_interface(getUdp(), interface_addr);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int UdpI::setBroadcast(int on) {
+  int r = uv_udp_set_broadcast(getUdp(), on);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int UdpI::setTtl(int ttl) {
+  int r = uv_udp_set_ttl(getUdp(), ttl);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int UdpI::send(const BufT bufs[], unsigned int nbufs,
+               const struct sockaddr *addr) {
+  uv_udp_send_t *req = _impl->_udpSendRequestManager.alloc();
+  req->data = shadowCopyBuffers(bufs, nbufs);
+
+  int r =
+      uv_udp_send(req, getUdp(), bufs, nbufs, addr, UdpI::Impl::send_callback);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int UdpI::trySend(const BufT bufs[], unsigned int nbufs,
+                  const struct sockaddr *addr) {
+  int r = uv_udp_try_send(getUdp(), bufs, nbufs, addr);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int UdpI::recvStart() {
+  int r = uv_udp_recv_start(getUdp(), HandleI::Impl::alloc_callback,
+                            Impl::recv_callback);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int UdpI::recvStop() {
+  int r = uv_udp_recv_stop(getUdp());
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int UdpI::getSendQueueSize() const {
+  int r = uv_udp_get_send_queue_size(getUdp());
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int UdpI::getSendQueueCount() const {
+  int r = uv_udp_get_send_queue_count(getUdp());
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+void UdpI::sendCallback(const UdpI::SendCallback &cb) {
+  _impl->_sendCallback = cb;
+}
+
+UdpI::SendCallback UdpI::sendCallback() const { return _impl->_sendCallback; }
+
+void UdpI::recvCallback(const UdpI::RecvCallback &cb) {
+  _impl->_recvCallback = cb;
+}
+
+UdpI::RecvCallback UdpI::recvCallback() const { return _impl->_recvCallback; }
+
+// --
+
+uv_handle_t *UdpT::getHandle() const { return (uv_handle_t *)&_udp; }
+
+uv_udp_t *UdpT::getUdp() const { return (uv_udp_t *)&_udp; }
+
+UdpT::UdpT(LoopT *loop) {
+  int r = uv_udp_init(loop->get(), &_udp);
+  LOG_IF_ERROR_EXIT(r);
+
+  uv_handle_set_data(getHandle(), this);
+}
+
+UdpT::UdpT(LoopT *loop, unsigned int flags) {
+  int r = uv_udp_init_ex(loop->get(), &_udp, flags);
+  LOG_IF_ERROR_EXIT(r);
+
+  uv_handle_set_data(getHandle(), this);
+}
+
+UdpT::~UdpT() {}

@@ -12,6 +12,10 @@
 
 using BufT = uv_buf_t;
 using OsFdT = uv_os_fd_t;
+using File = uv_file;
+using OsSock = uv_os_sock_t;
+
+// --
 
 class HandleI;
 class LoopT {
@@ -66,6 +70,7 @@ public:
   using Type = uv_handle_type;
 
   using AllocCallback = std::function<void(size_t, BufT *)>;
+  using FreeCallback = std::function<void(BufT)>;
   using CloseCallback = std::function<void()>;
 
   static size_t size(Type t);
@@ -93,6 +98,13 @@ public:
   void *data() const;
   void *data(void *data);
   Type type() const;
+
+  // extend functions
+  void setDefaultSize(size_t bufSize, size_t queueSize);
+  AllocCallback setAllocCallback(const AllocCallback &cb);
+  FreeCallback setFreeCallback(const FreeCallback &cb);
+  CloseCallback setCloseCallback(const CloseCallback &cb);
+  void close();
 };
 
 class HandleT : public HandleI {
@@ -152,11 +164,15 @@ public:
   TimerI();
   virtual ~TimerI();
 
-  int start(TimerCallback &&cb, uint64_t timeout, uint64_t repeat);
+  int start(uint64_t timeout, uint64_t repeat);
   int stop();
   int again();
   void repeat(uint64_t repeat);
   uint64_t repeat() const;
+
+  // extend functions
+  void timerCallback(const TimerCallback &cb);
+  TimerCallback timerCallback() const;
 };
 
 class TimerT : public TimerI {
@@ -175,36 +191,45 @@ public:
 
 class StreamT;
 class StreamI : public HandleI {
+protected:
   class Impl;
   std::unique_ptr<Impl> _impl;
 
-protected:
   virtual uv_stream_t *getStream() const = 0;
 
 public:
-  
-  using ReadCallback = std::function<void(ssize_t, const BufT *)>;
-  using WriteCallback = std::function<void(uv_write_t*, int)>;
   using ConnectCallback = std::function<void(int)>;
+  using ReadCallback = std::function<void(ssize_t, const BufT *)>;
+  using WriteCallback = std::function<void(int, BufT[], int)>;
   using ShutdownCallback = std::function<void(int)>;
   using ConnectionCallback = std::function<void(int)>;
 
   StreamI();
   virtual ~StreamI();
 
-  int shutdown(uv_shutdown_t *req, ShutdownCallback &&cb);
-  int listen(int backlog, ConnectionCallback &&cb);
   int accept(StreamT *client);
-  int readStart(AllocCallback &&alloc, ReadCallback &&cb);
   int readStop();
-  int write(uv_write_t* req, BufT bufs[], unsigned int nbufs, WriteCallback &&cb);
-  int write2(uv_write_t* req, BufT bufs[], unsigned int nbufs, StreamT *sendstream,
-             WriteCallback &&cb);
   int tryWrite(BufT bufs[], unsigned int nbufs);
   int isReadable() const;
   int isWritable() const;
   int setBlocking(int blocking);
   int getWriteQueueSize() const;
+
+  // extend functions
+  void shutdownCallback(const ShutdownCallback &cb);
+  ShutdownCallback shutdownCallback() const;
+  void connectionCallback(const ConnectionCallback &cb);
+  ConnectionCallback connectionCallback() const;
+  void readCallback(const ReadCallback &cb);
+  ReadCallback readCallback() const;
+  void writeCallback(const WriteCallback &cb);
+  WriteCallback writeCallback() const;
+
+  int shutdown();
+  int listen(int backlog);
+  int readStart();
+  int write(const BufT bufs[], unsigned int nbufs);
+  int write2(const BufT bufs[], unsigned int nbufs, StreamI *sendstream);
 };
 
 class StreamT : public StreamI {
@@ -230,17 +255,19 @@ protected:
   virtual uv_pipe_t *getPipe() const = 0;
 
 public:
-  using File = uv_file;
-  
   int open(File file);
-  int bind(const char* name);
-  // int connect(ConnectT* req, const char* name, ConnectCallback&& cb);
-  // int getSockname(char* buffer, size_t* size) const;
-  // int getPeername(char* buffer, size_t* size) const;
-  // int pendingInstances(int count);
-  // int pendingCount(PipeT* pipe);
-  // HandleI::Type pendingType();
-  // int chmod();
+  int bind(const char *name);
+  void connect(const char *name);
+  int getSockname(char *buffer, size_t *size) const;
+  int getPeername(char *buffer, size_t *size) const;
+  void pendingInstances(int count);
+  int pendingCount();
+  HandleI::Type pendingType();
+  int chmod(int flags);
+
+  // extend functions
+  void connectCallback(const ConnectCallback &cb);
+  ConnectCallback connectCallback() const;
 };
 
 class PipeT : public PipeI {
@@ -248,10 +275,126 @@ class PipeT : public PipeI {
 
 protected:
   virtual uv_handle_t *getHandle() const override;
-  virtual uv_stream_t* getStream() const override;
+  virtual uv_stream_t *getStream() const override;
   virtual uv_pipe_t *getPipe() const override;
 
 public:
   PipeT(LoopT *loop, int ipc);
   ~PipeT();
+};
+
+// --
+
+class TcpI : public StreamI {
+protected:
+  virtual uv_tcp_t *getTcp() const = 0;
+
+public:
+  int open(OsSock sock);
+  int nodelay(int enable);
+  int keepalive(int enable, unsigned int delay);
+  int simultaneousAcepts(int enable);
+  int bind(const struct sockaddr *addr, unsigned int flags);
+  int getsockname(struct sockaddr *name, int *namelen);
+  int getpeername(struct sockaddr *name, int *namelen);
+  int connect(const struct sockaddr *addr);
+};
+
+class TcpT : public TcpI {
+  uv_tcp_t _tcp;
+
+protected:
+  virtual uv_handle_t *getHandle() const override;
+  virtual uv_stream_t *getStream() const override;
+  virtual uv_tcp_t *getTcp() const override;
+
+public:
+  TcpT(LoopT *loop);
+  TcpT(LoopT *loop, unsigned int flags);
+  virtual ~TcpT();
+};
+
+// --
+
+class TtyI : public StreamI {
+protected:
+  virtual uv_tty_t *getTty() const = 0;
+
+public:
+  using TtyMode = uv_tty_mode_t;
+
+  static int resetMode();
+
+  int setMode(TtyMode mode);
+  int getWinsize(int *width, int *height);
+};
+
+class TtyT : public TtyI {
+  uv_tty_t _tty;
+
+protected:
+  virtual uv_handle_t *getHandle() const override;
+  virtual uv_stream_t *getStream() const override;
+  virtual uv_tty_t *getTty() const override;
+
+public:
+  TtyT(LoopT *loop, File fd, int unused);
+  virtual ~TtyT();
+};
+
+// --
+
+class UdpI : public HandleI {
+protected:
+  class Impl;
+  std::unique_ptr<Impl> _impl;
+
+  virtual uv_udp_t *getUdp() const = 0;
+
+public:
+  using MemberShip = uv_membership;
+
+  using SendCallback = std::function<void(int, BufT*, int)>;
+  using RecvCallback = std::function<void(ssize_t, const BufT *,
+                                          const struct sockaddr *, unsigned)>;
+
+  UdpI();
+  virtual ~UdpI();
+
+  int open(OsSock sock);
+  int bind(const struct sockaddr *addr, unsigned int flags);
+  int getsockname(struct sockaddr *name, int *namelen) const;
+  int setMembership(const char *multicast_addr, const char *interface_addr,
+                    MemberShip membership);
+  int setMulticastLoop(int on);
+  int setMulticastTtl(int ttl);
+  int setMulticastInterface(const char *interface_addr);
+  int setBroadcast(int on);
+  int setTtl(int ttl);
+  int send(const BufT bufs[], unsigned int nbufs, const struct sockaddr *addr);
+  int trySend(const BufT bufs[], unsigned int nbufs,
+              const struct sockaddr *addr);
+  int recvStart();
+  int recvStop();
+  int getSendQueueSize() const;
+  int getSendQueueCount() const;
+
+  // extend functions
+  void sendCallback(const SendCallback& cb);
+  SendCallback sendCallback() const;
+  void recvCallback(const RecvCallback& cb);
+  RecvCallback recvCallback() const;
+};
+
+class UdpT : public UdpI {
+  uv_udp_t _udp;
+
+protected:
+  virtual uv_handle_t *getHandle() const;
+  virtual uv_udp_t *getUdp() const;
+
+public:
+  UdpT(LoopT *loop);
+  UdpT(LoopT *loop, unsigned int flags);
+  virtual ~UdpT();
 };

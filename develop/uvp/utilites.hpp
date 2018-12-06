@@ -40,6 +40,14 @@
     LOG_IF_ERROR_EXIT(e);                                                      \
   } while (false)
 
+#define LOG_NOMEM_EXIT(p)                                                      \
+  do {                                                                         \
+    if (!(p)) {                                                                \
+      LOG_UV_ERROR(UV_ENOMEM);                                                 \
+      std::exit(UV_ENOMEM);                                                    \
+    }                                                                          \
+  } while (false)
+
 #define LOG_CONDITION(condition, err)                                          \
   do {                                                                         \
     if (condition) {                                                           \
