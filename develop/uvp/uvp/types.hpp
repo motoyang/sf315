@@ -1,3 +1,6 @@
+// #pragma once
+
+/*
 #include <cstdint>
 
 // --
@@ -14,5 +17,13 @@ typedef float Float;
 typedef double Double;
 typedef std::intptr_t Pointer;
 typedef std::uintptr_t UnsignedPointer;
-
+*/
 // --
+
+// #include <uv.h>
+
+using BufT = uv_buf_t;
+using OsFdT = uv_os_fd_t;
+using File = uv_file;
+using OsSock = uv_os_sock_t;
+

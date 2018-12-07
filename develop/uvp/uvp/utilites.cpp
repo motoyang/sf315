@@ -1,3 +1,4 @@
+#include <uv.h>
 #include <misc.hpp>
 #include <utilites.hpp>
 #include <cxxabi.h>

@@ -1,19 +1,12 @@
 #pragma once
 
-#include <uv.h>
 
 #include <functional>
 #include <memory>
 #include <initializer_list>
 
-// #include <req.hpp>
-
-// --
-
-using BufT = uv_buf_t;
-using OsFdT = uv_os_fd_t;
-using File = uv_file;
-using OsSock = uv_os_sock_t;
+#include <uv.h>
+#include <types.hpp>
 
 // --
 
@@ -207,7 +200,7 @@ public:
   StreamI();
   virtual ~StreamI();
 
-  int accept(StreamT *client);
+  int accept(StreamI *client);
   int readStop();
   int tryWrite(BufT bufs[], unsigned int nbufs);
   int isReadable() const;
@@ -298,6 +291,10 @@ public:
   int getsockname(struct sockaddr *name, int *namelen);
   int getpeername(struct sockaddr *name, int *namelen);
   int connect(const struct sockaddr *addr);
+
+    // extend functions
+  void connectCallback(const ConnectCallback &cb);
+  ConnectCallback connectCallback() const;
 };
 
 class TcpT : public TcpI {

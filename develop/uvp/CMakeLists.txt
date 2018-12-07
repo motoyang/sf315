@@ -24,11 +24,12 @@ endif()
 include_directories(
   # ${PROJECT_SOURCE_DIR}/../msgpack-c/include
   ${PROJECT_SOURCE_DIR}/uv
+  ${PROJECT_SOURCE_DIR}/uvp
   )
 
 #查找当前文件夹中的所有源代码文件，也可以通过Set命令将所有文件设置为一个变量  
-FILE(GLOB SRC_FILES "./*.c")   
-FILE(GLOB CPP_FILES "./*.cpp")   
+FILE(GLOB SRC_FILES "*.cpp")   
+FILE(GLOB CPP_FILES "uvp/*.cpp")   
 #同理，查找当前文件夹中所有的头文件  
 FILE(GLOB HEAD_FILES "./*.h")   
 FILE(GLOB HPP_FILES "./*.hpp")   

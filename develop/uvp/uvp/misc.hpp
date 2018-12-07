@@ -1,6 +1,7 @@
 #include <uv.h>
-
 #include <types.hpp>
+
+#include <string>
 
 // --
 
@@ -13,8 +14,8 @@ public:
 
   static int translateSysError(int sys_errno);
 
-  const char* strerror() const;
-  const char* name() const;
+  std::string strerror() const;
+  std::string name() const;
 };
 
 // --
@@ -25,3 +26,10 @@ public:
   const char* str() const;
 
 };
+
+// --
+
+BufT allocBuf(size_t size);
+BufT copyToBuf(const char* p, size_t len);
+BufT moveToBuf(const char* p, size_t len);
+void freeBuf(BufT buf);

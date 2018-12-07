@@ -1,9 +1,38 @@
 #include <queue>
 #include <list>
 
-// #include <req.hpp>
-#include <uv.hpp>
 #include <utilites.hpp>
+#include <misc.hpp>
+#include <uv.hpp>
+
+struct WriteReq {
+    uv_write_t req;
+    uv_buf_t buf;
+};
+
+WriteReq* allocWriteReq(uv_buf_t bufs[], size_t nbufs) {
+  auto req = (WriteReq*)malloc(sizeof(WriteReq));
+  if (!req) {
+    LOG_IF_ERROR_EXIT(UV_ENOMEM);
+  }
+
+  size_t len = sizeof(uv_buf_t) * nbufs;
+  req->buf.base = (char*)malloc(len);
+  if (!req->buf.base) {
+    LOG_IF_ERROR_EXIT(UV_ENOMEM);   
+  }
+
+  // 注意：这个BufT的len与base的长度不同！
+  req->buf.len = nbufs;
+  memcpy(req->buf.base, bufs, len);
+
+  return req;
+}
+
+void freeWriteReq(WriteReq* req) {
+  free(req->buf.base);
+  free(req);
+}
 
 // --
 
@@ -189,11 +218,11 @@ struct HandleI::Impl {
 
 HandleI::Impl::~Impl() {
   while (_buffers.size()) {
-    auto p = _buffers.front();
+    auto b = _buffers.front();
     _buffers.pop();
-
-    delete[] p.base;
-    LOG_INFO << "delete p.base.";
+    freeBuf(b);
+    // delete[] p.base;
+    // LOG_INFO << "delete p.base.";
   }
 }
 
@@ -205,8 +234,10 @@ void HandleI::Impl::defualtAllocCallback(size_t len, BufT *buf) {
     if (_bufSize) {
       len = _bufSize;
     }
-    buf->len = len;
-    buf->base = new char[len];
+    *buf = allocBuf(len);
+
+    // buf->len = len;
+    // buf->base = new char[len];
   }
 }
 
@@ -214,7 +245,8 @@ void HandleI::Impl::defaultFreeCallback(BufT buf) {
   if (_buffers.size() < _queueSize) {
     _buffers.push(buf);
   } else {
-    delete[] buf.base;
+    freeBuf(buf);
+    // delete[] buf.base;
   }
 }
 
@@ -482,6 +514,8 @@ void StreamI::Impl::read_callback(uv_stream_t *stream, ssize_t nread,
   if (p->_impl->_readCallback) {
     p->_impl->_readCallback(nread, buf);
   }
+  
+  // 释放在read时分配的memory，这个memory是通过Handle的allocCallback分配的。
   p->HandleI::_impl->_freeCallback(*buf);
 }
 
@@ -525,7 +559,7 @@ StreamI::StreamI() : _impl(std::make_unique<StreamI::Impl>()) {}
 
 StreamI::~StreamI() {}
 
-int StreamI::accept(StreamT *client) {
+int StreamI::accept(StreamI *client) {
   int r = uv_accept(getStream(), client->getStream());
   LOG_IF_ERROR(r);
   return r;
@@ -689,12 +723,12 @@ int PipeI::chmod(int flags) {
   return r;
 }
 
-void PipeI::connectCallback(const PipeI::ConnectCallback &cb) {
-  _impl->_connectCallback = cb;
+void PipeI::connectCallback(const StreamI::ConnectCallback &cb) {
+  StreamI::_impl->_connectCallback = cb;
 }
 
-PipeI::ConnectCallback PipeI::connectCallback() const {
-  return _impl->_connectCallback;
+StreamI::ConnectCallback PipeI::connectCallback() const {
+  return StreamI::_impl->_connectCallback;
 }
 
 // --
@@ -763,6 +797,15 @@ int TcpI::connect(const struct sockaddr *addr) {
   int r = uv_tcp_connect(req, getTcp(), addr, StreamI::Impl::connect_callback);
   LOG_IF_ERROR(r);
   return r;
+}
+
+
+void TcpI::connectCallback(const StreamI::ConnectCallback &cb) {
+  StreamI::_impl->_connectCallback = cb;
+}
+
+StreamI::ConnectCallback TcpI::connectCallback() const {
+  return StreamI::_impl->_connectCallback;
 }
 
 // --
