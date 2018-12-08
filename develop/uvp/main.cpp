@@ -18,8 +18,8 @@ int main(int argc, char *argv[]) {
   auto loop = LoopT::defaultLoop();
   // auto loop = std::make_unique<LoopT>();
 
-  // tcp_client(loop.get());
-  tcp_server(loop.get());
+  tcp_client(loop.get());
+  // tcp_server(loop.get());
   
   loop->close();
   return 0;

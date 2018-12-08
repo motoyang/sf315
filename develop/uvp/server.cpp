@@ -53,14 +53,18 @@ std::string nameOfSock(int af, TcpI *tcp) {
 
 void ClientAgent::onRead(ssize_t nread, const BufT *buf) {
   if (nread < 0) {
-    if (nread == UV_EOF) {
+    if (UV_EOF == nread || UV_ECONNRESET == nread) {
+      // FIXME!!! closed() should be called directly?
       int r = _socket.shutdown();
-      LOG_IF_ERROR(r);
+      if (r) {
+        LOG_IF_ERROR(r);
+        _socket.close();
+      }
       return;
     }
     LOG_IF_ERROR(nread);
   }
-  // _solver.doBussiness(buf->base, nread);
+  _solver.doBussiness(buf->base, nread);
 }
 
 void ClientAgent::onWrite(int status, BufT bufs[], int nbufs) {
@@ -76,27 +80,37 @@ void ClientAgent::onWrite(int status, BufT bufs[], int nbufs) {
 void ClientAgent::onShutdown(int status) {
   if (status < 0) {
     LOG_IF_ERROR(status);
-    return;
   }
-  LOG_INFO << "agent socket shutdown.";
+  LOG_INFO << "agent socket shutdown." << _peer;
 
   // TcpServer &server = _server;
-  _socket.close([this]() {
-    _server.removeClient(_peer);
-    LOG_INFO << "handle of agent socket closed.";
-  });
+  _socket.close();
 }
 
-void ClientAgent::write() {
-  for (auto &msg : _msgList) {
+void ClientAgent::onClose() {
+  // 需要在onClose中先hold住clientagent，否则对象被销毁，onClose代码执行非法！
+  auto p = _server.removeClient(_peer);
+  LOG_INFO << "handle of agent socket closed." << _peer;
+}
+
+void ClientAgent::write(int index) {
+  index %= _msgList.size();
+  for (int i = 0; i < _msgList.size(); ++i) {
+    if (index == _msgList.size())
+      index = 0;
+    auto &msg = _msgList[index++];
     BufT b = copyToBuf(msg.data(), msg.length());
     int r = _socket.write(&b, 1);
-    LOG_IF_ERROR(r);
+    if (r) {
+      freeBuf(b);
+      LOG_IF_ERROR(r);
+    }
   }
+  _socket.readStart();
 }
 
 ClientAgent::ClientAgent(LoopT *loop, TcpServer &server)
-    : _socket(loop), _server(server) {
+    : _socket(loop), _server(server), _solver(23) {
   _msgList.push_back("4|test");
   _msgList.push_back("5|Hello");
   _msgList.push_back("6|World!");
@@ -122,6 +136,8 @@ void ClientAgent::peer(const std::string &peer) { _peer = peer; }
 TcpServer::TcpServer(LoopT *loop, const struct sockaddr *addr)
     : _socket(loop), _timer(loop), _loop(loop) {
   const int backlog = 128;
+  std::srand(
+      std::time(nullptr)); // use current time as seed for random generator
 
   _socket.connectionCallback(
       std::bind(&TcpServer::onConnection, this, std::placeholders::_1));
@@ -135,6 +151,9 @@ TcpServer::TcpServer(LoopT *loop, const struct sockaddr *addr)
 
   _name = nameOfSock(AF_INET, &_socket);
   LOG_INFO << "listen at: " << _name;
+
+  _timer.timerCallback(std::bind(&TcpServer::onTimer, this));
+  _timer.start(1000, 1000);
 }
 
 void TcpServer::onConnection(int status) {
@@ -152,9 +171,9 @@ void TcpServer::onConnection(int status) {
   LOG_INFO << "accept connection from: " << peer;
 
   client->peer(peer);
-  client->write();
-  r = client->socket()->shutdown();
-  LOG_IF_ERROR(r);
+  // client->write(0);
+  // r = client->socket()->shutdown();
+  // LOG_IF_ERROR(r);
 
   addClient(std::move(client));
 }
@@ -165,17 +184,22 @@ void TcpServer::onShutdown(int status) {
     return;
   }
   LOG_INFO << "listen socket shutdown.";
-  _socket.close([]() { LOG_INFO << "handle of listen socket closed."; });
+  _socket.close();
+}
+
+void TcpServer::onClose() {
+  LOG_INFO << "handle of listen socket closed.";
+}
+
+void TcpServer::onTimer() {
+  int random_variable = std::rand();
+  for (auto &i : _clients) {
+    i.second->write(random_variable);
+  }
+  LOG_INFO << "onTimer doing...";
 }
 
 void TcpServer::addClient(std::unique_ptr<ClientAgent> &&client) {
-  while (_cbak.size() > 0) {
-    auto c = std::move(_cbak.front());      
-    _cbak.pop_front();
-
-    LOG_INFO << "client agent removed from list: " << c->peer();
-  }
-
   std::string n = client->peer();
   auto i = _clients.insert({n, std::forward<decltype(client)>(client)});
   if (!i.second) {
@@ -184,16 +208,18 @@ void TcpServer::addClient(std::unique_ptr<ClientAgent> &&client) {
   LOG_INFO << "add client: " << n;
 }
 
-void TcpServer::removeClient(const std::string &name) {
+std::unique_ptr<ClientAgent> TcpServer::removeClient(const std::string &name) {
   auto i = _clients.find(name);
   if (i == _clients.end()) {
     LOG_CRIT << "can't find the client: " << name;
-    return;
+    return std::unique_ptr<ClientAgent>();
   }
-  _cbak.push_back(std::move(i->second));
+  auto p = std::move(i->second);
 
   int num = _clients.erase(name);
   LOG_INFO << "remove " << num << " client: " << name;
+
+  return p;
 }
 
 // --

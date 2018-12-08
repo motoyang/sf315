@@ -24,8 +24,10 @@ class TcpClient {
   ParketSolver _solver;
 
   void onRead(ssize_t nread, const BufT *buf);
+  void onWrite(int status, BufT bufs[], int nbufs);
   void onConnect(int status);
   void onShutdown(int status);
+  void onClose();
 
 public:
   TcpClient(LoopT *loop, const struct sockaddr *addr);

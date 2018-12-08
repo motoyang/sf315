@@ -15,8 +15,12 @@ public:
 
   // Return number of bytes written.
   size_t write(const char *data, size_t bytes) {
-    if ((bytes == 0) || (bytes > (capacity_ - size_))) {
+    if (bytes == 0) {
       return 0;
+    }
+
+    if (bytes > (capacity_ - size_)) {
+      bytes = capacity_ - size_;
     }
 
     size_t capacity = capacity_;

@@ -74,7 +74,7 @@ public:
 
   bool isActive() const;
   bool isClosing() const;
-  void close(CloseCallback &&cb);
+  // void close(CloseCallback &&cb);
   void ref();
   void unref();
   bool hasRef() const;
@@ -94,9 +94,12 @@ public:
 
   // extend functions
   void setDefaultSize(size_t bufSize, size_t queueSize);
-  AllocCallback setAllocCallback(const AllocCallback &cb);
-  FreeCallback setFreeCallback(const FreeCallback &cb);
-  CloseCallback setCloseCallback(const CloseCallback &cb);
+  void allocCallback(const AllocCallback &cb);
+  AllocCallback allocCallback() const;
+  void freeCallback(const FreeCallback &cb);
+  FreeCallback freeCallback() const;
+  void closeCallback(const CloseCallback &cb);
+  CloseCallback closeCallback() const;
   void close();
 };
 
@@ -126,8 +129,12 @@ public:
   IdleI();
   virtual ~IdleI();
 
-  int start(IdleCallback &&cb);
+  int start();
   int stop();
+
+  // extend functions
+  IdleCallback idleCallback() const;
+  void idleCallback(const IdleCallback& cb);
 };
 
 class IdleT : public IdleI {

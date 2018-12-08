@@ -2,6 +2,7 @@
 
 #include <uv.h>
 #include <utilites.hpp>
+#include <misc.hpp>
 #include <uv.hpp>
 
 #include "client.h"
@@ -58,38 +59,46 @@ char *ParketSolver::parse(char *msg, size_t msg_size, RingBuffer *buf) {
 }
 
 void ParketSolver::doBussiness(const char *p, size_t len) {
-  _buf.write(p, len);
+  int remain = len;
+  do {
+    int writed = _buf.write(p, remain);
+    remain -= writed;
+    p += writed;
 
-  int n = 0;
-  while (true) {
-    char *r = parse(_msg.data(), _msg.capacity(), &_buf);
-    if (!r) {
-      break;
-    }
-    n++;
+    int n = 0;
+    while (true) {
+      char *r = parse(_msg.data(), _msg.capacity(), &_buf);
+      if (!r) {
+        break;
+      }
+      n++;
 
-    std::cout << _msg << std::endl;
-    if (n > _buf.capacity()) {
-      std::cout << "    [Merged Packet]" << std::endl;
-      exit(0);
+      std::cout << r << std::endl;
+      if (n > _buf.capacity()) {
+        std::cout << "    [Merged Packet]" << std::endl;
+        exit(0);
+      }
     }
-  }
+  } while (remain > 0);
 }
 
 // --
 
-TcpClient::TcpClient(LoopT *loop, const struct sockaddr *addr)
+TcpClient::TcpClient(LoopT *loop, const struct sockaddr *dest)
     : _socket(loop), _solver(23) {
-
   _socket.setDefaultSize(_solver.size() / 2, 3);
+
   _socket.connectCallback(
       std::bind(&TcpClient::onConnect, this, std::placeholders::_1));
   _socket.shutdownCallback(
       std::bind(&TcpClient::onShutdown, this, std::placeholders::_1));
   _socket.readCallback(std::bind(&TcpClient::onRead, this,
                                  std::placeholders::_1, std::placeholders::_2));
+  _socket.writeCallback(std::bind(&TcpClient::onWrite, this,
+                                  std::placeholders::_1, std::placeholders::_2,
+                                  std::placeholders::_3));
 
-  _socket.connect(addr);
+  _socket.connect(dest);
 }
 
 void TcpClient::onConnect(int status) {
@@ -103,16 +112,22 @@ void TcpClient::onConnect(int status) {
 
 void TcpClient::onShutdown(int status) {
   if (status < 0) {
-    LOG_IF_ERROR(status);
-    return;
+    if (UV_ENOTCONN != status) {
+      LOG_IF_ERROR(status);
+      return;
+    }
   }
   LOG_INFO << "client socket shutdown.";
-  _socket.close([]() { LOG_INFO << "handle of socket closed."; });
+  _socket.close();
+}
+
+void TcpClient::onClose() {
+  LOG_INFO << "handle of socket closed.";
 }
 
 void TcpClient::onRead(ssize_t nread, const BufT *buf) {
   if (nread < 0) {
-    if (nread == UV_EOF) {
+    if (UV_EOF == nread || UV_ECONNRESET == nread) {
       int r = _socket.shutdown();
       LOG_IF_ERROR(r);
       return;
@@ -120,11 +135,31 @@ void TcpClient::onRead(ssize_t nread, const BufT *buf) {
     LOG_IF_ERROR(nread);
   }
   _solver.doBussiness(buf->base, nread);
+
+  BufT b = copyToBuf(buf->base, nread);
+  int r = _socket.write(&b, 1);
+  if (r) {
+    freeBuf(b);
+    LOG_IF_ERROR(r);
+  }
+}
+
+void TcpClient::onWrite(int status, BufT bufs[], int nbufs) {
+  if (status < 0) {
+    LOG_IF_ERROR(status);
+  }
+
+  for (int i = 0; i < nbufs; ++i) {
+    freeBuf(bufs[i]);
+    LOG_INFO << "write " << bufs[i].len << " bytes.";
+  }
 }
 
 // --
 
 int tcp_client(LoopT *loop) {
+  LOG_IF_ERROR(-107);
+
   struct sockaddr_in dest;
   uv_ip4_addr("127.0.0.1", 7001, &dest);
 
