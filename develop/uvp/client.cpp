@@ -112,11 +112,8 @@ void TcpClient::onConnect(int status) {
 
 void TcpClient::onShutdown(int status) {
   if (status < 0) {
-    if (UV_ENOTCONN != status) {
       LOG_IF_ERROR(status);
-      return;
     }
-  }
   LOG_INFO << "client socket shutdown.";
   _socket.close();
 }
@@ -129,7 +126,10 @@ void TcpClient::onRead(ssize_t nread, const BufT *buf) {
   if (nread < 0) {
     if (UV_EOF == nread || UV_ECONNRESET == nread) {
       int r = _socket.shutdown();
-      LOG_IF_ERROR(r);
+      if (r) {
+        LOG_IF_ERROR(r);
+        _socket.close();
+      }
       return;
     }
     LOG_IF_ERROR(nread);
@@ -150,16 +150,14 @@ void TcpClient::onWrite(int status, BufT bufs[], int nbufs) {
   }
 
   for (int i = 0; i < nbufs; ++i) {
+    // LOG_INFO << "write " << bufs[i].len << " bytes.";
     freeBuf(bufs[i]);
-    LOG_INFO << "write " << bufs[i].len << " bytes.";
   }
 }
 
 // --
 
 int tcp_client(LoopT *loop) {
-  LOG_IF_ERROR(-107);
-
   struct sockaddr_in dest;
   uv_ip4_addr("127.0.0.1", 7001, &dest);
 

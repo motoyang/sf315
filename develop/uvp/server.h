@@ -6,23 +6,19 @@
 
 #include <uv.hpp>
 
-#include "client.h"
-
 // --
 
-class ParcketCreator {
-
-public:
-  ParcketCreator();
-};
-
+class Packet;
 class TcpServer;
 class ClientAgent {
   TcpT _socket;
   std::string _peer;
-  TcpServer& _server;
+  TcpServer& _listenor;
   std::vector<std::string> _msgList;
-  ParketSolver _solver;
+   
+  RingBuffer _ringbuffer;
+  Codec _codec;
+  void makeup(const char* p, size_t len);
 
   void onRead(ssize_t nread, const BufT* buf);
   void onWrite(int status, BufT bufs[], int nbufs);
@@ -39,13 +35,14 @@ public:
 };
 
 // --
-
+class Gangway;
 class TcpServer {
   TcpT _socket;
   TimerT _timer;
   LoopT* _loop;
   std::string _name;
   std::unordered_map<std::string, std::unique_ptr<ClientAgent>> _clients;
+  Gangway & _gangway;
 
   void onConnection(int status);
   void onShutdown(int status);
@@ -54,9 +51,10 @@ class TcpServer {
   void onTimer();
 
 public:
-  TcpServer(LoopT *loop, const struct sockaddr *addr);
+  TcpServer(LoopT *loop, Gangway& way, const struct sockaddr *addr);
   void addClient(std::unique_ptr<ClientAgent>&& client);
   std::unique_ptr<ClientAgent> removeClient(const std::string& name);
+  Gangway& gangway();
 };
 
 // --

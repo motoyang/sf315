@@ -7,7 +7,7 @@
 class ParketSolver {
   RingBuffer _buf;
   std::string _msg;
-
+  
   char *parse(char *msg, size_t msg_size, RingBuffer *buf);
 
 public:

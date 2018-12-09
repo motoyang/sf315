@@ -1,14 +1,18 @@
-#include <req.hpp>
-#include <uv.hpp>
 #include <utilites.hpp>
+#include <uv.hpp>
+#include <req.hpp>
+
+// --
+
+struct ReqI::Impl {
+  void* _data;
+};
 
 // --
 
 size_t ReqI::size(ReqI::ReqType type) { return uv_req_size(type); }
 
-const char *ReqI::typeName(ReqI::ReqType type) {
-  return uv_req_type_name(type);
-}
+const char *ReqI::name(ReqI::ReqType type) { return uv_req_type_name(type); }
 
 int ReqI::cancel() {
   int r = uv_cancel(getReq());
@@ -16,43 +20,76 @@ int ReqI::cancel() {
   return r;
 }
 
-void *ReqI::data() const { return uv_req_get_data(getReq()); }
+void *ReqI::data() const { return _impl->_data; }
 
 void *ReqI::data(void *data) {
-  uv_req_set_data(getReq(), data);
+  _impl->_data = data;
   return data;
 }
 
 ReqI::ReqType ReqI::type() const { return uv_req_get_type(getReq()); }
 
+ReqI::ReqI(): _impl(std::make_unique<ReqI::Impl>()) {}
+
+ReqI::~ReqI() {}
+
 // --
 
-uv_req_t *ReqT::getReq() const { return (uv_req_t *)&_req; }
+struct WorkI::Impl {
+  WorkCallback _workCallback;
+  AfterWorkCallback _afterWorkCallback;
 
-// --
+  static void work_callback(uv_work_t *req);
+  static void afterwork_callback(uv_work_t *req, int status);
+};
 
-StreamT *ShutdownI::stream() {
-  auto p = (StreamT *)uv_handle_get_data((uv_handle_t *)getShutdown()->handle);
-  return p;
+void WorkI::Impl::work_callback(uv_work_t *req) {
+  auto p = (WorkI *)uv_req_get_data((uv_req_t *)req);
+  if (p->_impl->_workCallback) {
+    p->_impl->_workCallback();
+  }
+}
+
+void WorkI::Impl::afterwork_callback(uv_work_t *req, int status) {
+  auto p = (WorkI *)uv_req_get_data((uv_req_t *)req);
+  if (p->_impl->_afterWorkCallback) {
+    p->_impl->_afterWorkCallback(status);
+  }
+}
+
+WorkI::WorkI() : _impl(std::make_unique<WorkI::Impl>()) {}
+
+WorkI::~WorkI() {}
+
+int WorkI::queue(LoopT *from) {
+  int r = uv_queue_work(from->get(), getWork(), Impl::work_callback,
+                        Impl::afterwork_callback);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+void WorkI::workCallback(const WorkI::WorkCallback &cb) {
+  _impl->_workCallback = cb;
+}
+
+WorkI::WorkCallback WorkI::workCallback() const { return _impl->_workCallback; }
+
+void WorkI::afterWorkCallback(const WorkI::AfterWorkCallback &cb) {
+  _impl->_afterWorkCallback = cb;
+}
+
+WorkI::AfterWorkCallback WorkI::afterWorkCallback() const {
+  return _impl->_afterWorkCallback;
 }
 
 // --
 
-uv_req_t *ShutdownT::getReq() const { return (uv_req_t *)&_shutdown; }
+uv_req_t *WorkT::getReq() const { return (uv_req_t *)&_work; }
 
-uv_shutdown_t *ShutdownT::getShutdown() const {
-  return (uv_shutdown_t *)&_shutdown;
+uv_work_t *WorkT::getWork() const { return (uv_work_t *)&_work; }
+
+WorkT::WorkT() {
+  uv_req_set_data(getReq(), this);
 }
 
-// --
-
-StreamT *WriteI::stream() {
-  auto p = (StreamT *)uv_handle_get_data((uv_handle_t *)getWrite()->handle);
-  return p;
-}
-
-// --
-
-uv_req_t *WriteT::getReq() const { return (uv_req_t *)&_write; }
-
-uv_write_t *WriteT::getWrite() const { return (uv_write_t *)&_write; }
+WorkT::~WorkT() {}

@@ -6,72 +6,63 @@
 #include <memory>
 #include <initializer_list>
 
+// --
 
 class ReqI {
 protected:
+  class Impl;
+  std::unique_ptr<Impl> _impl;
+
   virtual uv_req_t *getReq() const = 0;
 
 public:
   using ReqType = uv_req_type;
 
   static size_t size(ReqType type);
-  static const char *typeName(ReqType type);
+  static const char *name(ReqType type);
+
+  ReqI();
+  virtual ~ReqI();
 
   int cancel();
-  void *data() const;
-  void *data(void *data);
   ReqType type() const;
-};
-
-class ReqT : public ReqI {
-  uv_req_t _req;
-
-protected:
-  virtual uv_req_t *getReq() const override;
-
-public:
+  void *data(void *data);
+  void *data() const;
 };
 
 // --
 
-class StreamT;
-class ShutdownI : public ReqI {
+class LoopT;
+class WorkI : public ReqI {
 protected:
-  virtual uv_shutdown_t *getShutdown() const = 0;
+  class Impl;
+  std::unique_ptr<Impl> _impl;
+
+  virtual uv_work_t *getWork() const = 0;
 
 public:
-  StreamT* stream();
+  using WorkCallback = std::function<void()>;
+  using AfterWorkCallback = std::function<void(int)>;
+
+  WorkI();
+  virtual ~WorkI();
+
+  int queue(LoopT *from);
+
+  void workCallback(const WorkCallback &cb);
+  WorkCallback workCallback() const;
+  void afterWorkCallback(const AfterWorkCallback &cb);
+  AfterWorkCallback afterWorkCallback() const;
 };
 
-class ShutdownT: public ShutdownI {
-  friend class StreamI;
-  uv_shutdown_t _shutdown;
+class WorkT : public WorkI {
+  uv_work_t _work;
 
 protected:
   virtual uv_req_t *getReq() const override;
-  virtual uv_shutdown_t *getShutdown() const override;
+  virtual uv_work_t *getWork() const override;
 
 public:
-};
-
-// --
-
-class WriteI: public ReqI {
-protected:
-  virtual uv_write_t *getWrite() const = 0;
-
-public:
-  StreamT* stream();
-};
-
-class WriteT: public WriteI {
-  friend class StreamI;
-  uv_write_t _write;
-
-  protected:
-  virtual uv_req_t *getReq() const override;
-  virtual uv_write_t *getWrite() const override;
-
-public:
-  
+  WorkT();
+  virtual ~WorkT();
 };

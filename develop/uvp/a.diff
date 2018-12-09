@@ -1,0 +1,870 @@
+只在 . 存在：a.diff
+只在 /home/xt/dev/cpp/uv/ 存在：build
+diff -cr ./client.cpp /home/xt/dev/cpp/uv/client.cpp
+*** ./client.cpp	2018-12-09 00:08:57.170665768 +0800
+--- /home/xt/dev/cpp/uv/client.cpp	2018-12-09 19:49:13.594156761 +0800
+***************
+*** 112,122 ****
+  
+  void TcpClient::onShutdown(int status) {
+    if (status < 0) {
+-     if (UV_ENOTCONN != status) {
+        LOG_IF_ERROR(status);
+-       return;
+      }
+-   }
+    LOG_INFO << "client socket shutdown.";
+    _socket.close();
+  }
+--- 112,119 ----
+***************
+*** 129,135 ****
+    if (nread < 0) {
+      if (UV_EOF == nread || UV_ECONNRESET == nread) {
+        int r = _socket.shutdown();
+!       LOG_IF_ERROR(r);
+        return;
+      }
+      LOG_IF_ERROR(nread);
+--- 126,135 ----
+    if (nread < 0) {
+      if (UV_EOF == nread || UV_ECONNRESET == nread) {
+        int r = _socket.shutdown();
+!       if (r) {
+!         LOG_IF_ERROR(r);
+!         _socket.close();
+!       }
+        return;
+      }
+      LOG_IF_ERROR(nread);
+***************
+*** 150,165 ****
+    }
+  
+    for (int i = 0; i < nbufs; ++i) {
+      freeBuf(bufs[i]);
+-     LOG_INFO << "write " << bufs[i].len << " bytes.";
+    }
+  }
+  
+  // --
+  
+  int tcp_client(LoopT *loop) {
+-   LOG_IF_ERROR(-107);
+- 
+    struct sockaddr_in dest;
+    uv_ip4_addr("127.0.0.1", 7001, &dest);
+  
+--- 150,163 ----
+    }
+  
+    for (int i = 0; i < nbufs; ++i) {
++     // LOG_INFO << "write " << bufs[i].len << " bytes.";
+      freeBuf(bufs[i]);
+    }
+  }
+  
+  // --
+  
+  int tcp_client(LoopT *loop) {
+    struct sockaddr_in dest;
+    uv_ip4_addr("127.0.0.1", 7001, &dest);
+  
+diff -cr ./client.h /home/xt/dev/cpp/uv/client.h
+*** ./client.h	2018-12-09 00:08:57.170665768 +0800
+--- /home/xt/dev/cpp/uv/client.h	2018-12-09 19:43:14.136006887 +0800
+***************
+*** 7,13 ****
+  class ParketSolver {
+    RingBuffer _buf;
+    std::string _msg;
+! 
+    char *parse(char *msg, size_t msg_size, RingBuffer *buf);
+  
+  public:
+--- 7,13 ----
+  class ParketSolver {
+    RingBuffer _buf;
+    std::string _msg;
+!   
+    char *parse(char *msg, size_t msg_size, RingBuffer *buf);
+  
+  public:
+diff -cr ./main.cpp /home/xt/dev/cpp/uv/main.cpp
+*** ./main.cpp	2018-12-09 00:08:57.170665768 +0800
+--- /home/xt/dev/cpp/uv/main.cpp	2018-12-10 01:28:23.168251085 +0800
+***************
+*** 2,26 ****
+  
+  #include <nanolog/nanolog.hpp>
+  #include <misc.hpp>
+  #include <uv.hpp>
+  
+  #include "client.h"
+  #include "server.h"
+  
+  // --
+  
+  int main(int argc, char *argv[]) {
+    const unsigned int log_file_count = 5;
+!   nanolog::initialize(nanolog::GuaranteedLogger(), "/tmp/", "uvp", 1,
+                        log_file_count);
+! 
+    std::cout << "libuv version: " << Version().str() << std::endl;
+    auto loop = LoopT::defaultLoop();
+    // auto loop = std::make_unique<LoopT>();
+  
+-   tcp_client(loop.get());
+-   // tcp_server(loop.get());
+-   
+    loop->close();
+    return 0;
+  }
+--- 2,51 ----
+  
+  #include <nanolog/nanolog.hpp>
+  #include <misc.hpp>
++ #include <req.hpp>
+  #include <uv.hpp>
++ #include <gangway.hpp>
+  
++ // #include <unistd.h>
++ 
++ #include "sighandler.h"
+  #include "client.h"
+  #include "server.h"
+  
++ void sig16_handler(int signum, siginfo_t *info, void *myact) {
++   printf("the int value is %d \n", info->si_int);
++ }
++ 
+  // --
+  
+  int main(int argc, char *argv[]) {
+    const unsigned int log_file_count = 5;
+!   nanolog::initialize(nanolog::GuaranteedLogger(), "/tmp/", argv[0], 1,
+                        log_file_count);
+!   LOG_INFO << "libuv version: " << Version().str();
+    std::cout << "libuv version: " << Version().str() << std::endl;
+    auto loop = LoopT::defaultLoop();
+    // auto loop = std::make_unique<LoopT>();
++ /*
++   if (argc == 4) {
++     pid_t pid = atoi(argv[1]);
++     int sig = atoi(argv[2]);
++     int tag = atoi(argv[3]);
++     std::cout << "sig_send(" << pid << ", " << sig << ", " << tag << ");"
++               << std::endl;
++     sig_send(pid, sig, tag);
++   } else {
++     pid_t pid = getpid();
++     std::cout << "pid = " << pid << std::endl;
++     int sig = atoi(argv[1]);
++     std::cout << "sig_capture(" << sig << ");" << std::endl;
++     sig_capture(sig, sig16_handler);
++   }
++ */
++ 
++   // tcp_client(loop.get());
++   tcp_server(loop.get());
+  
+    loop->close();
+    return 0;
+  }
+diff -cr ./server.cpp /home/xt/dev/cpp/uv/server.cpp
+*** ./server.cpp	2018-12-09 00:08:57.170665768 +0800
+--- /home/xt/dev/cpp/uv/server.cpp	2018-12-10 01:35:25.560193748 +0800
+***************
+*** 1,9 ****
+--- 1,13 ----
+  #include <iostream>
++ #include <atomic>
+  
++ #include <ringbuffer.hpp>
+  #include <uv.h>
+  #include <utilites.hpp>
+  #include <misc.hpp>
+  #include <uv.hpp>
++ #include <req.hpp>
++ #include <gangway.hpp>
+  
+  #include "server.h"
+  
+***************
+*** 51,56 ****
+--- 55,81 ----
+  
+  // --
+  
++ void ClientAgent::makeup(const char *p, size_t len) {
++   int remain = len;
++   do {
++     int writed = _ringbuffer.write(p, remain);
++     remain -= writed;
++     p += writed;
++ 
++     while (true) {
++       // 解析出每个包
++       BufT b = _codec.decode(&_ringbuffer);
++       if (!b.base) {
++         break;
++       }
++ 
++       // 打包到packet，并上传给业务处理。
++       Packet packet(_peer, b);
++       _listenor.gangway()._upward.enqueue(std::move(packet));
++     }
++   } while (remain > 0);
++ }
++ 
+  void ClientAgent::onRead(ssize_t nread, const BufT *buf) {
+    if (nread < 0) {
+      if (UV_EOF == nread || UV_ECONNRESET == nread) {
+***************
+*** 64,70 ****
+      }
+      LOG_IF_ERROR(nread);
+    }
+!   _solver.doBussiness(buf->base, nread);
+  }
+  
+  void ClientAgent::onWrite(int status, BufT bufs[], int nbufs) {
+--- 89,97 ----
+      }
+      LOG_IF_ERROR(nread);
+    }
+! 
+!   // 整理包，并进一步处理包
+!   makeup(buf->base, nread);
+  }
+  
+  void ClientAgent::onWrite(int status, BufT bufs[], int nbufs) {
+***************
+*** 83,95 ****
+    }
+    LOG_INFO << "agent socket shutdown." << _peer;
+  
+-   // TcpServer &server = _server;
+    _socket.close();
+  }
+  
+  void ClientAgent::onClose() {
+    // 需要在onClose中先hold住clientagent，否则对象被销毁，onClose代码执行非法！
+!   auto p = _server.removeClient(_peer);
+    LOG_INFO << "handle of agent socket closed." << _peer;
+  }
+  
+--- 110,121 ----
+    }
+    LOG_INFO << "agent socket shutdown." << _peer;
+  
+    _socket.close();
+  }
+  
+  void ClientAgent::onClose() {
+    // 需要在onClose中先hold住clientagent，否则对象被销毁，onClose代码执行非法！
+!   auto p = _listenor.removeClient(_peer);
+    LOG_INFO << "handle of agent socket closed." << _peer;
+  }
+  
+***************
+*** 99,105 ****
+      if (index == _msgList.size())
+        index = 0;
+      auto &msg = _msgList[index++];
+!     BufT b = copyToBuf(msg.data(), msg.length());
+      int r = _socket.write(&b, 1);
+      if (r) {
+        freeBuf(b);
+--- 125,132 ----
+      if (index == _msgList.size())
+        index = 0;
+      auto &msg = _msgList[index++];
+!     BufT b = _codec.encode(msg.c_str(), msg.length());
+!     // BufT b = copyToBuf(msg.data(), msg.length());
+      int r = _socket.write(&b, 1);
+      if (r) {
+        freeBuf(b);
+***************
+*** 110,121 ****
+  }
+  
+  ClientAgent::ClientAgent(LoopT *loop, TcpServer &server)
+!     : _socket(loop), _server(server), _solver(23) {
+!   _msgList.push_back("4|test");
+!   _msgList.push_back("5|Hello");
+!   _msgList.push_back("6|World!");
+!   _msgList.push_back("20|abcdefghij0123456789");
+! 
+    _socket.writeCallback(std::bind(&ClientAgent::onWrite, this,
+                                    std::placeholders::_1, std::placeholders::_2,
+                                    std::placeholders::_3));
+--- 137,154 ----
+  }
+  
+  ClientAgent::ClientAgent(LoopT *loop, TcpServer &server)
+!     : _socket(loop), _listenor(server), _ringbuffer(24), _codec('|') {
+!   // _msgList.push_back("4|test");
+!   // _msgList.push_back("5|Hello");
+!   // _msgList.push_back("6|World!");
+!   // _msgList.push_back("20|abcdefghij0123456789");
+!   _msgList.push_back("test");
+!   _msgList.push_back("Hello");
+!   _msgList.push_back("World!");
+!   _msgList.push_back("test_abc");
+!   _msgList.push_back("Hello, everyon");
+!   _msgList.push_back("World! Heart!");
+!   _msgList.push_back("abcdefghij0123456789");
+    _socket.writeCallback(std::bind(&ClientAgent::onWrite, this,
+                                    std::placeholders::_1, std::placeholders::_2,
+                                    std::placeholders::_3));
+***************
+*** 133,143 ****
+  
+  // --
+  
+! TcpServer::TcpServer(LoopT *loop, const struct sockaddr *addr)
+!     : _socket(loop), _timer(loop), _loop(loop) {
+    const int backlog = 128;
+!   std::srand(
+!       std::time(nullptr)); // use current time as seed for random generator
+  
+    _socket.connectionCallback(
+        std::bind(&TcpServer::onConnection, this, std::placeholders::_1));
+--- 166,175 ----
+  
+  // --
+  
+! TcpServer::TcpServer(LoopT *loop, Gangway &way, const struct sockaddr *addr)
+!     : _socket(loop), _timer(loop), _loop(loop), _gangway(way) {
+    const int backlog = 128;
+!   std::srand(std::time(nullptr));
+  
+    _socket.connectionCallback(
+        std::bind(&TcpServer::onConnection, this, std::placeholders::_1));
+***************
+*** 167,176 ****
+      LOG_IF_ERROR(r);
+      return;
+    }
+    std::string peer = nameOfPeer(AF_INET, client->socket());
+    LOG_INFO << "accept connection from: " << peer;
+- 
+    client->peer(peer);
+    // client->write(0);
+    // r = client->socket()->shutdown();
+    // LOG_IF_ERROR(r);
+--- 199,209 ----
+      LOG_IF_ERROR(r);
+      return;
+    }
++ 
+    std::string peer = nameOfPeer(AF_INET, client->socket());
+    LOG_INFO << "accept connection from: " << peer;
+    client->peer(peer);
++ 
+    // client->write(0);
+    // r = client->socket()->shutdown();
+    // LOG_IF_ERROR(r);
+***************
+*** 181,202 ****
+  void TcpServer::onShutdown(int status) {
+    if (status < 0) {
+      LOG_IF_ERROR(status);
+-     return;
+    }
+    LOG_INFO << "listen socket shutdown.";
+    _socket.close();
+  }
+  
+! void TcpServer::onClose() {
+!   LOG_INFO << "handle of listen socket closed.";
+! }
+  
+  void TcpServer::onTimer() {
+    int random_variable = std::rand();
+    for (auto &i : _clients) {
+      i.second->write(random_variable);
+    }
+-   LOG_INFO << "onTimer doing...";
+  }
+  
+  void TcpServer::addClient(std::unique_ptr<ClientAgent> &&client) {
+--- 214,231 ----
+  void TcpServer::onShutdown(int status) {
+    if (status < 0) {
+      LOG_IF_ERROR(status);
+    }
+    LOG_INFO << "listen socket shutdown.";
+    _socket.close();
+  }
+  
+! void TcpServer::onClose() { LOG_INFO << "handle of listen socket closed."; }
+  
+  void TcpServer::onTimer() {
+    int random_variable = std::rand();
+    for (auto &i : _clients) {
+      i.second->write(random_variable);
+    }
+  }
+  
+  void TcpServer::addClient(std::unique_ptr<ClientAgent> &&client) {
+***************
+*** 222,233 ****
+    return p;
+  }
+  
+! // --
+  
+  int tcp_server(LoopT *loop) {
+    struct sockaddr_in addr;
+    uv_ip4_addr("0", 7001, &addr);
+  
+!   TcpServer server(loop, (const struct sockaddr *)&addr);
+    return loop->run(UV_RUN_DEFAULT);
+  }
+--- 251,267 ----
+    return p;
+  }
+  
+! Gangway &TcpServer::gangway() { return _gangway; }
+  
+  int tcp_server(LoopT *loop) {
++   Gangway gway;
++ 
++   Business bness("business", gway);
++   bness.start(loop);
++ 
+    struct sockaddr_in addr;
+    uv_ip4_addr("0", 7001, &addr);
+  
+!   TcpServer server(loop, gway, (const struct sockaddr *)&addr);
+    return loop->run(UV_RUN_DEFAULT);
+  }
+diff -cr ./server.h /home/xt/dev/cpp/uv/server.h
+*** ./server.h	2018-12-09 00:08:57.170665768 +0800
+--- /home/xt/dev/cpp/uv/server.h	2018-12-10 01:18:47.758638738 +0800
+***************
+*** 6,28 ****
+  
+  #include <uv.hpp>
+  
+- #include "client.h"
+- 
+  // --
+  
+! class ParcketCreator {
+! 
+! public:
+!   ParcketCreator();
+! };
+! 
+  class TcpServer;
+  class ClientAgent {
+    TcpT _socket;
+    std::string _peer;
+!   TcpServer& _server;
+    std::vector<std::string> _msgList;
+!   ParketSolver _solver;
+  
+    void onRead(ssize_t nread, const BufT* buf);
+    void onWrite(int status, BufT bufs[], int nbufs);
+--- 6,24 ----
+  
+  #include <uv.hpp>
+  
+  // --
+  
+! class Packet;
+  class TcpServer;
+  class ClientAgent {
+    TcpT _socket;
+    std::string _peer;
+!   TcpServer& _listenor;
+    std::vector<std::string> _msgList;
+!    
+!   RingBuffer _ringbuffer;
+!   Codec _codec;
+!   void makeup(const char* p, size_t len);
+  
+    void onRead(ssize_t nread, const BufT* buf);
+    void onWrite(int status, BufT bufs[], int nbufs);
+***************
+*** 39,51 ****
+  };
+  
+  // --
+! 
+  class TcpServer {
+    TcpT _socket;
+    TimerT _timer;
+    LoopT* _loop;
+    std::string _name;
+    std::unordered_map<std::string, std::unique_ptr<ClientAgent>> _clients;
+  
+    void onConnection(int status);
+    void onShutdown(int status);
+--- 35,48 ----
+  };
+  
+  // --
+! class Gangway;
+  class TcpServer {
+    TcpT _socket;
+    TimerT _timer;
+    LoopT* _loop;
+    std::string _name;
+    std::unordered_map<std::string, std::unique_ptr<ClientAgent>> _clients;
++   Gangway & _gangway;
+  
+    void onConnection(int status);
+    void onShutdown(int status);
+***************
+*** 54,62 ****
+    void onTimer();
+  
+  public:
+!   TcpServer(LoopT *loop, const struct sockaddr *addr);
+    void addClient(std::unique_ptr<ClientAgent>&& client);
+    std::unique_ptr<ClientAgent> removeClient(const std::string& name);
+  };
+  
+  // --
+--- 51,60 ----
+    void onTimer();
+  
+  public:
+!   TcpServer(LoopT *loop, Gangway& way, const struct sockaddr *addr);
+    void addClient(std::unique_ptr<ClientAgent>&& client);
+    std::unique_ptr<ClientAgent> removeClient(const std::string& name);
++   Gangway& gangway();
+  };
+  
+  // --
+只在 /home/xt/dev/cpp/uv/ 存在：sighandler.cpp
+只在 /home/xt/dev/cpp/uv/ 存在：sighandler.h
+只在 /home/xt/dev/cpp/uv/uvp 存在：concurrentqueue.h
+只在 /home/xt/dev/cpp/uv/uvp 存在：gangway.cpp
+只在 /home/xt/dev/cpp/uv/uvp 存在：gangway.hpp
+只在 /home/xt/dev/cpp/uv/uvp 存在：packet.hpp
+diff -cr ./uvp/req.cpp /home/xt/dev/cpp/uv/uvp/req.cpp
+*** ./uvp/req.cpp	2018-12-05 22:52:20.685034000 +0800
+--- /home/xt/dev/cpp/uv/uvp/req.cpp	2018-12-09 19:07:38.780569334 +0800
+***************
+*** 1,14 ****
+- #include <req.hpp>
+- #include <uv.hpp>
+  #include <utilites.hpp>
+  
+  // --
+  
+  size_t ReqI::size(ReqI::ReqType type) { return uv_req_size(type); }
+  
+! const char *ReqI::typeName(ReqI::ReqType type) {
+!   return uv_req_type_name(type);
+! }
+  
+  int ReqI::cancel() {
+    int r = uv_cancel(getReq());
+--- 1,18 ----
+  #include <utilites.hpp>
++ #include <uv.hpp>
++ #include <req.hpp>
++ 
++ // --
++ 
++ struct ReqI::Impl {
++   void* _data;
++ };
+  
+  // --
+  
+  size_t ReqI::size(ReqI::ReqType type) { return uv_req_size(type); }
+  
+! const char *ReqI::name(ReqI::ReqType type) { return uv_req_type_name(type); }
+  
+  int ReqI::cancel() {
+    int r = uv_cancel(getReq());
+***************
+*** 16,58 ****
+    return r;
+  }
+  
+! void *ReqI::data() const { return uv_req_get_data(getReq()); }
+  
+  void *ReqI::data(void *data) {
+!   uv_req_set_data(getReq(), data);
+    return data;
+  }
+  
+  ReqI::ReqType ReqI::type() const { return uv_req_get_type(getReq()); }
+  
+! // --
+  
+! uv_req_t *ReqT::getReq() const { return (uv_req_t *)&_req; }
+  
+  // --
+  
+! StreamT *ShutdownI::stream() {
+!   auto p = (StreamT *)uv_handle_get_data((uv_handle_t *)getShutdown()->handle);
+!   return p;
+  }
+  
+! // --
+  
+! uv_req_t *ShutdownT::getReq() const { return (uv_req_t *)&_shutdown; }
+  
+! uv_shutdown_t *ShutdownT::getShutdown() const {
+!   return (uv_shutdown_t *)&_shutdown;
+  }
+  
+! // --
+  
+! StreamT *WriteI::stream() {
+!   auto p = (StreamT *)uv_handle_get_data((uv_handle_t *)getWrite()->handle);
+!   return p;
+  }
+  
+  // --
+  
+! uv_req_t *WriteT::getReq() const { return (uv_req_t *)&_write; }
+  
+! uv_write_t *WriteT::getWrite() const { return (uv_write_t *)&_write; }
+--- 20,95 ----
+    return r;
+  }
+  
+! void *ReqI::data() const { return _impl->_data; }
+  
+  void *ReqI::data(void *data) {
+!   _impl->_data = data;
+    return data;
+  }
+  
+  ReqI::ReqType ReqI::type() const { return uv_req_get_type(getReq()); }
+  
+! ReqI::ReqI(): _impl(std::make_unique<ReqI::Impl>()) {}
+  
+! ReqI::~ReqI() {}
+  
+  // --
+  
+! struct WorkI::Impl {
+!   WorkCallback _workCallback;
+!   AfterWorkCallback _afterWorkCallback;
+! 
+!   static void work_callback(uv_work_t *req);
+!   static void afterwork_callback(uv_work_t *req, int status);
+! };
+! 
+! void WorkI::Impl::work_callback(uv_work_t *req) {
+!   auto p = (WorkI *)uv_req_get_data((uv_req_t *)req);
+!   if (p->_impl->_workCallback) {
+!     p->_impl->_workCallback();
+!   }
+  }
+  
+! void WorkI::Impl::afterwork_callback(uv_work_t *req, int status) {
+!   auto p = (WorkI *)uv_req_get_data((uv_req_t *)req);
+!   if (p->_impl->_afterWorkCallback) {
+!     p->_impl->_afterWorkCallback(status);
+!   }
+! }
+! 
+! WorkI::WorkI() : _impl(std::make_unique<WorkI::Impl>()) {}
+  
+! WorkI::~WorkI() {}
+  
+! int WorkI::queue(LoopT *from) {
+!   int r = uv_queue_work(from->get(), getWork(), Impl::work_callback,
+!                         Impl::afterwork_callback);
+!   LOG_IF_ERROR(r);
+!   return r;
+  }
+  
+! void WorkI::workCallback(const WorkI::WorkCallback &cb) {
+!   _impl->_workCallback = cb;
+! }
+  
+! WorkI::WorkCallback WorkI::workCallback() const { return _impl->_workCallback; }
+! 
+! void WorkI::afterWorkCallback(const WorkI::AfterWorkCallback &cb) {
+!   _impl->_afterWorkCallback = cb;
+! }
+! 
+! WorkI::AfterWorkCallback WorkI::afterWorkCallback() const {
+!   return _impl->_afterWorkCallback;
+  }
+  
+  // --
+  
+! uv_req_t *WorkT::getReq() const { return (uv_req_t *)&_work; }
+! 
+! uv_work_t *WorkT::getWork() const { return (uv_work_t *)&_work; }
+! 
+! WorkT::WorkT() {
+!   uv_req_set_data(getReq(), this);
+! }
+  
+! WorkT::~WorkT() {}
+diff -cr ./uvp/req.hpp /home/xt/dev/cpp/uv/uvp/req.hpp
+*** ./uvp/req.hpp	2018-12-05 22:52:20.685034000 +0800
+--- /home/xt/dev/cpp/uv/uvp/req.hpp	2018-12-09 19:08:17.756888547 +0800
+***************
+*** 6,77 ****
+  #include <memory>
+  #include <initializer_list>
+  
+  
+  class ReqI {
+  protected:
+    virtual uv_req_t *getReq() const = 0;
+  
+  public:
+    using ReqType = uv_req_type;
+  
+    static size_t size(ReqType type);
+!   static const char *typeName(ReqType type);
+  
+    int cancel();
+-   void *data() const;
+-   void *data(void *data);
+    ReqType type() const;
+! };
+! 
+! class ReqT : public ReqI {
+!   uv_req_t _req;
+! 
+! protected:
+!   virtual uv_req_t *getReq() const override;
+! 
+! public:
+  };
+  
+  // --
+  
+! class StreamT;
+! class ShutdownI : public ReqI {
+  protected:
+!   virtual uv_shutdown_t *getShutdown() const = 0;
+! 
+! public:
+!   StreamT* stream();
+! };
+  
+! class ShutdownT: public ShutdownI {
+!   friend class StreamI;
+!   uv_shutdown_t _shutdown;
+! 
+! protected:
+!   virtual uv_req_t *getReq() const override;
+!   virtual uv_shutdown_t *getShutdown() const override;
+  
+  public:
+! };
+  
+! // --
+  
+! class WriteI: public ReqI {
+! protected:
+!   virtual uv_write_t *getWrite() const = 0;
+  
+! public:
+!   StreamT* stream();
+  };
+  
+! class WriteT: public WriteI {
+!   friend class StreamI;
+!   uv_write_t _write;
+  
+!   protected:
+    virtual uv_req_t *getReq() const override;
+!   virtual uv_write_t *getWrite() const override;
+  
+  public:
+!   
+! };
+\ 文件尾没有换行符
+--- 6,68 ----
+  #include <memory>
+  #include <initializer_list>
+  
++ // --
+  
+  class ReqI {
+  protected:
++   class Impl;
++   std::unique_ptr<Impl> _impl;
++ 
+    virtual uv_req_t *getReq() const = 0;
+  
+  public:
+    using ReqType = uv_req_type;
+  
+    static size_t size(ReqType type);
+!   static const char *name(ReqType type);
+! 
+!   ReqI();
+!   virtual ~ReqI();
+  
+    int cancel();
+    ReqType type() const;
+!   void *data(void *data);
+!   void *data() const;
+  };
+  
+  // --
+  
+! class LoopT;
+! class WorkI : public ReqI {
+  protected:
+!   class Impl;
+!   std::unique_ptr<Impl> _impl;
+  
+!   virtual uv_work_t *getWork() const = 0;
+  
+  public:
+!   using WorkCallback = std::function<void()>;
+!   using AfterWorkCallback = std::function<void(int)>;
+  
+!   WorkI();
+!   virtual ~WorkI();
+  
+!   int queue(LoopT *from);
+  
+!   void workCallback(const WorkCallback &cb);
+!   WorkCallback workCallback() const;
+!   void afterWorkCallback(const AfterWorkCallback &cb);
+!   AfterWorkCallback afterWorkCallback() const;
+  };
+  
+! class WorkT : public WorkI {
+!   uv_work_t _work;
+  
+! protected:
+    virtual uv_req_t *getReq() const override;
+!   virtual uv_work_t *getWork() const override;
+  
+  public:
+!   WorkT();
+!   virtual ~WorkT();
+! };
+diff -cr ./ver.h /home/xt/dev/cpp/uv/ver.h
+*** ./ver.h	2018-12-09 00:08:57.174665752 +0800
+--- /home/xt/dev/cpp/uv/ver.h	2018-12-10 01:35:25.688194207 +0800
+***************
+*** 4,9 ****
+  #define VERSION_MAJOR 0
+  #define VERSION_MINOR 0
+  #define VERSION_PATCH 0
+! #define VERSION_BUILD 635
+  
+  #endif
+--- 4,9 ----
+  #define VERSION_MAJOR 0
+  #define VERSION_MINOR 0
+  #define VERSION_PATCH 0
+! #define VERSION_BUILD 740
+  
+  #endif
+只在 /home/xt/dev/cpp/uv/ 存在：.vscode
