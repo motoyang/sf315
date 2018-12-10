@@ -1,57 +1,15 @@
 #include <iostream>
 #include <atomic>
 
-#include <ringbuffer.hpp>
-#include <uv.h>
 #include <utilites.hpp>
 #include <misc.hpp>
 #include <uv.hpp>
 #include <req.hpp>
-#include <gangway.hpp>
 
+#include "business.h"
 #include "server.h"
 
 // --
-
-// 1st paramater: AF_INET or AF_INET6 for ipv6
-std::string nameOfPeer(int af, TcpI *tcp) {
-  sockaddr addr;
-  sockaddr_in *paddr_in = (sockaddr_in *)&addr;
-
-  int len = sizeof(addr);
-  int r = tcp->getpeername(&addr, &len);
-  LOG_IF_ERROR(r);
-
-  char name[INET6_ADDRSTRLEN] = {0};
-  r = uv_inet_ntop(AF_INET, (const void *)&paddr_in->sin_addr, name,
-                   sizeof(name));
-  LOG_IF_ERROR(r);
-  int port = ntohs(paddr_in->sin_port);
-
-  std::stringstream ss;
-  ss << name << ":" << port;
-  return ss.str();
-}
-
-// 1st paramater: AF_INET or AF_INET6 for ipv6
-std::string nameOfSock(int af, TcpI *tcp) {
-  sockaddr addr;
-  sockaddr_in *paddr_in = (sockaddr_in *)&addr;
-
-  int len = sizeof(addr);
-  int r = tcp->getsockname(&addr, &len);
-  LOG_IF_ERROR(r);
-
-  char name[INET6_ADDRSTRLEN] = {0};
-  r = uv_inet_ntop(AF_INET, (const void *)&paddr_in->sin_addr, name,
-                   sizeof(name));
-  LOG_IF_ERROR(r);
-  int port = ntohs(paddr_in->sin_port);
-
-  std::stringstream ss;
-  ss << name << ":" << port;
-  return ss.str();
-}
 
 // --
 
@@ -133,11 +91,11 @@ void ClientAgent::write(int index) {
       LOG_IF_ERROR(r);
     }
   }
-  _socket.readStart();
+  // _socket.readStart();
 }
 
 ClientAgent::ClientAgent(LoopT *loop, TcpServer &server)
-    : _socket(loop), _listenor(server), _ringbuffer(24), _codec('|') {
+    : _socket(loop), _listenor(server), _ringbuffer(512), _codec('|') {
   // _msgList.push_back("4|test");
   // _msgList.push_back("5|Hello");
   // _msgList.push_back("6|World!");
@@ -160,14 +118,17 @@ ClientAgent::ClientAgent(LoopT *loop, TcpServer &server)
 
 TcpI *ClientAgent::socket() const { return (TcpI *)&_socket; }
 
-std::string ClientAgent::peer() const { return _peer; }
-
-void ClientAgent::peer(const std::string &peer) { _peer = peer; }
+std::string ClientAgent::peer() {
+  if (_peer.empty()) {
+    _peer = nameOfPeer(AF_INET, &_socket);
+  }
+  return _peer;
+}
 
 // --
 
 TcpServer::TcpServer(LoopT *loop, Gangway &way, const struct sockaddr *addr)
-    : _socket(loop), _timer(loop), _loop(loop), _gangway(way) {
+    : _socket(loop), _timer(loop), _async(loop), _loop(loop), _gangway(way) {
   const int backlog = 128;
   std::srand(std::time(nullptr));
 
@@ -185,7 +146,9 @@ TcpServer::TcpServer(LoopT *loop, Gangway &way, const struct sockaddr *addr)
   LOG_INFO << "listen at: " << _name;
 
   _timer.timerCallback(std::bind(&TcpServer::onTimer, this));
-  _timer.start(1000, 1000);
+  // _timer.start(1000, 1000);
+
+  _async.asyncCallback(std::bind(&TcpServer::onAsync, this));
 }
 
 void TcpServer::onConnection(int status) {
@@ -199,15 +162,9 @@ void TcpServer::onConnection(int status) {
     LOG_IF_ERROR(r);
     return;
   }
+  client->socket()->readStart();
 
-  std::string peer = nameOfPeer(AF_INET, client->socket());
-  LOG_INFO << "accept connection from: " << peer;
-  client->peer(peer);
-
-  // client->write(0);
-  // r = client->socket()->shutdown();
-  // LOG_IF_ERROR(r);
-
+  LOG_INFO << "accept connection from: " << client->peer();
   addClient(std::move(client));
 }
 
@@ -228,6 +185,23 @@ void TcpServer::onTimer() {
   }
 }
 
+void TcpServer::onAsync() {
+  Packet packet;
+  while (_gangway._downward.try_dequeue(packet)) {
+    auto i = _clients.find(packet._peer);
+    if (i == _clients.end()) {
+      continue;
+    }
+    BufT b = packet._buf;
+    packet._buf.len = 0;
+    packet._buf.base = nullptr;
+    
+    int r = i->second->socket()->write(&b, 1);
+    if (r) {
+      freeBuf(b);
+    }
+  }
+}
 void TcpServer::addClient(std::unique_ptr<ClientAgent> &&client) {
   std::string n = client->peer();
   auto i = _clients.insert({n, std::forward<decltype(client)>(client)});
@@ -253,6 +227,10 @@ std::unique_ptr<ClientAgent> TcpServer::removeClient(const std::string &name) {
 
 Gangway &TcpServer::gangway() { return _gangway; }
 
+AsyncI *TcpServer::async() { return &_async; }
+
+// --
+
 int tcp_server(LoopT *loop) {
   Gangway gway;
 
@@ -263,5 +241,7 @@ int tcp_server(LoopT *loop) {
   uv_ip4_addr("0", 7001, &addr);
 
   TcpServer server(loop, gway, (const struct sockaddr *)&addr);
+  bness.tcp(&server);
+
   return loop->run(UV_RUN_DEFAULT);
 }

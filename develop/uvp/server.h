@@ -4,11 +4,12 @@
 #include <vector>
 #include <unordered_map>
 
+#include <ringbuffer.hpp>
 #include <uv.hpp>
+#include <gangway.hpp>
 
 // --
 
-class Packet;
 class TcpServer;
 class ClientAgent {
   TcpT _socket;
@@ -30,15 +31,15 @@ public:
 
   void write(int index);
   TcpI* socket() const;
-  std::string peer() const;
-  void peer(const std::string& peer);
+  std::string peer();
 };
 
 // --
-class Gangway;
+
 class TcpServer {
   TcpT _socket;
   TimerT _timer;
+  AsyncT _async;
   LoopT* _loop;
   std::string _name;
   std::unordered_map<std::string, std::unique_ptr<ClientAgent>> _clients;
@@ -50,11 +51,14 @@ class TcpServer {
 
   void onTimer();
 
+  void onAsync();
+
 public:
   TcpServer(LoopT *loop, Gangway& way, const struct sockaddr *addr);
   void addClient(std::unique_ptr<ClientAgent>&& client);
   std::unique_ptr<ClientAgent> removeClient(const std::string& name);
   Gangway& gangway();
+  AsyncI* async();
 };
 
 // --

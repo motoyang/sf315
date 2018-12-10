@@ -2,6 +2,7 @@
 
 #include <utilites.hpp>
 #include <misc.hpp>
+#include <uv.hpp>
 
 // --
 
@@ -31,19 +32,15 @@ std::string Error::name() const {
 
 // --
 
-unsigned int Version::hex() const {
-  return uv_version();
-}
+unsigned int Version::hex() const { return uv_version(); }
 
-const char* Version::str() const {
-  return uv_version_string();
-}
+const char *Version::str() const { return uv_version_string(); }
 
 // --
 
 BufT allocBuf(size_t size) {
   BufT b;
-  b.base = (char*)malloc(size);
+  b.base = (char *)malloc(size);
   if (!b.base) {
     LOG_IF_ERROR_EXIT(UV_ENOMEM);
   }
@@ -52,13 +49,13 @@ BufT allocBuf(size_t size) {
   return b;
 }
 
-BufT copyToBuf(const char* p, size_t len) {
+BufT copyToBuf(const char *p, size_t len) {
   BufT b = allocBuf(len);
   memcpy(b.base, p, len);
   return b;
 }
 
-BufT moveToBuf(char* p, size_t len) {
+BufT moveToBuf(char *p, size_t len) {
   BufT b;
   b.base = p;
   b.len = len;
@@ -67,6 +64,49 @@ BufT moveToBuf(char* p, size_t len) {
 }
 
 void freeBuf(BufT buf) {
-  free(buf.base);
+  if (buf.base) {
+    free(buf.base);
+  }
 }
 
+// --
+
+// 1st paramater: AF_INET or AF_INET6 for ipv6
+std::string nameOfPeer(int af, TcpI *tcp) {
+  sockaddr addr;
+  sockaddr_in *paddr_in = (sockaddr_in *)&addr;
+
+  int len = sizeof(addr);
+  int r = tcp->getpeername(&addr, &len);
+  LOG_IF_ERROR(r);
+
+  char name[INET6_ADDRSTRLEN] = {0};
+  r = uv_inet_ntop(AF_INET, (const void *)&paddr_in->sin_addr, name,
+                   sizeof(name));
+  LOG_IF_ERROR(r);
+  int port = ntohs(paddr_in->sin_port);
+
+  std::stringstream ss;
+  ss << name << ":" << port;
+  return ss.str();
+}
+
+// 1st paramater: AF_INET or AF_INET6 for ipv6
+std::string nameOfSock(int af, TcpI *tcp) {
+  sockaddr addr;
+  sockaddr_in *paddr_in = (sockaddr_in *)&addr;
+
+  int len = sizeof(addr);
+  int r = tcp->getsockname(&addr, &len);
+  LOG_IF_ERROR(r);
+
+  char name[INET6_ADDRSTRLEN] = {0};
+  r = uv_inet_ntop(AF_INET, (const void *)&paddr_in->sin_addr, name,
+                   sizeof(name));
+  LOG_IF_ERROR(r);
+  int port = ntohs(paddr_in->sin_port);
+
+  std::stringstream ss;
+  ss << name << ":" << port;
+  return ss.str();
+}

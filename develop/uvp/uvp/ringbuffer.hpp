@@ -1,5 +1,10 @@
 #pragma once
 
+// ringbuffer与msg.length的关系：
+// ringbuffer.capacity() >= msg.length()
+// 这是一个必须的条件，否则不能parse出msg。
+// BufT的长度没有要求。
+
 class RingBuffer {
 public:
   RingBuffer(size_t capacity)

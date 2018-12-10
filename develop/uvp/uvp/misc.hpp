@@ -33,3 +33,10 @@ BufT allocBuf(size_t size);
 BufT copyToBuf(const char* p, size_t len);
 BufT moveToBuf(const char* p, size_t len);
 void freeBuf(BufT buf);
+
+// --
+class TcpI;
+std::string nameOfPeer(int af, TcpI *tcp);
+std::string nameOfSock(int af, TcpI *tcp);
+
+// --

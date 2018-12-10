@@ -32,14 +32,14 @@ AnyReq<T> *allocAnyReq(const uv_buf_t bufs[], size_t nbufs) {
     req->buf.len = nbufs;
     memcpy(req->buf.base, bufs, len);
   } else {
-    req->buf.len = len;
+    req->buf.len = 0;
     req->buf.base = nullptr;
   }
   return req;
 }
 
 template <typename T> void freeAnyReq(AnyReq<T> *req) {
-  if (req->buf.len) {
+  if (req->buf.base) {
     free(req->buf.base);
   }
   free(req);
@@ -334,11 +334,9 @@ int IdleI::stop() {
   return r;
 }
 
-IdleI::IdleCallback IdleI::idleCallback() const {
-  return _impl->_idleCallback;
-}
+IdleI::IdleCallback IdleI::idleCallback() const { return _impl->_idleCallback; }
 
-void IdleI::idleCallback(const IdleI::IdleCallback& cb) {
+void IdleI::idleCallback(const IdleI::IdleCallback &cb) {
   _impl->_idleCallback = cb;
 }
 
@@ -1008,3 +1006,53 @@ UdpT::UdpT(LoopT *loop, unsigned int flags) {
 }
 
 UdpT::~UdpT() {}
+
+// --
+
+struct AsyncI::Impl {
+  AsyncCallback _asyncCallback;
+
+  static void async_callback(uv_async_t *handle);
+};
+
+void AsyncI::Impl::async_callback(uv_async_t *handle) {
+  auto p = (AsyncI *)uv_handle_get_data((uv_handle_t *)handle);
+  if (p->_impl->_asyncCallback) {
+    p->_impl->_asyncCallback();
+  }
+}
+
+// --
+
+AsyncI::AsyncI() : _impl(std::make_unique<AsyncI::Impl>()) {}
+
+AsyncI::~AsyncI() {}
+
+int AsyncI::send() {
+  int r = uv_async_send(getAsync());
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+void AsyncI::asyncCallback(const AsyncI::AsyncCallback &cb) {
+  _impl->_asyncCallback = cb;
+}
+
+AsyncI::AsyncCallback AsyncI::asyncCallback() const {
+  return _impl->_asyncCallback;
+}
+
+// --
+
+uv_handle_t *AsyncT::getHandle() const { return (uv_handle_t *)&_async; }
+
+uv_async_t *AsyncT::getAsync() const { return (uv_async_t *)&_async; }
+
+AsyncT::AsyncT(LoopT *loop) {
+  int r = uv_async_init(loop->get(), &_async, AsyncI::Impl::async_callback);
+  LOG_IF_ERROR_EXIT(r);
+
+  uv_handle_set_data(getHandle(), this);
+}
+
+AsyncT::~AsyncT() {}

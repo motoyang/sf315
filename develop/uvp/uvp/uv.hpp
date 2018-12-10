@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include <functional>
 #include <memory>
 #include <initializer_list>
@@ -134,7 +133,7 @@ public:
 
   // extend functions
   IdleCallback idleCallback() const;
-  void idleCallback(const IdleCallback& cb);
+  void idleCallback(const IdleCallback &cb);
 };
 
 class IdleT : public IdleI {
@@ -299,7 +298,7 @@ public:
   int getpeername(struct sockaddr *name, int *namelen);
   int connect(const struct sockaddr *addr);
 
-    // extend functions
+  // extend functions
   void connectCallback(const ConnectCallback &cb);
   ConnectCallback connectCallback() const;
 };
@@ -358,7 +357,7 @@ protected:
 public:
   using MemberShip = uv_membership;
 
-  using SendCallback = std::function<void(int, BufT*, int)>;
+  using SendCallback = std::function<void(int, BufT *, int)>;
   using RecvCallback = std::function<void(ssize_t, const BufT *,
                                           const struct sockaddr *, unsigned)>;
 
@@ -384,9 +383,9 @@ public:
   int getSendQueueCount() const;
 
   // extend functions
-  void sendCallback(const SendCallback& cb);
+  void sendCallback(const SendCallback &cb);
   SendCallback sendCallback() const;
-  void recvCallback(const RecvCallback& cb);
+  void recvCallback(const RecvCallback &cb);
   RecvCallback recvCallback() const;
 };
 
@@ -401,4 +400,37 @@ public:
   UdpT(LoopT *loop);
   UdpT(LoopT *loop, unsigned int flags);
   virtual ~UdpT();
+};
+
+// --
+
+class AsyncI : public HandleI {
+protected:
+  class Impl;
+  std::unique_ptr<Impl> _impl;
+
+  virtual uv_async_t *getAsync() const = 0;
+
+public:
+  using AsyncCallback = std::function<void()>;
+
+  AsyncI();
+  virtual ~AsyncI();
+
+  int send();
+
+  void asyncCallback(const AsyncCallback& cb);
+  AsyncCallback asyncCallback() const;
+};
+
+class AsyncT : public AsyncI {
+  uv_async_t _async;
+
+protected:
+  virtual uv_handle_t *getHandle() const;
+  virtual uv_async_t *getAsync() const;
+
+public:
+  AsyncT(LoopT *loop);
+  virtual ~AsyncT();
 };
