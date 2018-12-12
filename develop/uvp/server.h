@@ -10,15 +10,14 @@
 
 // --
 
-class TcpServer;
+class TcpAcceptor;
 class ClientAgent {
   TcpT _socket;
   std::string _peer;
-  TcpServer& _listenor;
-  std::vector<std::string> _msgList;
+  TcpAcceptor& _acceptor;
    
   RingBuffer _ringbuffer;
-  Codec _codec;
+  CodecI& _codec;
   void makeup(const char* p, size_t len);
 
   void onRead(ssize_t nread, const BufT* buf);
@@ -27,7 +26,7 @@ class ClientAgent {
   void onClose();
 
 public:
-  ClientAgent(LoopT* loop, TcpServer& server);
+  ClientAgent(LoopT* loop, TcpAcceptor& server, CodecI& codec);
 
   void write(int index);
   TcpI* socket() const;
@@ -36,31 +35,32 @@ public:
 
 // --
 
-class TcpServer {
+class TcpAcceptor {
   TcpT _socket;
-  TimerT _timer;
   AsyncT _async;
   LoopT* _loop;
+  CodecI& _codec;
   std::string _name;
   std::unordered_map<std::string, std::unique_ptr<ClientAgent>> _clients;
-  Gangway & _gangway;
+  Gangway _gangway;
 
   void onConnection(int status);
   void onShutdown(int status);
   void onClose();
 
-  void onTimer();
-
   void onAsync();
 
 public:
-  TcpServer(LoopT *loop, Gangway& way, const struct sockaddr *addr);
+  TcpAcceptor(LoopT *loop, const struct sockaddr *addr, CodecI& codec);
   void addClient(std::unique_ptr<ClientAgent>&& client);
   std::unique_ptr<ClientAgent> removeClient(const std::string& name);
-  Gangway& gangway();
-  AsyncI* async();
+  void upwardEnqueue(Packet&& packet);
+  bool upwardDequeue(Packet& packet);
+  // int downwardEnqueue(Packet&& packet);
+  int downwardEnqueue(const char* name, const char* p, size_t len);
+  bool downwardDequeue(Packet& packet);
 };
 
 // --
 
-int tcp_server(LoopT *loop);
+int tcp_server();

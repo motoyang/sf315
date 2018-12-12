@@ -2,7 +2,7 @@
 
 #include <utilites.hpp>
 #include <misc.hpp>
-#include <uv.hpp>
+// #include <uv.hpp>
 
 // #include "sighandler.h"
 #include "anyarg.h"
@@ -37,9 +37,6 @@ int main(int argc, char *argv[]) {
     return 0;
   }
 
-  auto loop = LoopT::defaultLoop();
-  // auto loop = std::make_unique<LoopT>();
-
   // 根据参数，做不同的事情
   unsigned int log_file_count = 5;
   int r = 0;
@@ -57,7 +54,7 @@ int main(int argc, char *argv[]) {
     LOG_INFO << "libuv version: " << Version().str();
     std::cout << "libuv version: " << Version().str() << std::endl;
 
-    tcp_server(loop.get());
+    tcp_server();
   }
   if (opt.is_true('c')) {
     nanolog::initialize(nanolog::GuaranteedLogger(), "/tmp/", "uvpc", 1,
@@ -65,7 +62,7 @@ int main(int argc, char *argv[]) {
     LOG_INFO << "libuv version: " << Version().str();
     std::cout << "libuv version: " << Version().str() << std::endl;
 
-    tcp_client(loop.get());
+    tcp_client();
   }
   LOG_INFO << "uvp quit with return code: " << 0;
   /*
@@ -95,6 +92,5 @@ int main(int argc, char *argv[]) {
   // tcp_client(loop.get());`
   // tcp_server(loop.get());
 
-  loop->close();
   return 0;
 }

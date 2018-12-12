@@ -37,21 +37,38 @@ Packet &Packet::operator=(Packet &&p) {
   return *this;
 }
 
+BufT Packet::releaseBuf() {
+  BufT b = _buf;
+  _buf.base = nullptr;
+  _buf.len = 0;
+  return b;
+}
+
 // --
 
 Codec::Codec(char mark) : _mark(mark) {}
 
-BufT Codec::encode(const char *p, size_t len) {
+unsigned short Codec::size() const {
+  return 45;
+}
+
+BufT Codec::encode(const char *p, unsigned short len) {
   BufT b;
   b.len = 0;
   b.base = 0;
-  if ((len > std::numeric_limits<short>::max()) || !p) {
+  if (!p) {
+    assert(false);
     return b;
   }
 
   char buf[10] = {0};
   std::snprintf(buf, sizeof(buf), "%d%c", (int)len, _mark);
   int head = std::strlen(buf);
+  if (len + head > size()) {
+    assert(false);
+    return b;
+  }
+
 
   b = allocBuf(head + len);
   memcpy(b.base, buf, len);
@@ -86,6 +103,63 @@ BufT Codec::decode(RingBuffer *ringbuffer) {
     }
   }
 
+  if (ringbuffer->size() < (head_len + body_len + 1)) {
+    return r;
+  }
+
+  r = allocBuf(body_len);
+  ringbuffer->advance(head_len + 1);
+  ringbuffer->read(r.base, body_len);
+
+  return r;
+}
+
+// --
+
+Codec2::Codec2(char mark): _mark(mark) {}
+
+unsigned short Codec2::size() const {
+  return 52;
+}
+
+BufT Codec2::encode(const char *p, unsigned short len) {
+  int head_len = sizeof(len);
+  int mark_len = sizeof(_mark);
+
+  BufT b;
+  b.len = 0;
+  b.base = 0;
+  if ((head_len + mark_len + len > size()) || !p) {
+    assert(false);
+    return b;
+  }
+
+  b = allocBuf(head_len + mark_len + len);
+  *(unsigned short*)b.base = len;
+  *(char*)(b.base+head_len) = _mark;
+  memcpy(b.base + head_len + mark_len, p, len);
+
+  return b;
+}
+
+BufT Codec2::decode(RingBuffer *ringbuffer) {
+  BufT r;
+  r.len = 0;
+  r.base = nullptr;
+
+  char *body = ringbuffer->search(_mark);
+  if (!body) {
+    return r;
+  }
+  int head_len = ringbuffer->offset(body);
+  if (head_len != sizeof(short)) {
+    // ringbuffer->advance(head_len + 1);
+    assert(false);
+    return r;
+  }
+
+  unsigned short body_len = 0;
+  ringbuffer->peek((char*)&body_len, head_len);
   if (ringbuffer->size() < (head_len + body_len + 1)) {
     return r;
   }

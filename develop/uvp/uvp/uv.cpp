@@ -39,6 +39,9 @@ AnyReq<T> *allocAnyReq(const uv_buf_t bufs[], size_t nbufs) {
 }
 
 template <typename T> void freeAnyReq(AnyReq<T> *req) {
+  if (!req) {
+    return;
+  }
   if (req->buf.base) {
     free(req->buf.base);
   }

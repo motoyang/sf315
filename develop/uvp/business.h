@@ -4,23 +4,19 @@
 
 // --
 
-class TcpServer;
+class TcpAcceptor;
 class Business {
-  WorkT _work;
-  Gangway &_gangway;
-  TcpServer* _tcp;
+  TcpAcceptor* _tcp;
 
-  Codec _codec;
   std::string _name;
   std::atomic<bool> _running{true};
 
-  void workCallback();
-  void afterWorkCallback(int status);
-  void doSomething(Packet &&p);
+  void doSomething(const Packet &p);
 
 public:
-  Business(const std::string &name, Gangway &way);
-  int start(LoopT *from);
+  Business(const std::string &name);
+  void bind(TcpAcceptor* tcp);
+
+  void operator()();
   void stop();
-  void tcp(TcpServer* tcp);
 };

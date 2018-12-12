@@ -9,10 +9,12 @@ class RingBuffer {
 public:
   RingBuffer(size_t capacity)
       : beg_index_(0), end_index_(0), size_(0), capacity_(capacity) {
-    data_ = new char[capacity];
+    data_ = (char *)malloc(capacity);
   }
 
-  ~RingBuffer() { delete[] data_; }
+  ~RingBuffer() {
+    free(data_); 
+  }
 
   size_t size() const { return size_; }
 
@@ -20,7 +22,8 @@ public:
 
   // Return number of bytes written.
   size_t write(const char *data, size_t bytes) {
-    if (bytes == 0) {
+    if (data == nullptr || bytes == 0 || size_ == capacity_) {
+      assert(false);
       return 0;
     }
 
@@ -54,6 +57,7 @@ public:
   // Return number of bytes read.
   size_t read(char *data, size_t bytes) {
     if ((bytes == 0) || (bytes > size_)) {
+      assert(false);
       return 0;
     }
 
@@ -109,6 +113,7 @@ public:
   // return -1 means error, otherwise return 0.
   int advance(size_t bytes) {
     if (bytes > size_) {
+      assert(false);
       return -1;
     }
 
@@ -125,6 +130,7 @@ public:
   int offset(const char *p) const {
     int r = -1;
     if (p < data_ || p >= data_ + capacity_) {
+      assert(false);
       return r;
     }
 
@@ -135,6 +141,7 @@ public:
     }
 
     if (r > size_) {
+      assert(false);
       return -1;
     }
     return r;
@@ -143,6 +150,7 @@ public:
   // Return nullptr means error, otherwise return the data address.
   char *peek(char *data, size_t bytes) const {
     if (bytes > size_) {
+      assert(false);
       return nullptr;
     }
 

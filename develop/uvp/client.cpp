@@ -9,9 +9,10 @@
 
 // --
 
-TcpClient::TcpClient(LoopT *loop, const struct sockaddr *dest)
-    : _socket(loop), _timer(loop), _ringbuffer(512), _codec('|') {
-  _socket.setDefaultSize(88, 3);
+TcpClient::TcpClient(LoopT *loop, const struct sockaddr *dest, CodecI &codec)
+    : _socket(loop), _timer(loop), _idler(loop), _ringbuffer(codec.size()),
+      _codec(codec) {
+  _socket.setDefaultSize(4096, 3);
   std::srand(std::time(nullptr));
 
   _msgList.push_back("test");
@@ -34,6 +35,7 @@ TcpClient::TcpClient(LoopT *loop, const struct sockaddr *dest)
                                   std::placeholders::_3));
 
   _timer.timerCallback(std::bind(&TcpClient::onTimer, this));
+  _idler.idleCallback(std::bind(&TcpClient::onTimer, this));
 
   _socket.connect(dest);
 }
@@ -45,7 +47,7 @@ void TcpClient::onTimer() {
 
   int random_variable = std::rand() % _msgList.size();
   std::string s(sn_buf);
-  s +=  ", " + _name + ", " +  _msgList[random_variable];
+  s += ", " + _name + ", " + _msgList[random_variable];
   BufT buf = _codec.encode(s.data(), s.length());
   int r = _socket.write(&buf, 1);
   if (r) {
@@ -71,6 +73,8 @@ void TcpClient::doBussiness(const char *p, size_t len) {
       char buf[512] = {0};
       memcpy(buf, b.base, b.len);
       std::cout << _name << " <- " << buf << std::endl;
+
+      freeBuf(b);
     }
   } while (remain > 0);
 }
@@ -86,6 +90,7 @@ void TcpClient::onConnect(int status) {
   _socket.readStart();
 
   _timer.start(1000, 1);
+  _idler.start();
 }
 
 void TcpClient::onShutdown(int status) {
@@ -97,10 +102,12 @@ void TcpClient::onShutdown(int status) {
 
   _timer.stop();
   _timer.close();
+
+  _idler.stop();
+  _idler.close();
 }
 
-void TcpClient::onClose() {
-   LOG_INFO << "handle of socket closed."; }
+void TcpClient::onClose() { LOG_INFO << "handle of socket closed."; }
 
 void TcpClient::onRead(ssize_t nread, const BufT *buf) {
   if (nread < 0) {
@@ -114,7 +121,9 @@ void TcpClient::onRead(ssize_t nread, const BufT *buf) {
     }
     LOG_IF_ERROR(nread);
   }
-  doBussiness(buf->base, nread);
+  if (nread) {
+    doBussiness(buf->base, nread);
+  }
 }
 
 void TcpClient::onWrite(int status, BufT bufs[], int nbufs) {
@@ -129,12 +138,19 @@ void TcpClient::onWrite(int status, BufT bufs[], int nbufs) {
 
 // --
 
-int tcp_client(LoopT *loop) {
+int tcp_client() {
+  Codec2 codec('|');
+
   struct sockaddr_in dest;
   uv_ip4_addr("127.0.0.1", 7001, &dest);
 
-  TcpClient client(loop, (const struct sockaddr *)&dest);
+  auto loop = LoopT::defaultLoop();
+  // auto loop = std::make_unique<LoopT>();
+  TcpClient client(loop.get(), (const struct sockaddr *)&dest, codec);
   int r = loop->run(UV_RUN_DEFAULT);
   LOG_IF_ERROR(r);
+  r = loop->close();
+  LOG_IF_ERROR(r);
+
   return r;
 }

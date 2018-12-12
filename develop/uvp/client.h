@@ -13,10 +13,11 @@ class TcpClient {
   std::string _name;
 
   TimerT _timer;
+  IdleT _idler;
   std::vector<std::string> _msgList;
 
   RingBuffer _ringbuffer;
-  Codec _codec;
+  CodecI& _codec;
 
   void onRead(ssize_t nread, const BufT *buf);
   void onWrite(int status, BufT bufs[], int nbufs);
@@ -27,9 +28,9 @@ class TcpClient {
 
   void doBussiness(const char* p, size_t len);
 public:
-  TcpClient(LoopT *loop, const struct sockaddr *addr);
+  TcpClient(LoopT *loop, const struct sockaddr *addr, CodecI& codec);
 };
 
 // --
 
-int tcp_client(LoopT *loop);
+int tcp_client();
