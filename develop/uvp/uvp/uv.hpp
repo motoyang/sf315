@@ -419,7 +419,7 @@ public:
 
   int send();
 
-  void asyncCallback(const AsyncCallback& cb);
+  void asyncCallback(const AsyncCallback &cb);
   AsyncCallback asyncCallback() const;
 };
 
@@ -433,4 +433,30 @@ protected:
 public:
   AsyncT(LoopT *loop);
   virtual ~AsyncT();
+};
+
+// --
+
+class SignalI : public HandleI {
+protected:
+  class Impl;
+  std::unique_ptr<Impl> _impl;
+
+  virtual uv_signal_t *getSignal() const = 0;
+
+public:
+  SignalI();
+  virtual ~SignalI();
+};
+
+class SignalT : public SignalI {
+protected:
+  virtual uv_handle_t *getHandle() const;
+  virtual uv_signal_t *getSignal() const;
+
+public:
+  SignalT(LoopT *loop);
+  virtual ~SignalT();
+
+  int start();
 };

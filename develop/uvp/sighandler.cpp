@@ -2,7 +2,26 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <utilites.hpp>
+
+#include "server.h"
+#include "business.h"
 #include "sighandler.h"
+
+extern TcpAcceptor *g_acceptor;
+extern Business *g_business;
+
+// --
+
+void sig16_handler(int signum, siginfo_t *info, void *myact) {
+  LOG_INFO << "received signal: " << signum << " and tag: " << info->si_int;
+  if (info->si_int == (int)TcpAcceptor::NotifyTag::NT_CLOSE) {
+    g_business->stop();
+  }
+  g_acceptor->notify(info->si_int);
+}
+
+// --
 
 int sig_capture(int sig, sig_action action) {
   struct sigaction act;
@@ -17,4 +36,3 @@ int sig_send(pid_t pid, int sig, int tag) {
   mysigval.sival_int = tag;
   return sigqueue(pid, sig, mysigval);
 }
-

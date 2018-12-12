@@ -159,8 +159,8 @@ struct HandleI::Impl {
   virtual ~Impl();
 
   void *_data = 0;
-  size_t _bufSize = 128;
-  size_t _queueSize = 2;
+  size_t _bufSize = 0;
+  size_t _queueSize = 1;
   std::queue<BufT> _buffers;
 
   AllocCallback _allocCallback;
@@ -292,7 +292,9 @@ void HandleI::closeCallback(const HandleI::CloseCallback &cb) {
   _impl->_closeCallback = cb;
 }
 
-void HandleI::close() { uv_close(getHandle(), HandleI::Impl::close_callback); }
+void HandleI::close() { 
+  if (isClosing()) {return;}
+  uv_close(getHandle(), HandleI::Impl::close_callback); }
 
 void HandleI::setDefaultSize(size_t bufSize, size_t queueSize) {
   _impl->_bufSize = bufSize;

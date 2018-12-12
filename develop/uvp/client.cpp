@@ -12,7 +12,7 @@
 TcpClient::TcpClient(LoopT *loop, const struct sockaddr *dest, CodecI &codec)
     : _socket(loop), _timer(loop), _idler(loop), _ringbuffer(codec.size()),
       _codec(codec) {
-  _socket.setDefaultSize(4096, 3);
+  // _socket.setDefaultSize(64, 3);
   std::srand(std::time(nullptr));
 
   _msgList.push_back("test");
@@ -45,9 +45,12 @@ void TcpClient::onTimer() {
   char sn_buf[20] = {0};
   std::sprintf(sn_buf, "%u", sn++);
 
-  int random_variable = std::rand() % _msgList.size();
+  int rv1 = std::rand() % 26;
+  int rv2 = std::rand() % (_codec.size() - strlen(sn_buf) - 23) + 1;
+  std::string msg(rv2, '=');
+  
   std::string s(sn_buf);
-  s += ", " + _name + ", " + _msgList[random_variable];
+  s += ", " + _name + ", " + msg;
   BufT buf = _codec.encode(s.data(), s.length());
   int r = _socket.write(&buf, 1);
   if (r) {
@@ -85,6 +88,10 @@ void TcpClient::onConnect(int status) {
     return;
   }
   LOG_INFO << "client socket connected.";
+
+  // int recvBuf = 32*1024, sendBuf = 16*1024;
+  // _socket.recvBufferSize(&recvBuf);
+  // _socket.sendBufferSize(&sendBuf);
 
   _name = nameOfSock(AF_INET, &_socket);
   _socket.readStart();

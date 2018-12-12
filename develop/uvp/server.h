@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <list>
 #include <vector>
 #include <unordered_map>
@@ -18,6 +19,7 @@ class ClientAgent {
    
   RingBuffer _ringbuffer;
   CodecI& _codec;
+
   void makeup(const char* p, size_t len);
 
   void onRead(ssize_t nread, const BufT* buf);
@@ -38,27 +40,39 @@ public:
 class TcpAcceptor {
   TcpT _socket;
   AsyncT _async;
+  TimerT _timer;
   LoopT* _loop;
   CodecI& _codec;
   std::string _name;
   std::unordered_map<std::string, std::unique_ptr<ClientAgent>> _clients;
   Gangway _gangway;
+  std::atomic<int> _notifyTag {0};
+
+  void notifyHandler();
+  void clientsShutdown();
 
   void onConnection(int status);
   void onShutdown(int status);
   void onClose();
 
   void onAsync();
+  void onTimer();
 
 public:
+  enum class NotifyTag {
+    NT_NOTHING = 0,
+    NT_CLOSE,
+    NT_CLIENTS_SHUTDOWN
+  };
+
   TcpAcceptor(LoopT *loop, const struct sockaddr *addr, CodecI& codec);
   void addClient(std::unique_ptr<ClientAgent>&& client);
   std::unique_ptr<ClientAgent> removeClient(const std::string& name);
-  void upwardEnqueue(Packet&& packet);
+  bool upwardEnqueue(Packet&& packet);
   bool upwardDequeue(Packet& packet);
-  // int downwardEnqueue(Packet&& packet);
   int downwardEnqueue(const char* name, const char* p, size_t len);
   bool downwardDequeue(Packet& packet);
+  int notify(int tag);
 };
 
 // --
