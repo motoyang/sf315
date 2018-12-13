@@ -172,6 +172,24 @@ public:
     return data;
   }
 
+  bool peekAsUnsignedShort(unsigned short *len) {
+    if (size_ < sizeof(unsigned short)) {
+      return false;
+    }
+    char* buf = (char*)len;
+    if (beg_index_ == capacity_ - 1) {
+      buf[0] = *(data_ + beg_index_);
+      buf[1] = *data_;
+    } else {
+      *len = *(unsigned short*)(data_ + beg_index_); 
+    }
+    if (*len == 0) {
+      assert(false);
+      return false;
+    }
+    return true;
+  }
+
 private:
   size_t beg_index_, end_index_, size_, capacity_;
   char *data_;

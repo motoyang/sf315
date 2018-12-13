@@ -32,7 +32,7 @@ public:
 
 // --
 
-class LoopT;
+class LoopI;
 class WorkI : public ReqI {
 protected:
   class Impl;
@@ -47,7 +47,7 @@ public:
   WorkI();
   virtual ~WorkI();
 
-  int queue(LoopT *from);
+  int queue(LoopI *from);
 
   void workCallback(const WorkCallback &cb);
   WorkCallback workCallback() const;

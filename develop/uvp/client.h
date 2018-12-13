@@ -28,7 +28,7 @@ class TcpClient {
 
   void doBussiness(const char* p, size_t len);
 public:
-  TcpClient(LoopT *loop, const struct sockaddr *addr, CodecI& codec);
+  TcpClient(LoopI *loop, const struct sockaddr *addr, CodecI& codec);
 };
 
 // --

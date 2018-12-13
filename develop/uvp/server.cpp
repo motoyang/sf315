@@ -74,7 +74,7 @@ void ClientAgent::onClose() {
   LOG_INFO << "handle of agent socket closed." << _peer;
 }
 
-ClientAgent::ClientAgent(LoopT *loop, TcpAcceptor &server, CodecI &codec)
+ClientAgent::ClientAgent(LoopI *loop, TcpAcceptor &server, CodecI &codec)
     : _socket(loop), _acceptor(server), _ringbuffer(codec.size()),
       _codec(codec) {
   // _socket.setDefaultSize(1024, 1);
@@ -99,7 +99,7 @@ std::string ClientAgent::peer() {
 
 // --
 
-TcpAcceptor::TcpAcceptor(LoopT *loop, const struct sockaddr *addr,
+TcpAcceptor::TcpAcceptor(LoopI *loop, const struct sockaddr *addr,
                          CodecI &codec)
     : _socket(loop), _async(loop), _timer(loop), _loop(loop), _codec(codec) {
   const int backlog = 128;
@@ -262,7 +262,6 @@ bool TcpAcceptor::upwardDequeue(Packet &packet) {
 int TcpAcceptor::downwardEnqueue(const char *name, const char *p, size_t len) {
   BufT b = _codec.encode(p, len);
   if (!b.base || !b.len) {
-    assert(false);
     return 0;
   }
   Packet packet(name, b);

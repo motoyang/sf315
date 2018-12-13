@@ -10,7 +10,8 @@
 // --
 
 class HandleI;
-class LoopT {
+class LoopI {
+protected:
   class Impl;
   std::unique_ptr<Impl> _impl;
 
@@ -20,11 +21,13 @@ public:
 
   using WalkCallback = std::function<void(HandleI *, void *)>;
 
-  static std::unique_ptr<LoopT> defaultLoop();
   static size_t size();
 
-  LoopT();
-  virtual ~LoopT();
+  virtual uv_loop_t *getLoop() const = 0;
+
+  LoopI();
+  LoopI(uv_loop_t *l);
+  virtual ~LoopI();
 
   int configure(std::initializer_list<LoopOperation> options);
   int close();
@@ -41,11 +44,21 @@ public:
   int fork();
   void *data() const;
   void *data(void *data);
+};
 
-  uv_loop_t *get() const;
+class LoopT : public LoopI {
+  uv_loop_t *_loop;
+
+public:
+  static std::unique_ptr<LoopI> defaultLoop();
+
+  virtual uv_loop_t *getLoop() const override;
+
+  LoopT();
+  virtual ~LoopT();
 
 private:
-  friend std::unique_ptr<LoopT> defaultLoop();
+  friend std::unique_ptr<LoopI> LoopT::defaultLoop();
   LoopT(uv_loop_t *l);
 };
 
@@ -86,7 +99,7 @@ public:
   // The following handles are supported: TCP, pipes, TTY, UDP and poll. Passing
   // any other handle type will fail with UV_EINVAL.
   int fileno(OsFdT *fd);
-  LoopT *loop() const;
+  LoopI *loop() const;
   void *data() const;
   void *data(void *data);
   Type type() const;
@@ -144,7 +157,7 @@ protected:
   virtual uv_idle_t *getIdle() const override;
 
 public:
-  IdleT(LoopT *loop);
+  IdleT(LoopI *loop);
   virtual ~IdleT();
 };
 
@@ -182,7 +195,7 @@ protected:
   virtual uv_timer_t *getTimer() const override;
 
 public:
-  TimerT(LoopT *loop);
+  TimerT(LoopI *loop);
   virtual ~TimerT();
 };
 
@@ -278,7 +291,7 @@ protected:
   virtual uv_pipe_t *getPipe() const override;
 
 public:
-  PipeT(LoopT *loop, int ipc);
+  PipeT(LoopI *loop, int ipc);
   ~PipeT();
 };
 
@@ -312,8 +325,8 @@ protected:
   virtual uv_tcp_t *getTcp() const override;
 
 public:
-  TcpT(LoopT *loop);
-  TcpT(LoopT *loop, unsigned int flags);
+  TcpT(LoopI *loop);
+  TcpT(LoopI *loop, unsigned int flags);
   virtual ~TcpT();
 };
 
@@ -341,7 +354,7 @@ protected:
   virtual uv_tty_t *getTty() const override;
 
 public:
-  TtyT(LoopT *loop, File fd, int unused);
+  TtyT(LoopI *loop, File fd, int unused);
   virtual ~TtyT();
 };
 
@@ -397,8 +410,8 @@ protected:
   virtual uv_udp_t *getUdp() const;
 
 public:
-  UdpT(LoopT *loop);
-  UdpT(LoopT *loop, unsigned int flags);
+  UdpT(LoopI *loop);
+  UdpT(LoopI *loop, unsigned int flags);
   virtual ~UdpT();
 };
 
@@ -431,7 +444,7 @@ protected:
   virtual uv_async_t *getAsync() const;
 
 public:
-  AsyncT(LoopT *loop);
+  AsyncT(LoopI *loop);
   virtual ~AsyncT();
 };
 
@@ -445,18 +458,60 @@ protected:
   virtual uv_signal_t *getSignal() const = 0;
 
 public:
+  using SignalCallback = std::function<void(int)>;
+
   SignalI();
   virtual ~SignalI();
+
+  int start(int signum);
+  int startOneshort(int signum);
+  int stop();
 };
 
 class SignalT : public SignalI {
+  uv_signal_t _signal;
+
 protected:
   virtual uv_handle_t *getHandle() const;
   virtual uv_signal_t *getSignal() const;
 
 public:
-  SignalT(LoopT *loop);
+  SignalT(LoopI *loop);
   virtual ~SignalT();
+};
 
-  int start();
+// --
+
+class ProcessI : public HandleI {
+protected:
+  // class Impl;
+  // std::unique_ptr<Impl> _impl;
+
+  virtual uv_process_t *getProcess() const = 0;
+
+public:
+  using Options = uv_process_options_t;
+  using Pid = uv_pid_t;
+
+  static void disableStdioInheritance();
+  static int kill(int pid, int signum);
+
+  ProcessI() = default;
+  virtual ~ProcessI() = default;
+
+  int spawn(LoopI *loop, const Options *options);
+  int kill(int signum);
+  Pid getPid() const;
+};
+
+class ProcessT : public ProcessI {
+  uv_process_t _process;
+
+protected:
+  virtual uv_handle_t *getHandle() const;
+  virtual uv_process_t *getProcess() const;
+
+public:
+  ProcessT() = default;
+  virtual ~ProcessT() = default;
 };

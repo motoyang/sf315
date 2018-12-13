@@ -61,8 +61,8 @@ WorkI::WorkI() : _impl(std::make_unique<WorkI::Impl>()) {}
 
 WorkI::~WorkI() {}
 
-int WorkI::queue(LoopT *from) {
-  int r = uv_queue_work(from->get(), getWork(), Impl::work_callback,
+int WorkI::queue(LoopI *from) {
+  int r = uv_queue_work(from->getLoop(), getWork(), Impl::work_callback,
                         Impl::afterwork_callback);
   LOG_IF_ERROR(r);
   return r;

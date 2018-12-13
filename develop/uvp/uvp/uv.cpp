@@ -50,108 +50,120 @@ template <typename T> void freeAnyReq(AnyReq<T> *req) {
 
 // --
 
-// --
+struct LoopI::Impl {
+  Impl() : _loop(std::make_unique<uv_loop_t>()) {}
+  Impl(uv_loop_t *p) {}
+  virtual ~Impl() {}
 
-struct LoopT::Impl {
-  Impl() : _loop(std::make_unique<uv_loop_t>()), _owner(true) {}
-  Impl(uv_loop_t *p) : _loop(p), _owner(false) {}
-  virtual ~Impl() {
-    if (!_owner) {
-      _loop.release();
-    }
-  }
+  void* _data;
   std::unique_ptr<uv_loop_t> _loop;
-  bool _owner;
-  void *_data;
+
   WalkCallback _walkCallback;
   static void walk_callback(uv_handle_t *handle, void *arg);
 };
 
-void LoopT::Impl::walk_callback(uv_handle_t *handle, void *arg) {
+void LoopI::Impl::walk_callback(uv_handle_t *handle, void *arg) {
   auto h = (HandleI *)uv_handle_get_data(handle);
-  auto p = (LoopT *)uv_loop_get_data(uv_handle_get_loop(handle));
-  p->_impl->_walkCallback(h, arg);
+  // uv_loop_t* l = uv_handle_get_loop(handle);
+  // auto p = (LoopI*)uv_loop_get_data(l);
+  auto p = h->loop();
+  if(p->_impl->_walkCallback) {
+    p->_impl->_walkCallback(h, arg);
+  }
 }
 
 // --
 
-std::unique_ptr<LoopT> LoopT::defaultLoop() {
-  uv_loop_t *loop = uv_default_loop();
-  if (!loop) {
-    LOG_IF_ERROR_EXIT(UV_ENOMEM);
-  }
-  return std::unique_ptr<LoopT>(new LoopT(loop));
-}
+size_t LoopI::size() { return uv_loop_size(); }
 
-size_t LoopT::size() { return uv_loop_size(); }
-
-LoopT::LoopT() : _impl(std::make_unique<LoopT::Impl>()) {
+LoopI::LoopI() : _impl(std::make_unique<LoopI::Impl>()) {
   int r = uv_loop_init(_impl->_loop.get());
   LOG_IF_ERROR_EXIT(r);
-
-  uv_loop_set_data(_impl->_loop.get(), this);
 }
 
-LoopT::LoopT(uv_loop_t *l) : _impl(std::make_unique<LoopT::Impl>(l)) {
-  uv_loop_set_data(_impl->_loop.get(), this);
+LoopI::LoopI(uv_loop_t *l) : _impl(std::make_unique<LoopI::Impl>(l)) {
 }
 
-LoopT::~LoopT() {}
+LoopI::~LoopI() {}
 
-int LoopT::configure(std::initializer_list<LoopOperation> options) {
+int LoopI::configure(std::initializer_list<LoopOperation> options) {
   int r = 0;
   for (auto ptr = options.begin(); ptr != options.end(); ptr++) {
-    r = uv_loop_configure(_impl->_loop.get(), *ptr);
+    r = uv_loop_configure(getLoop(), *ptr);
     LOG_IF_ERROR_RETURN(r);
   }
   return r;
 }
 
-int LoopT::close() {
-  int r = uv_loop_close(_impl->_loop.get());
+int LoopI::close() {
+  int r = uv_loop_close(getLoop());
   LOG_IF_ERROR(r);
   return r;
 }
 
-int LoopT::run(LoopT::RunMode mode) {
-  int r = uv_run(_impl->_loop.get(), mode);
+int LoopI::run(LoopI::RunMode mode) {
+  int r = uv_run(getLoop(), mode);
   LOG_IF_ERROR(r);
   return r;
 }
 
-bool LoopT::alive() const { return uv_loop_alive(_impl->_loop.get()); }
+bool LoopI::alive() const { return uv_loop_alive(getLoop()); }
 
-void LoopT::stop() { uv_stop(_impl->_loop.get()); }
+void LoopI::stop() { uv_stop(getLoop()); }
 
-int LoopT::backendFd() const { return uv_backend_fd(_impl->_loop.get()); }
+int LoopI::backendFd() const { return uv_backend_fd(getLoop()); }
 
-int LoopT::backendTimeout() const {
-  return uv_backend_timeout(_impl->_loop.get());
+int LoopI::backendTimeout() const {
+  return uv_backend_timeout(getLoop());
 }
 
-uint64_t LoopT::now() const { return uv_now(get()); }
+uint64_t LoopI::now() const { return uv_now(getLoop()); }
 
-void LoopT::updateTime() { return uv_update_time(_impl->_loop.get()); }
+void LoopI::updateTime() { return uv_update_time(getLoop()); }
 
-void LoopT::walk(WalkCallback &&cb, void *arg) {
+void LoopI::walk(WalkCallback &&cb, void *arg) {
   _impl->_walkCallback = std::forward<WalkCallback>(cb);
-  uv_walk(_impl->_loop.get(), LoopT::Impl::walk_callback, arg);
+  uv_walk(getLoop(), LoopI::Impl::walk_callback, arg);
 }
 
-int LoopT::fork() {
-  int r = uv_loop_fork(_impl->_loop.get());
+int LoopI::fork() {
+  int r = uv_loop_fork(getLoop());
   LOG_IF_ERROR(r);
   return r;
 }
 
-void *LoopT::data() const { return _impl->_data; }
+void *LoopI::data() const { return _impl->_data; }
 
-void *LoopT::data(void *data) {
+void *LoopI::data(void *data) {
   _impl->_data = data;
   return data;
 }
 
-uv_loop_t *LoopT::get() const { return _impl->_loop.get(); }
+// --
+
+std::unique_ptr<LoopI> LoopT::defaultLoop() {
+  uv_loop_t *loop = uv_default_loop();
+  if (!loop) {
+    LOG_IF_ERROR_EXIT(UV_ENOMEM);
+  }
+  return std::unique_ptr<LoopI>(new LoopT(loop));
+}
+
+uv_loop_t* LoopT::getLoop() const {
+  return (uv_loop_t*)_loop;
+}
+
+LoopT::LoopT() {
+  _loop = LoopI::_impl->_loop.get();
+  uv_loop_set_data(_loop, this);
+}
+
+LoopT::~LoopT() {}
+
+LoopT::LoopT(uv_loop_t* l): LoopI(l) {
+  _loop = l;
+  uv_loop_set_data(_loop, this);
+}
 
 // --
 
@@ -257,9 +269,9 @@ int HandleI::recvBufferSize(int *value) {
 
 int HandleI::fileno(OsFdT *fd) { return uv_fileno(getHandle(), fd); }
 
-LoopT *HandleI::loop() const {
+LoopI *HandleI::loop() const {
   uv_loop_t *loop = uv_handle_get_loop(getHandle());
-  return (LoopT *)uv_loop_get_data(loop);
+  return (LoopI *)uv_loop_get_data(loop);
 }
 
 void *HandleI::data() const { return _impl->_data; }
@@ -292,9 +304,12 @@ void HandleI::closeCallback(const HandleI::CloseCallback &cb) {
   _impl->_closeCallback = cb;
 }
 
-void HandleI::close() { 
-  if (isClosing()) {return;}
-  uv_close(getHandle(), HandleI::Impl::close_callback); }
+void HandleI::close() {
+  if (isClosing()) {
+    return;
+  }
+  uv_close(getHandle(), HandleI::Impl::close_callback);
+}
 
 void HandleI::setDefaultSize(size_t bufSize, size_t queueSize) {
   _impl->_bufSize = bufSize;
@@ -351,8 +366,8 @@ uv_handle_t *IdleT::getHandle() const { return (uv_handle_t *)&_idle; }
 
 uv_idle_t *IdleT::getIdle() const { return (uv_idle_t *)&_idle; }
 
-IdleT::IdleT(LoopT *loop) {
-  int r = uv_idle_init(loop->get(), &_idle);
+IdleT::IdleT(LoopI *loop) {
+  int r = uv_idle_init(loop->getLoop(), &_idle);
   LOG_IF_ERROR_EXIT(r);
 
   uv_handle_set_data(getHandle(), this);
@@ -419,8 +434,8 @@ uv_handle_t *TimerT::getHandle() const { return (uv_handle_t *)&_timer; }
 
 uv_timer_t *TimerT::getTimer() const { return (uv_timer_t *)&_timer; }
 
-TimerT::TimerT(LoopT *loop) {
-  int r = uv_timer_init(loop->get(), &_timer);
+TimerT::TimerT(LoopI *loop) {
+  int r = uv_timer_init(loop->getLoop(), &_timer);
   LOG_IF_ERROR_EXIT(r);
 
   uv_handle_set_data(getHandle(), this);
@@ -696,8 +711,8 @@ uv_stream_t *PipeT::getStream() const { return (uv_stream_t *)&_pipe; }
 
 uv_pipe_t *PipeT::getPipe() const { return (uv_pipe_t *)&_pipe; }
 
-PipeT::PipeT(LoopT *loop, int ipc) {
-  int r = uv_pipe_init(loop->get(), &_pipe, ipc);
+PipeT::PipeT(LoopI *loop, int ipc) {
+  int r = uv_pipe_init(loop->getLoop(), &_pipe, ipc);
   LOG_IF_ERROR_EXIT(r);
 
   uv_handle_set_data(getHandle(), this);
@@ -777,15 +792,15 @@ uv_stream_t *TcpT::getStream() const { return (uv_stream_t *)&_tcp; }
 
 uv_tcp_t *TcpT::getTcp() const { return (uv_tcp_t *)&_tcp; }
 
-TcpT::TcpT(LoopT *loop) {
-  int r = uv_tcp_init(loop->get(), &_tcp);
+TcpT::TcpT(LoopI *loop) {
+  int r = uv_tcp_init(loop->getLoop(), &_tcp);
   LOG_IF_ERROR_EXIT(r);
 
   uv_handle_set_data(getHandle(), this);
 }
 
-TcpT::TcpT(LoopT *loop, unsigned int flags) {
-  int r = uv_tcp_init_ex(loop->get(), &_tcp, flags);
+TcpT::TcpT(LoopI *loop, unsigned int flags) {
+  int r = uv_tcp_init_ex(loop->getLoop(), &_tcp, flags);
   LOG_IF_ERROR_EXIT(r);
 
   uv_handle_set_data(getHandle(), this);
@@ -821,8 +836,8 @@ uv_stream_t *TtyT::getStream() const { return (uv_stream_t *)&_tty; }
 
 uv_tty_t *TtyT::getTty() const { return (uv_tty_t *)&_tty; }
 
-TtyT::TtyT(LoopT *loop, File fd, int unused) {
-  int r = uv_tty_init(loop->get(), &_tty, fd, unused);
+TtyT::TtyT(LoopI *loop, File fd, int unused) {
+  int r = uv_tty_init(loop->getLoop(), &_tty, fd, unused);
   LOG_IF_ERROR_EXIT(r);
 
   uv_handle_set_data(getHandle(), this);
@@ -996,15 +1011,15 @@ uv_handle_t *UdpT::getHandle() const { return (uv_handle_t *)&_udp; }
 
 uv_udp_t *UdpT::getUdp() const { return (uv_udp_t *)&_udp; }
 
-UdpT::UdpT(LoopT *loop) {
-  int r = uv_udp_init(loop->get(), &_udp);
+UdpT::UdpT(LoopI *loop) {
+  int r = uv_udp_init(loop->getLoop(), &_udp);
   LOG_IF_ERROR_EXIT(r);
 
   uv_handle_set_data(getHandle(), this);
 }
 
-UdpT::UdpT(LoopT *loop, unsigned int flags) {
-  int r = uv_udp_init_ex(loop->get(), &_udp, flags);
+UdpT::UdpT(LoopI *loop, unsigned int flags) {
+  int r = uv_udp_init_ex(loop->getLoop(), &_udp, flags);
   LOG_IF_ERROR_EXIT(r);
 
   uv_handle_set_data(getHandle(), this);
@@ -1053,11 +1068,91 @@ uv_handle_t *AsyncT::getHandle() const { return (uv_handle_t *)&_async; }
 
 uv_async_t *AsyncT::getAsync() const { return (uv_async_t *)&_async; }
 
-AsyncT::AsyncT(LoopT *loop) {
-  int r = uv_async_init(loop->get(), &_async, AsyncI::Impl::async_callback);
+AsyncT::AsyncT(LoopI *loop) {
+  int r = uv_async_init(loop->getLoop(), &_async, AsyncI::Impl::async_callback);
   LOG_IF_ERROR_EXIT(r);
 
   uv_handle_set_data(getHandle(), this);
 }
 
 AsyncT::~AsyncT() {}
+
+// --
+
+struct SignalI::Impl {
+  SignalCallback _signalCallback;
+
+  static void signal_callback(uv_signal_t *handle, int signum);
+};
+
+void SignalI::Impl::signal_callback(uv_signal_t *handle, int signum) {
+  auto p = (SignalI *)uv_handle_get_data((uv_handle_t *)handle);
+  if (p->_impl->_signalCallback) {
+    p->_impl->_signalCallback(signum);
+  }
+}
+
+// --
+
+SignalI::SignalI() : _impl(std::make_unique<SignalI::Impl>()) {}
+
+SignalI::~SignalI() {}
+
+int SignalI::start(int signum) {
+  int r = uv_signal_start(getSignal(), SignalI::Impl::signal_callback, signum);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int SignalI::startOneshort(int signum) {
+  int r = uv_signal_start_oneshot(getSignal(), SignalI::Impl::signal_callback,
+                                  signum);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int SignalI::stop() {
+  int r = uv_signal_stop(getSignal());
+  LOG_IF_ERROR(r);
+  return r;
+}
+// --
+
+uv_handle_t *SignalT::getHandle() const { return (uv_handle_t *)&_signal; }
+
+uv_signal_t *SignalT::getSignal() const { return (uv_signal_t *)&_signal; }
+
+SignalT::SignalT(LoopI *loop) {
+  int r = uv_signal_init(loop->getLoop(), &_signal);
+  LOG_IF_ERROR_EXIT(r);
+
+  uv_handle_set_data(getHandle(), this);
+}
+
+SignalT::~SignalT() {}
+
+// --
+
+void ProcessI::disableStdioInheritance() { uv_disable_stdio_inheritance(); }
+
+int ProcessI::kill(int pid, int signum) {
+  int r = uv_kill(pid, signum);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int ProcessI::spawn(LoopI *loop, const ProcessI::Options *options) {
+  int r = uv_spawn(loop->getLoop(), getProcess(), options);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+int ProcessI::kill(int signum) {
+  int r = uv_process_kill(getProcess(), signum);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+ProcessI::Pid ProcessI::getPid() const {
+  return uv_process_get_pid(getProcess());
+}

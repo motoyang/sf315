@@ -13,7 +13,8 @@ extern Business *g_business;
 
 // --
 
-void sig16_handler(int signum, siginfo_t *info, void *myact) {
+// SIGUSR2 handler
+void sig12_handler(int signum, siginfo_t *info, void *myact) {
   LOG_INFO << "received signal: " << signum << " and tag: " << info->si_int;
   if (info->si_int == (int)TcpAcceptor::NotifyTag::NT_CLOSE) {
     g_business->stop();

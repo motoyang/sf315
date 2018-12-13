@@ -28,7 +28,7 @@ class ClientAgent {
   void onClose();
 
 public:
-  ClientAgent(LoopT* loop, TcpAcceptor& server, CodecI& codec);
+  ClientAgent(LoopI* loop, TcpAcceptor& server, CodecI& codec);
 
   void write(int index);
   TcpI* socket() const;
@@ -41,7 +41,7 @@ class TcpAcceptor {
   TcpT _socket;
   AsyncT _async;
   TimerT _timer;
-  LoopT* _loop;
+  LoopI* _loop;
   CodecI& _codec;
   std::string _name;
   std::unordered_map<std::string, std::unique_ptr<ClientAgent>> _clients;
@@ -65,7 +65,7 @@ public:
     NT_CLIENTS_SHUTDOWN
   };
 
-  TcpAcceptor(LoopT *loop, const struct sockaddr *addr, CodecI& codec);
+  TcpAcceptor(LoopI *loop, const struct sockaddr *addr, CodecI& codec);
   void addClient(std::unique_ptr<ClientAgent>&& client);
   std::unique_ptr<ClientAgent> removeClient(const std::string& name);
   bool upwardEnqueue(Packet&& packet);

@@ -72,8 +72,8 @@ int main(int argc, char *argv[]) {
     LOG_INFO << "libuv version: " << Version().str();
     std::cout << "libuv version: " << Version().str() << std::endl;
 
-    // 安装信号处理，处理16号信号
-    sig_capture(SIGINT, sig16_handler);
+    // 安装信号处理，处理SIGUSR2(12)号信号
+    sig_capture(SIGUSR2, sig12_handler);
 
     tcp_server();
   }

@@ -9,7 +9,7 @@
 
 // --
 
-TcpClient::TcpClient(LoopT *loop, const struct sockaddr *dest, CodecI &codec)
+TcpClient::TcpClient(LoopI *loop, const struct sockaddr *dest, CodecI &codec)
     : _socket(loop), _timer(loop), _idler(loop), _ringbuffer(codec.size()),
       _codec(codec) {
   // _socket.setDefaultSize(64, 3);
@@ -46,7 +46,7 @@ void TcpClient::onTimer() {
   std::sprintf(sn_buf, "%u", sn++);
 
   int rv1 = std::rand() % 26;
-  int rv2 = std::rand() % (_codec.size() - strlen(sn_buf) - 23) + 1;
+  int rv2 = std::rand() % (_codec.size() - strlen(sn_buf) - 21) + 1;
   std::string msg(rv2, '=');
   
   std::string s(sn_buf);
@@ -88,10 +88,6 @@ void TcpClient::onConnect(int status) {
     return;
   }
   LOG_INFO << "client socket connected.";
-
-  // int recvBuf = 32*1024, sendBuf = 16*1024;
-  // _socket.recvBufferSize(&recvBuf);
-  // _socket.sendBufferSize(&sendBuf);
 
   _name = nameOfSock(AF_INET, &_socket);
   _socket.readStart();

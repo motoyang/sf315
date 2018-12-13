@@ -1,7 +1,7 @@
 #include <cassert>
 #include <nanolog/nanolog.hpp>
 
-#define UVP_ASSERT(f) cassert(f)
+#define UVP_ASSERT(f) assert(f)
 
 #define LOG_UV_ERROR(e) log_error(e, __FILE__, __func__, __LINE__)
 
