@@ -46,238 +46,123 @@ BufT Packet::releaseBuf() {
 
 // --
 
-Codec::Codec(char mark) : _mark(mark) {}
+Codec::Codec(char mark) : _mark(mark), _ring(45) {}
 
-unsigned short Codec::size() const {
-  return 45;
+// unsigned short Codec::size() const {
+//   return _ring.capacity();
+// }
+
+RingBuffer& Codec::ringBuffer() const {
+  return _ring;
 }
 
-BufT Codec::encode(const char *p, unsigned short len) {
-  BufT b;
-  b.len = 0;
-  b.base = 0;
+bool Codec::encode(BufT& buf, const char *p, unsigned short len) {
+  UVP_ASSERT(buf.len == 0 && buf.base == nullptr);
   if (!p || !len) {
     UVP_ASSERT(false);
-    return b;
+    return false;
   }
 
   char head[16] = {0};
   std::snprintf(head, sizeof(head), "%d%c", (int)len, _mark);
   int head_len = std::strlen(head);
-  if (len + head_len > size()) {
+  if (len + head_len > _ring.capacity()) {
     UVP_ASSERT(false);
-    return b;
+    return false;
   }
 
-  b = allocBuf(head_len + len);
-  memcpy(b.base, head, head_len);
-  memcpy(b.base + head_len, p, len);
+  buf = allocBuf(head_len + len);
+  memcpy(buf.base, head, head_len);
+  memcpy(buf.base + head_len, p, len);
 
-  return b; 
+  return true; 
 }
 
-BufT Codec::decode(RingBuffer *ringbuffer) {
-  BufT r;
-  r.len = 0;
-  r.base = nullptr;
+bool Codec::decode(BufT& buf) {
+  UVP_ASSERT(buf.len == 0 && buf.base == nullptr);
 
-  char *body = ringbuffer->search(_mark);
+  char *body = _ring.search(_mark);
   if (!body) {
-    return r;
+    return false;
   }
 
-  int head_len = ringbuffer->offset(body);
+  int head_len = _ring.offset(body);
   if (head_len < 1) {
     UVP_ASSERT(false);
-    return r;
+    return false;
   }
 
   char header[16];
-  ringbuffer->peek(header, head_len);
+  _ring.peek(header, head_len);
   header[head_len] = '\0';
   int body_len = atoi(header);
   if (body_len < 1) {
     UVP_ASSERT(false);
-    return r;
+    return false;
   }
 
-  if (ringbuffer->size() < (head_len + body_len + 1)) {
-    return r;
+  if (_ring.size() < (head_len + body_len + 1)) {
+    return false;
   }
 
-  r = allocBuf(body_len);
-  ringbuffer->advance(head_len + 1);
-  ringbuffer->read(r.base, body_len);
+  _ring.advance(head_len + 1);
+  buf = allocBuf(body_len);
+  _ring.read(buf.base, body_len);
 
-  return r;
+  return true;
 }
-
-/*
-BufT Codec::encode(const char *p, unsigned short len) {
-  BufT b;
-  b.len = 0;
-  b.base = 0;
-  if (!p) {
-    UVP_ASSERT(false);
-    return b;
-  }
-
-  char buf[10] = {0};
-  std::snprintf(buf, sizeof(buf), "%d%c", (int)len, _mark);
-  int head = std::strlen(buf);
-  if (len + head > size()) {
-    UVP_ASSERT(false);
-    return b;
-  }
-
-
-  b = allocBuf(head + len);
-  memcpy(b.base, buf, len);
-  memcpy(b.base + head, p, len);
-
-  return b;
-}
-
-BufT Codec::decode(RingBuffer *ringbuffer) {
-  BufT r;
-  r.len = 0;
-  r.base = nullptr;
-
-  int head_len = 0;
-  int body_len = 0;
-
-  {
-    char *body = ringbuffer->search(_mark);
-    if (!body) {
-      return r;
-    }
-    head_len = ringbuffer->offset(body);
-  }
-
-  {
-    char header[20];
-    ringbuffer->peek(header, head_len);
-    header[head_len] = '\0';
-    body_len = atoi(header);
-    if (body_len <= 0) {
-      return r;
-    }
-  }
-
-  if (ringbuffer->size() < (head_len + body_len + 1)) {
-    return r;
-  }
-
-  r = allocBuf(body_len);
-  ringbuffer->advance(head_len + 1);
-  ringbuffer->read(r.base, body_len);
-
-  return r;
-}
-*/
 
 // --
 
-Codec2::Codec2(char mark): _mark(mark) {}
+Codec2::Codec2(): _ring(488) {}
 
-unsigned short Codec2::size() const {
-  return 488;
+// unsigned short Codec2::size() const {
+//   return _ring.capacity();
+// }
+
+RingBuffer& Codec2::ringBuffer() const {
+  return _ring;
 }
 
-BufT Codec2::encode(const char *p, unsigned short len) {
-  BufT b;
-  b.len = 0;
-  b.base = 0;
+bool Codec2::encode(BufT& buf, const char *p, unsigned short len) {
+  UVP_ASSERT(buf.len == 0 && buf.base == nullptr);
   if (!p || !len) {
     UVP_ASSERT(false);
-    return b;
+    return false;
   }
 
   int head_len = sizeof(unsigned short);
-  if (len + head_len > size()) {
+  if (len + head_len > _ring.capacity()) {
     UVP_ASSERT(false);
-    return b;
+    return false;
   }
 
-  b = allocBuf(head_len + len);
-  *(unsigned short*)b.base = len;
-  memcpy(b.base + head_len, p, len);
+  buf = allocBuf(head_len + len);
+  *(unsigned short*)buf.base = len;
+  memcpy(buf.base + head_len, p, len);
 
-  return b; 
+  return true; 
 }
 
-BufT Codec2::decode(RingBuffer *ringbuffer) {
-  BufT r;
-  r.len = 0;
-  r.base = nullptr;
+bool Codec2::decode(BufT& buf) {
+  UVP_ASSERT(buf.len == 0 && buf.base == nullptr);
 
   int head_len = sizeof(unsigned short);
   unsigned short body_len = 0;
-  if (!ringbuffer->peekAsUnsignedShort(&body_len)) {
-    return r;
+  if (!_ring.peekAsUnsignedShort(&body_len)) {
+    return false;
   }
-  if (ringbuffer->size() < (head_len + body_len)) {
-    return r;
+  if (_ring.size() < (head_len + body_len)) {
+    return false;
   }
-  if (size() < body_len + head_len) {
+  if (_ring.capacity() < body_len + head_len) {
     UVP_ASSERT(false);
-    return r;
+    return false;
   }
 
-  ringbuffer->advance(head_len);
-  r = allocBuf(body_len);
-  ringbuffer->read(r.base, body_len);
+  _ring.advance(head_len);
+  buf = allocBuf(body_len);
+  _ring.read(buf.base, body_len);
 
-  return r;
+  return true;
 }
-
-/*
-BufT Codec2::encode(const char *p, unsigned short len) {
-  int head_len = sizeof(len);
-  int mark_len = sizeof(_mark);
-
-  BufT b;
-  b.len = 0;
-  b.base = 0;
-  if ((head_len + mark_len + len > size()) || !p) {
-    UVP_ASSERT(false);
-    return b;
-  }
-
-  b = allocBuf(head_len + mark_len + len);
-  *(unsigned short*)b.base = len;
-  *(char*)(b.base+head_len) = _mark;
-  memcpy(b.base + head_len + mark_len, p, len);
-
-  return b;
-}
-
-BufT Codec2::decode(RingBuffer *ringbuffer) {
-  BufT r;
-  r.len = 0;
-  r.base = nullptr;
-
-  char *body = ringbuffer->search(_mark);
-  if (!body) {
-    return r;
-  }
-  int head_len = ringbuffer->offset(body);
-  if (head_len != sizeof(short)) {
-    // ringbuffer->advance(head_len + 1);
-    UVP_ASSERT(false);
-    return r;
-  }
-
-  unsigned short body_len = 0;
-  ringbuffer->peek((char*)&body_len, head_len);
-  if (ringbuffer->size() < (head_len + body_len + 1)) {
-    return r;
-  }
-
-  r = allocBuf(body_len);
-  ringbuffer->advance(head_len + 1);
-  ringbuffer->read(r.base, body_len);
-
-  return r;
-}
-*/

@@ -17,7 +17,6 @@ class ClientAgent {
   std::string _peer;
   TcpAcceptor& _acceptor;
    
-  RingBuffer _ringbuffer;
   CodecI& _codec;
 
   void makeup(const char* p, size_t len);
@@ -41,11 +40,14 @@ class TcpAcceptor {
   TcpT _socket;
   AsyncT _async;
   TimerT _timer;
+
   LoopI* _loop;
-  CodecI& _codec;
-  std::string _name;
   std::unordered_map<std::string, std::unique_ptr<ClientAgent>> _clients;
+  
+  CodecI& _codec;
   Gangway _gangway;
+  
+  std::string _name;
   std::atomic<int> _notifyTag {0};
 
   void notifyHandler();

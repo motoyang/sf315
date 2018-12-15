@@ -65,6 +65,8 @@
 
 #define LOG_TRACK (LOG_INFO << " haha...")
 
+#define COUNT_OF(t) (sizeof(t) / sizeof(t[0]))
+
 // --
 
 void log_error(int err, const char *fn, const char *fun, uint64_t ln);

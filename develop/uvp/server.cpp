@@ -9,6 +9,7 @@
 #include <singleton.hpp>
 #include <threadpool.hpp>
 
+#include "objects.h"
 #include "business.h"
 #include "server.h"
 
@@ -19,14 +20,14 @@
 void ClientAgent::makeup(const char *p, size_t len) {
   int remain = len;
   do {
-    int writed = _ringbuffer.write(p, remain);
+    int writed = _codec.ringBuffer().write(p, remain);
     remain -= writed;
     p += writed;
 
     while (true) {
       // 解析出每个包
-      BufT b = _codec.decode(&_ringbuffer);
-      if (!b.base) {
+      BufT b = {0};
+      if (!_codec.decode(b)) {
         break;
       }
 
@@ -75,7 +76,7 @@ void ClientAgent::onClose() {
 }
 
 ClientAgent::ClientAgent(LoopI *loop, TcpAcceptor &server, CodecI &codec)
-    : _socket(loop), _acceptor(server), _ringbuffer(codec.size()),
+    : _socket(loop), _acceptor(server),
       _codec(codec) {
   // _socket.setDefaultSize(1024, 1);
   _socket.writeCallback(std::bind(&ClientAgent::onWrite, this,
@@ -167,6 +168,7 @@ void TcpAcceptor::onAsync() {
     if (r) {
       freeBuf(b);
       LOG_IF_ERROR(r);
+      break;
     }
   }
   notifyHandler();
@@ -260,9 +262,9 @@ bool TcpAcceptor::upwardDequeue(Packet &packet) {
 }
 
 int TcpAcceptor::downwardEnqueue(const char *name, const char *p, size_t len) {
-  BufT b = _codec.encode(p, len);
-  if (!b.base || !b.len) {
-    return 0;
+  BufT b = {0};
+  if (!_codec.encode(b, p, len)) {
+    return -1;
   }
   Packet packet(name, b);
   _gangway._downward.enqueue(std::move(packet));
@@ -289,7 +291,7 @@ TcpAcceptor *g_acceptor;
 Business *g_business;
 
 int tcp_server() {
-  Codec2 codec('|');
+  Codec2 codec;
 
   // 建立线程池，线程个数1
   uvp::ThreadPool pool(1);

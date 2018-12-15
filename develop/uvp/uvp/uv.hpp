@@ -314,6 +314,7 @@ public:
   // extend functions
   void connectCallback(const ConnectCallback &cb);
   ConnectCallback connectCallback() const;
+  int reinit();
 };
 
 class TcpT : public TcpI {

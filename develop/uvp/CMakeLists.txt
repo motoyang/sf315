@@ -25,6 +25,7 @@ include_directories(
   # ${PROJECT_SOURCE_DIR}/../msgpack-c/include
   ${PROJECT_SOURCE_DIR}/uv
   ${PROJECT_SOURCE_DIR}/uvp
+  ${PROJECT_SOURCE_DIR}/uvp/msgpack-c
   )
 
 #查找当前文件夹中的所有源代码文件，也可以通过Set命令将所有文件设置为一个变量  

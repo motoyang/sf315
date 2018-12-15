@@ -64,8 +64,6 @@ struct LoopI::Impl {
 
 void LoopI::Impl::walk_callback(uv_handle_t *handle, void *arg) {
   auto h = (HandleI *)uv_handle_get_data(handle);
-  // uv_loop_t* l = uv_handle_get_loop(handle);
-  // auto p = (LoopI*)uv_loop_get_data(l);
   auto p = h->loop();
   if(p->_impl->_walkCallback) {
     p->_impl->_walkCallback(h, arg);
@@ -782,6 +780,13 @@ void TcpI::connectCallback(const StreamI::ConnectCallback &cb) {
 
 StreamI::ConnectCallback TcpI::connectCallback() const {
   return StreamI::_impl->_connectCallback;
+}
+
+int TcpI::reinit() {
+  int r = uv_tcp_init(loop()->getLoop(), getTcp());
+  LOG_IF_ERROR(r);
+  uv_handle_set_data(getHandle(), this);
+  return r;
 }
 
 // --
