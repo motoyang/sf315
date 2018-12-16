@@ -5,9 +5,20 @@ cmake_policy(SET CMP0071 OLD)
 
 #设置工程名称  
 project(uv_1)  
-  
+
+# The version number.
+set (VERSION_MAJOR 0)
+set (VERSION_MINOR 1)
+set (VERSION_PATCH 0)
+ 
+configure_file (
+  "${PROJECT_SOURCE_DIR}/ver.h.in"
+  "${PROJECT_BINARY_DIR}/ver.h"
+  )
+include_directories ("${PROJECT_BINARY_DIR}")
+ 
 #设置工程包含当前目录，非必须  
-set(CMAKE_INCLUDE_CURRENT_DIR ON)   
+# set(CMAKE_INCLUDE_CURRENT_DIR ON)   
 
 # ON is the default
 option(USE_CLANG "build application with clang" ON)
@@ -52,9 +63,9 @@ set (VER_TARGET "_Version")
 add_custom_target(${VER_TARGET} ALL)
 add_dependencies(${PROJECT_NAME} ${VER_TARGET})
 add_custom_command(TARGET ${VER_TARGET}
-  PRE_BUILD
+  POST_BUILD
   COMMAND echo "daily build command."
-  COMMAND $ENV{HOME}/bin/ver.sh ver.h
+  COMMAND $ENV{HOME}/bin/ver.sh ver.h.in
   WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
   COMMENT "This command will be executed before building the project."
   )

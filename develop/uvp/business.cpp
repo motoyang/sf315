@@ -31,7 +31,7 @@ int f31(int i, int j) {
 }
 
 void f23(int i, double d, const std::string &s) {
-  std::cout << "f23: i = " << i << ", d = " << d << ", s = " << s << std::endl;
+  // std::cout << "f23: i = " << i << ", d = " << d << ", s = " << s << std::endl;
 }
 
 void Business::doSomething(const Packet &packet) {
@@ -43,6 +43,11 @@ void Business::doSomething(const Packet &packet) {
     std::cout << "received: " << count << " packets, " << bytes << " bytes."
               << std::endl;
   }
+
+  int r = _tcp->downwardEnqueue(packet._peer.c_str(), packet._buf.base,
+                                packet._buf.len);
+  LOG_IF_ERROR(r);
+  return;
 
   BufT buf = packet._buf;
   size_t offset = 0;

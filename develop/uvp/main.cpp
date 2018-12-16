@@ -5,6 +5,7 @@
 #include <misc.hpp>
 // #include <uv.hpp>
 
+#include "ver.h"
 #include "sighandler.h"
 #include "anyarg.h"
 #include "client.h"
@@ -14,6 +15,7 @@
 
 int main(int argc, char *argv[]) {
   Anyarg opt;
+  opt.add_flag("version", 'v', "Display version information.");
   opt.add_flag("help", 'h', "Display help information.");
   opt.add_flag("daemon", 'd', "running as a daemon services.");
   opt.add_flag("server", 's', "running as a server process.");
@@ -25,15 +27,21 @@ int main(int argc, char *argv[]) {
   opt.add_option_int("sig", 0, 0, "=SIGNAL signal to a process.");
   opt.add_option_int("tag", 0, 0, "=TAG tag send to a process.");
 
-      // parsing command line, collect command line arguments
-      opt.parse_argv(argc, argv);
+  // parsing command line, collect command line arguments
+  opt.parse_argv(argc, argv);
 
+  // version information
+  if (opt.is_true('v')) {
+    std::cout << "uvp version: " << VERSION_MAJOR << "." << VERSION_MINOR << "."
+              << VERSION_PATCH << "." << VERSION_BUILD << std::endl;
+    return 0;
+  }
   // generate formatted usage information for all options
-  if (opt.is_true('h') ||
-      ((opt.is_true('s') && opt.is_true('d')) ||
-       (opt.is_true('s') && opt.is_true('c')) ||
-       (opt.is_true('d') && opt.is_true('c')) ||
-       (!opt.is_true('d') && !opt.is_true('s') && !opt.is_true('c') && !opt.is_true('k')))) {
+  if (opt.is_true('h') || ((opt.is_true('s') && opt.is_true('d')) ||
+                           (opt.is_true('s') && opt.is_true('c')) ||
+                           (opt.is_true('d') && opt.is_true('c')) ||
+                           (!opt.is_true('d') && !opt.is_true('s') &&
+                            !opt.is_true('c') && !opt.is_true('k')))) {
     std::cout << opt.auto_usage();
     return 0;
   }

@@ -17,7 +17,7 @@ class ClientAgent {
   std::string _peer;
   TcpAcceptor& _acceptor;
    
-  CodecI& _codec;
+  Codec2 _codec;
 
   void makeup(const char* p, size_t len);
 
@@ -27,7 +27,7 @@ class ClientAgent {
   void onClose();
 
 public:
-  ClientAgent(LoopI* loop, TcpAcceptor& server, CodecI& codec);
+  ClientAgent(LoopI* loop, TcpAcceptor& server);
 
   void write(int index);
   TcpI* socket() const;
@@ -44,7 +44,7 @@ class TcpAcceptor {
   LoopI* _loop;
   std::unordered_map<std::string, std::unique_ptr<ClientAgent>> _clients;
   
-  CodecI& _codec;
+  Codec2 _codec;
   Gangway _gangway;
   
   std::string _name;
@@ -67,7 +67,7 @@ public:
     NT_CLIENTS_SHUTDOWN
   };
 
-  TcpAcceptor(LoopI *loop, const struct sockaddr *addr, CodecI& codec);
+  TcpAcceptor(LoopI *loop, const struct sockaddr *addr);
   void addClient(std::unique_ptr<ClientAgent>&& client);
   std::unique_ptr<ClientAgent> removeClient(const std::string& name);
   bool upwardEnqueue(Packet&& packet);

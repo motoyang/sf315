@@ -1,4 +1,5 @@
 #include <string>
+#include <iostream>
 
 #include <utilites.hpp>
 #include <misc.hpp>
@@ -37,6 +38,7 @@ unsigned int Version::hex() const { return uv_version(); }
 const char *Version::str() const { return uv_version_string(); }
 
 // --
+static std::atomic<size_t> nbuf_alloc = 0;
 
 BufT allocBuf(size_t size) {
   BufT b;
@@ -46,6 +48,11 @@ BufT allocBuf(size_t size) {
   }
   b.len = size;
 
+  ++nbuf_alloc;
+
+  // if (nbuf_alloc > 10)
+  //  std::cout << "nbuf_alloc: " << nbuf_alloc << std::endl;
+  
   return b;
 }
 
@@ -66,7 +73,14 @@ BufT moveToBuf(char *p, size_t len) {
 void freeBuf(BufT buf) {
   if (buf.base) {
     free(buf.base);
+    --nbuf_alloc;
+  //  std::cout << "nbuf_free: " << nbuf_alloc << std::endl;
+
   }
+}
+
+void bufCount() {
+  std::cout << "buf alloced: " << nbuf_alloc << std::endl;
 }
 
 // --

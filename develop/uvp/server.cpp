@@ -75,9 +75,8 @@ void ClientAgent::onClose() {
   LOG_INFO << "handle of agent socket closed." << _peer;
 }
 
-ClientAgent::ClientAgent(LoopI *loop, TcpAcceptor &server, CodecI &codec)
-    : _socket(loop), _acceptor(server),
-      _codec(codec) {
+ClientAgent::ClientAgent(LoopI *loop, TcpAcceptor &server)
+    : _socket(loop), _acceptor(server) {
   // _socket.setDefaultSize(1024, 1);
   _socket.writeCallback(std::bind(&ClientAgent::onWrite, this,
                                   std::placeholders::_1, std::placeholders::_2,
@@ -100,9 +99,8 @@ std::string ClientAgent::peer() {
 
 // --
 
-TcpAcceptor::TcpAcceptor(LoopI *loop, const struct sockaddr *addr,
-                         CodecI &codec)
-    : _socket(loop), _async(loop), _timer(loop), _loop(loop), _codec(codec) {
+TcpAcceptor::TcpAcceptor(LoopI *loop, const struct sockaddr *addr)
+    : _socket(loop), _async(loop), _timer(loop), _loop(loop) {
   const int backlog = 128;
 
   _socket.connectionCallback(
@@ -131,7 +129,7 @@ void TcpAcceptor::onConnection(int status) {
     return;
   }
 
-  auto client = std::make_unique<ClientAgent>(_loop, *this, _codec);
+  auto client = std::make_unique<ClientAgent>(_loop, *this);
   int r = _socket.accept(client->socket());
   if (r < 0) {
     LOG_IF_ERROR(r);
@@ -291,8 +289,6 @@ TcpAcceptor *g_acceptor;
 Business *g_business;
 
 int tcp_server() {
-  Codec2 codec;
-
   // 建立线程池，线程个数1
   uvp::ThreadPool pool(1);
 
@@ -300,7 +296,7 @@ int tcp_server() {
   // auto loop = std::make_unique<LoopT>();
   struct sockaddr_in addr;
   uv_ip4_addr("0", 7001, &addr);
-  TcpAcceptor acceptor(loop.get(), (const struct sockaddr *)&addr, codec);
+  TcpAcceptor acceptor(loop.get(), (const struct sockaddr *)&addr);
   g_acceptor = &acceptor;
 
   Business bness("business");

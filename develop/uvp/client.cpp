@@ -5,6 +5,8 @@
 
 #include <msgpack-c/msgpack.hpp>
 #include <resolver.h>
+
+#include <pp/prettyprint.h>
 #include "client.h"
 
 // --
@@ -84,11 +86,10 @@ void TcpConnector::onAsync() {
     return;
   }
 
-  size_t size_approx = _gangway._downward.size_approx();
-  if (size_approx > 100) {
-    LOG_WARN << "downward size: " << size_approx;
-  }
-
+  // size_t size_approx = _gangway._downward.size_approx();
+  // std::cout << "size-approx: " << size_approx << std::endl;
+  // std::vector<BufT> bufs;
+  // bufs.reserve(size_approx);
   BufT bufs[10] = {0};
   size_t count = 0;
   while ((count = _gangway._downward.try_dequeue_bulk(bufs, COUNT_OF(bufs))) >
@@ -121,7 +122,7 @@ void TcpConnector::dispatch(BufT buf) {
       freeBuf(buf);
     }
   } else {
-    _gangway._upward.enqueue(buf);
+    while (!_gangway._upward.try_enqueue(buf));
   }
 }
 
@@ -206,7 +207,7 @@ int TcpConnector::downwardEnqueue(const char *p, size_t len) {
   if (!_codec.encode(b, p, len)) {
     return 0;
   }
-  _gangway._downward.enqueue(b);
+  while(!_gangway._downward.try_enqueue(b));
 
   int r = _async.send();
   LOG_IF_ERROR(r);
@@ -214,6 +215,7 @@ int TcpConnector::downwardEnqueue(const char *p, size_t len) {
 }
 
 // --
+
 int netStart(LoopI *loop) {
   int r = loop->run(UV_RUN_DEFAULT);
   LOG_IF_ERROR(r);
@@ -224,41 +226,73 @@ int netStart(LoopI *loop) {
   return r;
 }
 
-void doSomething(const Packet &packet) {
-  static size_t count = 0;
-  static size_t bytes = 0;
-
-  std::cout << "echo: " << packet._buf.base << std::endl;
-}
-
-template <typename T, typename... Args>
-std::string transmit(T const &tag, Args &&... args) {
-  int r = -1;
-  std::stringstream ss;
-  msgpack::pack(ss, tag);
-  ((msgpack::pack(ss, std::forward<Args>(args)), ...));
-
-  return ss.str();
-}
-
 void f21_pair(int i, const std::string &s, float f) {
+  static size_t count = 0;
+  if (++count % 10000) return;
   std::cout << "f21_pair: i = " << i << ", s = " << s << ", f = " << f
             << std::endl;
 }
 
 void f22_pair(float f, const std::string &s) {
+  static size_t count = 0;
+  if (++count % 10000) return;
   std::cout << "f22_pair: f = " << f << ", s = " << s << std::endl;
 }
 
 void f23_pair(const std::string &s) {
+  static size_t count = 0;
+  if (++count % 10000) return;
   std::cout << "f23_pair: s = " << s << std::endl;
+}
+
+void f24_pair(const std::tuple<int, std::string, float, double> &t) {
+  static size_t count = 0;
+  if (++count % 10000) return;
+  std::cout << "f24_pair: t = " << t << std::endl;
+}
+
+int f_output(TcpConnector* client) {
+  for (;;) {
+    int r = client->transmit(BufType::BUF_ECHO_TYPE, 21, 38,
+                          std::string("string1"), 8.8f);
+    LOG_IF_ERROR(r);
+
+    r = client->transmit(BufType::BUF_ECHO_TYPE, 22, 0.86,
+                      std::string("string2"));
+    LOG_IF_ERROR(r);
+
+    r = client->transmit(BufType::BUF_RESOLVE_TYPE, 23, 99, (double)0.1386,
+                      std::string("string3"));
+    LOG_IF_ERROR(r);
+
+    r = client->transmit(BufType::BUF_RESOLVE_TYPE, 24, std::make_tuple(36,
+                      std::string("str in tuple"), 1.88f, (double)0.248));
+    LOG_IF_ERROR(r);    
+  }
+
+  return 0;
+}
+
+int f_output2(TcpConnector* client) {
+  for (int i = 0; i < 20000000; ++i) {
+    std::string s(std::rand() % 46 + 1, '=');
+    client->downwardEnqueue(s.data(), s.length());
+  }
+  //   std::string s(std::rand() % 46 + 1, '=');
+  //   client->downwardEnqueue(s.data(), s.length());
+  for(;;) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+    bufCount();
+  }
+  return 0;
 }
 
 int tcp_client() {
   auto resolver = std::make_unique<uvp::Resolver<int>>();
   resolver->defineFun(21, f21_pair)
       .defineFun(22, f22_pair)
-      .defineFun(23, f23_pair);
+      .defineFun(23, f23_pair)
+      .defineFun(24, f24_pair);
 
   Codec2 codec;
 
@@ -269,10 +303,29 @@ int tcp_client() {
   auto loop = std::make_unique<LoopT>();
   TcpConnector client(loop.get(), (const struct sockaddr *)&dest, codec);
   std::thread t1(netStart, loop.get());
+  // std::thread t2(f_output, &client);
+  std::thread t2(f_output, &client);
 
   std::srand(std::time(nullptr));
   for (int i2 = 0; i2 < 999999999; ++i2) {
+/*
     do {
+      std::string s(std::rand() % 46 + 1, '=');
+      client.downwardEnqueue(s.data(), s.length());
+    } while (false);
+    do {
+      BufT b[10] = {0};
+      size_t count = client.upwardDequeue(b, COUNT_OF(b));
+      // std::vector<BufT> b;
+      // size_t count = client.upwardDequeue(b);
+      for (int i = 0; i < count; ++i) {
+        *(b[i].base + b[i].len - 1) = 0;
+        std::cout << "recv: " << b[i].base << std::endl;
+      }
+    } while (false);
+*/
+/*
+    do {      
       int r = client.transmit(BufType::BUF_ECHO_TYPE, 21, 38,
                               std::string("string1"), 8.8f);
       LOG_IF_ERROR(r);
@@ -281,18 +334,23 @@ int tcp_client() {
                           std::string("string2"));
       LOG_IF_ERROR(r);
 
-      r = client.transmit(BufType::BUF_RESOLVE_TYPE, 23, 99, (double)0.86,
+      r = client.transmit(BufType::BUF_RESOLVE_TYPE, 23, 99, (double)0.1386,
                           std::string("string3"));
       LOG_IF_ERROR(r);
-    } while (false);
 
+      r = client.transmit(BufType::BUF_RESOLVE_TYPE, 24, std::make_tuple(36,
+                          std::string("str in tuple"), 1.88f, (double)0.248));
+      LOG_IF_ERROR(r);
+    } while (false);
+*/
+/*
     do {
       int result = 0;
       int i = std::rand() % 100, j = std::rand() % 100;
       client.request(result, 31, i, j);
       std::cout << i << " + " << j << " = " << result << std::endl;
     } while (false);
-
+*/
     do {
       BufT b[10] = {0};
       size_t count = client.upwardDequeue(b, COUNT_OF(b));
@@ -307,12 +365,16 @@ int tcp_client() {
         int token = 0;
         oh2.get().convert(token);
         resolver->resolve(b[i].base, b[i].len, offset);
+
+        freeBuf(b[i]);
       }
     } while (false);
+
   }
 
   client.notify(1);
   t1.join();
+  t2.join();
 
   return 0;
 }

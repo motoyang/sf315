@@ -114,7 +114,7 @@ bool Codec::decode(BufT& buf) {
 
 // --
 
-Codec2::Codec2(): _ring(488) {}
+Codec2::Codec2(): _ring(48) {}
 
 // unsigned short Codec2::size() const {
 //   return _ring.capacity();
