@@ -72,8 +72,10 @@ public:
   std::unique_ptr<ClientAgent> removeClient(const std::string& name);
   bool upwardEnqueue(Packet&& packet);
   bool upwardDequeue(Packet& packet);
+  size_t upwardDequeue(std::vector<Packet>& packets);
   int downwardEnqueue(const char* name, const char* p, size_t len);
   bool downwardDequeue(Packet& packet);
+  size_t downwardDequeue(std::vector<Packet>& packets);
   int notify(int tag);
 };
 

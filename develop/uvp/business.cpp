@@ -16,9 +16,15 @@
 
 void Business::operator()() {
   while (_running) {
-    Packet packet;
-    if (_tcp->upwardDequeue(packet)) {
-      doSomething(packet);
+    // Packet packet;
+    // if (_tcp->upwardDequeue(packet)) {
+    //   doSomething(packet);
+    // }
+
+    std::vector<Packet> packets;
+    size_t count = _tcp->upwardDequeue(packets);
+    for (int i = 0; i < count; ++i) {
+      doSomething(packets.at(i));
     }
   }
   LOG_INFO << "business stoped.";
@@ -31,7 +37,9 @@ int f31(int i, int j) {
 }
 
 void f23(int i, double d, const std::string &s) {
-  // std::cout << "f23: i = " << i << ", d = " << d << ", s = " << s << std::endl;
+  static size_t count = 0;
+  if (++count % 10000) return;
+  std::cout << "f23: i = " << i << ", d = " << d << ", s = " << s << std::endl;
 }
 
 void Business::doSomething(const Packet &packet) {
@@ -39,21 +47,17 @@ void Business::doSomething(const Packet &packet) {
   static size_t bytes = 0;
 
   bytes += packet._buf.len;
-  if ((++count % 1000) == 0) {
+  if ((++count % 10000) == 0) {
     std::cout << "received: " << count << " packets, " << bytes << " bytes."
               << std::endl;
   }
-
-  int r = _tcp->downwardEnqueue(packet._peer.c_str(), packet._buf.base,
-                                packet._buf.len);
-  LOG_IF_ERROR(r);
-  return;
 
   BufT buf = packet._buf;
   size_t offset = 0;
   int buf_type = 0;
   msgpack::object_handle oh = msgpack::unpack(buf.base, buf.len, offset);
   oh.get().convert(buf_type);
+
   if (buf_type == (int)BufType::BUF_REQ_TYPE) {
     msgpack::object_handle oh2 = msgpack::unpack(buf.base, buf.len, offset);
     int token = 0;

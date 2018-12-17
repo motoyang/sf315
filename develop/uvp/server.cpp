@@ -152,21 +152,22 @@ void TcpAcceptor::onShutdown(int status) {
 void TcpAcceptor::onClose() { LOG_INFO << "handle of listen socket closed."; }
 
 void TcpAcceptor::onAsync() {
-  Packet packet;
-  while (downwardDequeue(packet)) {
-    auto i = _clients.find(packet._peer);
-    if (i == _clients.end()) {
-      BufT b = packet.releaseBuf();
-      freeBuf(b);
-      continue;
-    }
-
-    BufT b = packet.releaseBuf();
-    int r = i->second->socket()->write(&b, 1);
-    if (r) {
-      freeBuf(b);
-      LOG_IF_ERROR(r);
-      break;
+  std::vector<Packet> packets;
+  size_t count = 0;
+  while ((count = downwardDequeue(packets)) > 0) {
+    for (int i = 0; i < count; ++i) {
+      BufT b = packets[i].releaseBuf();
+      auto it = _clients.find(packets.at(i)._peer);
+      if (it == _clients.end()) {
+        freeBuf(b);
+      } else {
+        int r = it->second->socket()->write(&b, 1);
+        if (r) {
+          freeBuf(b);
+          LOG_IF_ERROR(r);
+          break;
+        }
+      }
     }
   }
   notifyHandler();
@@ -251,11 +252,22 @@ TcpAcceptor::removeClient(const std::string &name) {
 }
 
 bool TcpAcceptor::upwardEnqueue(Packet &&packet) {
-  return _gangway._upward.enqueue(std::forward<Packet>(packet));
+  while (!_gangway._upward.enqueue(std::forward<Packet>(packet))) {
+    LOG_CRIT << "enqueue faild in acceptor upward queue.";
+  }
+
+  return true;
 }
 
 bool TcpAcceptor::upwardDequeue(Packet &packet) {
   return _gangway._upward.wait_dequeue_timed(packet,
+                                             std::chrono::milliseconds(500));
+}
+
+size_t TcpAcceptor::upwardDequeue(std::vector<Packet> &packets) {
+  size_t n = _gangway._upward.size_approx();
+  packets.resize(std::max((size_t)1, n));
+  return _gangway._upward.wait_dequeue_bulk_timed(packets.begin(), packets.size(),
                                              std::chrono::milliseconds(500));
 }
 
@@ -265,7 +277,9 @@ int TcpAcceptor::downwardEnqueue(const char *name, const char *p, size_t len) {
     return -1;
   }
   Packet packet(name, b);
-  _gangway._downward.enqueue(std::move(packet));
+  while (!_gangway._downward.enqueue(std::move(packet))) {
+    LOG_CRIT << "enqueue faild in acceptor downward queue.";
+  }
 
   int r = _async.send();
   LOG_IF_ERROR(r);
@@ -274,6 +288,15 @@ int TcpAcceptor::downwardEnqueue(const char *name, const char *p, size_t len) {
 
 bool TcpAcceptor::downwardDequeue(Packet &packet) {
   return _gangway._downward.try_dequeue(packet);
+}
+
+size_t TcpAcceptor::downwardDequeue(std::vector<Packet> &packets) {
+  size_t n = _gangway._downward.size_approx();
+  if (!n) {
+    return 0;
+  }
+  packets.resize(n);
+  return _gangway._downward.try_dequeue_bulk(packets.begin(), packets.size());
 }
 
 int TcpAcceptor::notify(int tag) {

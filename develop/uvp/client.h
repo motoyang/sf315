@@ -12,7 +12,7 @@ class TcpConnector {
   AsyncT _async;
   TimerT _timer;
 
-  CodecI &_codec;
+  Codec2 _codec;
   GangwayInConnector _gangway;
   std::atomic<int> _notifyTag{0};
 
@@ -36,7 +36,7 @@ class TcpConnector {
   void onAsync();
 
 public:
-  TcpConnector(LoopI *loop, const struct sockaddr *addr, CodecI &codec);
+  TcpConnector(LoopI *loop, const struct sockaddr *addr);
   std::string name();
   std::string peer();
   void notify(int tag);

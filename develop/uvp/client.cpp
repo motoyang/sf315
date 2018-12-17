@@ -13,8 +13,8 @@
 
 // --
 
-TcpConnector::TcpConnector(LoopI *loop, const struct sockaddr *dest, CodecI &codec)
-    : _socket(loop), _async(loop), _timer(loop), _codec(codec), _dest(*dest) {
+TcpConnector::TcpConnector(LoopI *loop, const struct sockaddr *dest)
+    : _socket(loop), _async(loop), _timer(loop), _dest(*dest) {
   // _socket.setDefaultSize(64, 3);
   std::srand(std::time(nullptr));
 
@@ -122,6 +122,7 @@ void TcpConnector::dispatch(BufT buf) {
       freeBuf(buf);
     }
   } else {
+    // 进队列失败时，重新进队列直到进入队列成功。
     while (!_gangway._upward.try_enqueue(buf));
   }
 }
@@ -140,9 +141,6 @@ void TcpConnector::makeup(const char *p, size_t len) {
         break;
       }
       dispatch(b);
-
-      // 打包到packet，并上传给业务处理。
-      // upwardEnqueue(Packet(_name, b));
     }
   } while (remain > 0);
 }
@@ -207,7 +205,10 @@ int TcpConnector::downwardEnqueue(const char *p, size_t len) {
   if (!_codec.encode(b, p, len)) {
     return 0;
   }
-  while(!_gangway._downward.try_enqueue(b));
+  // 进队列失败时，重新进队列直到进入队列成功。
+  while(!_gangway._downward.enqueue(b)) {
+    LOG_CRIT << "enqueue faild in connector downward queue.";
+  }
 
   int r = _async.send();
   LOG_IF_ERROR(r);
@@ -251,8 +252,10 @@ void f24_pair(const std::tuple<int, std::string, float, double> &t) {
   std::cout << "f24_pair: t = " << t << std::endl;
 }
 
+bool g_running = true;
+
 int f_output(TcpConnector* client) {
-  for (;;) {
+  for (int i = 0; i < 10000; ++i) {
     int r = client->transmit(BufType::BUF_ECHO_TYPE, 21, 38,
                           std::string("string1"), 8.8f);
     LOG_IF_ERROR(r);
@@ -261,15 +264,27 @@ int f_output(TcpConnector* client) {
                       std::string("string2"));
     LOG_IF_ERROR(r);
 
+    if (i % 10000 == 0) {
+      int i2 = std::rand() % 100, j2 = std::rand() % 100;
+      int result = 0;
+      if (0 == client->request(result, 31, i2, j2)) {
+        std::cout << i2 << " + " << j2 << " = " << result << std::endl;
+      } else {
+        std::cout << "timeout..." << std::endl;
+      }
+    }
+
     r = client->transmit(BufType::BUF_RESOLVE_TYPE, 23, 99, (double)0.1386,
                       std::string("string3"));
     LOG_IF_ERROR(r);
 
-    r = client->transmit(BufType::BUF_RESOLVE_TYPE, 24, std::make_tuple(36,
+    r = client->transmit(BufType::BUF_ECHO_TYPE, 24, std::make_tuple(36,
                       std::string("str in tuple"), 1.88f, (double)0.248));
     LOG_IF_ERROR(r);    
   }
 
+  std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+  g_running = false;
   return 0;
 }
 
@@ -278,8 +293,7 @@ int f_output2(TcpConnector* client) {
     std::string s(std::rand() % 46 + 1, '=');
     client->downwardEnqueue(s.data(), s.length());
   }
-  //   std::string s(std::rand() % 46 + 1, '=');
-  //   client->downwardEnqueue(s.data(), s.length());
+
   for(;;) {
     std::this_thread::sleep_for(std::chrono::milliseconds(5000));
     bufCount();
@@ -293,83 +307,34 @@ int tcp_client() {
       .defineFun(22, f22_pair)
       .defineFun(23, f23_pair)
       .defineFun(24, f24_pair);
-
-  Codec2 codec;
+  std::srand(std::time(nullptr));
 
   struct sockaddr_in dest;
   uv_ip4_addr("127.0.0.1", 7001, &dest);
 
   // auto loop = LoopT::defaultLoop();
   auto loop = std::make_unique<LoopT>();
-  TcpConnector client(loop.get(), (const struct sockaddr *)&dest, codec);
+  TcpConnector client(loop.get(), (const struct sockaddr *)&dest);
   std::thread t1(netStart, loop.get());
-  // std::thread t2(f_output, &client);
   std::thread t2(f_output, &client);
 
-  std::srand(std::time(nullptr));
-  for (int i2 = 0; i2 < 999999999; ++i2) {
-/*
-    do {
-      std::string s(std::rand() % 46 + 1, '=');
-      client.downwardEnqueue(s.data(), s.length());
-    } while (false);
-    do {
-      BufT b[10] = {0};
-      size_t count = client.upwardDequeue(b, COUNT_OF(b));
-      // std::vector<BufT> b;
-      // size_t count = client.upwardDequeue(b);
-      for (int i = 0; i < count; ++i) {
-        *(b[i].base + b[i].len - 1) = 0;
-        std::cout << "recv: " << b[i].base << std::endl;
-      }
-    } while (false);
-*/
-/*
-    do {      
-      int r = client.transmit(BufType::BUF_ECHO_TYPE, 21, 38,
-                              std::string("string1"), 8.8f);
-      LOG_IF_ERROR(r);
+   while (g_running) {
+    BufT b[10] = {0};
+    size_t count = client.upwardDequeue(b, COUNT_OF(b));
+    for (int i = 0; i < count; ++i) {
+      size_t offset = 0;
+      msgpack::object_handle oh =
+          msgpack::unpack(b[i].base, b[i].len, offset);
+      int buf_type = 0;
+      oh.get().convert(buf_type);
+      msgpack::object_handle oh2 =
+          msgpack::unpack(b[i].base, b[i].len, offset);
+      int token = 0;
+      oh2.get().convert(token);
+      resolver->resolve(b[i].base, b[i].len, offset);
 
-      r = client.transmit(BufType::BUF_ECHO_TYPE, 22, 0.86,
-                          std::string("string2"));
-      LOG_IF_ERROR(r);
-
-      r = client.transmit(BufType::BUF_RESOLVE_TYPE, 23, 99, (double)0.1386,
-                          std::string("string3"));
-      LOG_IF_ERROR(r);
-
-      r = client.transmit(BufType::BUF_RESOLVE_TYPE, 24, std::make_tuple(36,
-                          std::string("str in tuple"), 1.88f, (double)0.248));
-      LOG_IF_ERROR(r);
-    } while (false);
-*/
-/*
-    do {
-      int result = 0;
-      int i = std::rand() % 100, j = std::rand() % 100;
-      client.request(result, 31, i, j);
-      std::cout << i << " + " << j << " = " << result << std::endl;
-    } while (false);
-*/
-    do {
-      BufT b[10] = {0};
-      size_t count = client.upwardDequeue(b, COUNT_OF(b));
-      for (int i = 0; i < count; ++i) {
-        size_t offset = 0;
-        msgpack::object_handle oh =
-            msgpack::unpack(b[i].base, b[i].len, offset);
-        int buf_type = 0;
-        oh.get().convert(buf_type);
-        msgpack::object_handle oh2 =
-            msgpack::unpack(b[i].base, b[i].len, offset);
-        int token = 0;
-        oh2.get().convert(token);
-        resolver->resolve(b[i].base, b[i].len, offset);
-
-        freeBuf(b[i]);
-      }
-    } while (false);
-
+      freeBuf(b[i]);
+    }
   }
 
   client.notify(1);
