@@ -1,0 +1,16 @@
+project(examples)
+
+set(UV_LIB "uv")
+set(PTHREAD_LIB "pthread")
+
+macro (example_build arg1)
+  set(EXAMPLE_TARGET ${arg1})
+  file(GLOB EXAMPLE_SRC_FILES "${EXAMPLE_TARGET}/*.cpp")   
+  add_executable(${EXAMPLE_TARGET} ${EXAMPLE_SRC_FILES})
+  target_link_libraries(${EXAMPLE_TARGET} ${UV_LIB} ${PTHREAD_LIB})
+endmacro (example_build)
+
+example_build(helloworld)
+example_build(idle-basic) 
+example_build(idle-compute)
+
