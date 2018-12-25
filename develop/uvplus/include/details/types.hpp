@@ -43,21 +43,38 @@ using UidT = uv_uid_t;
 using GidT = uv_gid_t;
 using StatT = uv_stat_t;
 
+using InterfaceAddress = uv_interface_address_t;
+
+
+using TtyMode = uv_tty_mode_t;
+
 using HandleType = uv_handle_type;
 using ReqType = uv_req_type;
 using FsType = uv_fs_type;
 
+using Membership = uv_membership;
+
 using ReqT = uv_req_t;
 using WorkT = uv_work_t;
 using FsT = uv_fs_t;
-
-// --
+using ConnectT = uv_connect_t;
+using WriteT = uv_write_t;
+using ShutdownT = uv_shutdown_t;
+using UdpSendT = uv_udp_send_t;
 
 using LoopT = uv_loop_t;
 using HandleT = uv_handle_t;
 using IdleT = uv_idle_t;
 using TimerT = uv_timer_t;
-  
+using StreamT = uv_stream_t;
+using PipeT = uv_pipe_t;
+using TcpT = uv_tcp_t;
+using TtyT = uv_tty_t;
+using UdpT = uv_udp_t;
+using AsyncT = uv_async_t;
+using SignalT = uv_signal_t;
+using ProcessT = uv_process_t;
+using FsEventT = uv_fs_event_t;
 }
 
 // --

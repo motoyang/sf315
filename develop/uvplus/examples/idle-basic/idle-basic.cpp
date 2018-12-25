@@ -9,18 +9,18 @@ int main(int argc, char *argv[]) {
   
   auto l = std::make_unique<uvp::LoopObject>();
   uvp::IdleObject idler(l.get());
-  idler.start([&counter, &idler]() {
+  idler.start([&counter](uvp::Idle* idler) {
     counter++;
     if (counter >= 10e6) {
-      idler.stop();
-      idler.close(nullptr);
-      // idler.close([](){
-      //   std::cout << "handle of idle closed." << std::endl;
-      // });
+      idler->stop();
+      idler->close([](uvp::Handle* i){
+        std::cout << "handle of idle closed." << std::endl;
+      });
     }
   });
   l->run(UV_RUN_DEFAULT);
   l->close();
 
+  LOG_INFO << "quit with return code: " << 0;
   return 0;
 }

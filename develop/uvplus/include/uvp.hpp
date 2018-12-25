@@ -5,7 +5,7 @@
 #pragma once
 
 #include <details/version.hpp>
-// #include <details/utilities.hpp>
+#include <details/utilities.hpp>
 #include <details/misc.hpp>
 #include <details/eventloop.hpp>
 #include <details/handle.hpp>

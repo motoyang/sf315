@@ -44,8 +44,8 @@ private:
 // --
 
 struct Work : public Req {
-  using WorkCallback = std::function<void()>;
-  using AfterWorkCallback = std::function<void(int)>;
+  using WorkCallback = std::function<void(Work*)>;
+  using AfterWorkCallback = std::function<void(Work*, int)>;
 
   struct Impl {
     WorkCallback _workCallback;
@@ -56,7 +56,7 @@ struct Work : public Req {
   static void work_callback(uv::WorkT *req) {
     auto p = (Work *)uv_req_get_data((uv::ReqT *)req);
     if (p->_impl._workCallback) {
-      p->_impl._workCallback();
+      p->_impl._workCallback(p);
     } else {
       UVP_ASSERT(false);
     }
@@ -65,7 +65,7 @@ struct Work : public Req {
   static void afterwork_callback(uv::WorkT *req, int status) {
     auto p = (Work *)uv_req_get_data((uv::ReqT *)req);
     if (p->_impl._afterWorkCallback) {
-      p->_impl._afterWorkCallback(status);
+      p->_impl._afterWorkCallback(p, status);
     } else {
       UVP_ASSERT(false);
     }
@@ -91,7 +91,7 @@ private:
 // --
 
 struct Fs : public Req {
-  using Callback = std::function<void(uv::FsT *)>;
+  using Callback = std::function<void(Fs *)>;
   using Type = uv::FsType;
   using Stat = uv::StatT;
 
@@ -103,7 +103,7 @@ struct Fs : public Req {
   static void callback(uv::FsT *req) {
     auto p = (Fs *)uv_req_get_data((uv::ReqT *)req);
     if (p->_impl._callback) {
-      p->_impl._callback(req);
+      p->_impl._callback(p);
     } else {
       UVP_ASSERT(false);
     }

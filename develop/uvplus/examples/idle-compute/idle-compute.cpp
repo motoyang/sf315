@@ -3,7 +3,7 @@
 
 #include <uvp.hpp>
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *ls[]) {
   uvp::initialize("./", "idle-compute", 1, 3);
   
   char buffer[1024] = {0};
@@ -13,28 +13,28 @@ int main(int argc, char *argv[]) {
   auto l = std::make_unique<uvp::LoopObject>();
   uvp::IdleObject idler(l.get());
 
-  auto ic = [&idler]() {
+  auto ic = [](uvp::Idle* idler) {
     std::cout << "Computing PI..." << std::endl;
-    idler.stop();
+    idler->stop();
   };
 
   uvp::Fs::Callback onType;
-  auto ot = [&](uvp::uv::FsT *req) {
-    if (req->result > 0) {
-      buffer[req->result] = 0;
+  onType = [&](uvp::Fs *req) {
+    ssize_t r = req->getResult();
+    if (r > 0) {
+      buffer[r] = 0;
       std::cout << "Typed: " << buffer << std::endl;
 
       l->fsRead(&stdin_watcher, 0, &buf, 1, -1, onType);
       idler.start(ic);
-    } else if (req->result < 0) {
-      std::cout << "error opening file: " << uvp::Error(req->result).strerror()
+    } else if (r < 0) {
+      std::cout << "error opening file: " << uvp::Error(r).strerror()
                 << std::endl;
     } else {
       std::cout << "end of file." << std::endl;
       idler.close(nullptr);
     }
   };
-  onType = ot;
 
   l->fsRead(&stdin_watcher, 0, &buf, 1, -1, onType);
   idler.start(ic);
@@ -42,5 +42,6 @@ int main(int argc, char *argv[]) {
   l->run(UV_RUN_DEFAULT);
   l->close();
 
+  LOG_INFO << "quit with return code: " << 0;
   return 0;
 }

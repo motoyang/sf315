@@ -100,229 +100,379 @@ public:
 
   // filesystem operations
   int fsClose(Fs *req, uv::File file, const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_close(loop(), req->fs(), file, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_close(loop(), req->fs(), file, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_close(loop(), req->fs(), file, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsOpen(Fs *req, const char *path, int flags, int mode,
              const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_open(loop(), req->fs(), path, flags, mode, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_open(loop(), req->fs(), path, flags, mode, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_open(loop(), req->fs(), path, flags, mode, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsRead(Fs *req, uv::File file, const uv::BufT bufs[], UnsignedInt nbufs,
              Long offset, const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r =
-        uv_fs_read(loop(), req->fs(), file, bufs, nbufs, offset, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_read(loop(), req->fs(), file, bufs, nbufs, offset, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_read(loop(), req->fs(), file, bufs, nbufs, offset,
+                     Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsUnlink(Fs *req, const char *path, const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_unlink(loop(), req->fs(), path, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_unlink(loop(), req->fs(), path, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_unlink(loop(), req->fs(), path, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsWrite(Fs *req, uv::File file, const uv::BufT bufs[], UnsignedInt nbufs,
               Long offset, const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r =
-        uv_fs_write(loop(), req->fs(), file, bufs, nbufs, offset, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_write(loop(), req->fs(), file, bufs, nbufs, offset, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_write(loop(), req->fs(), file, bufs, nbufs, offset,
+                      Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsMkdir(Fs *req, const char *path, int mode, const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_mkdir(loop(), req->fs(), path, mode, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_mkdir(loop(), req->fs(), path, mode, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_mkdir(loop(), req->fs(), path, mode, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsMkdtemp(Fs *req, const char *tpl, const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_mkdtemp(loop(), req->fs(), tpl, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_mkdtemp(loop(), req->fs(), tpl, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_mkdtemp(loop(), req->fs(), tpl, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsRmdir(Fs *req, const char *path, const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_rmdir(loop(), req->fs(), path, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_rmdir(loop(), req->fs(), path, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_rmdir(loop(), req->fs(), path, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsScandir(Fs *req, const char *path, int flags, const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_scandir(loop(), req->fs(), path, flags, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_scandir(loop(), req->fs(), path, flags, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      int r = uv_fs_scandir(loop(), req->fs(), path, flags, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsStat(Fs *req, const char *path, const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_stat(loop(), req->fs(), path, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_stat(loop(), req->fs(), path, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_stat(loop(), req->fs(), path, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsFstat(Fs *req, uv::File file, const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_fstat(loop(), req->fs(), file, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_fstat(loop(), req->fs(), file, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_fstat(loop(), req->fs(), file, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsLstat(Fs *req, const char *path, const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_lstat(loop(), req->fs(), path, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_lstat(loop(), req->fs(), path, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_lstat(loop(), req->fs(), path, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsRename(Fs *req, const char *path, const char *new_path,
                const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_rename(loop(), req->fs(), path, new_path, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_rename(loop(), req->fs(), path, new_path, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_rename(loop(), req->fs(), path, new_path, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsFsync(Fs *req, uv::File file, const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_fsync(loop(), req->fs(), file, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_fsync(loop(), req->fs(), file, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_fsync(loop(), req->fs(), file, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsFdatasync(Fs *req, uv::File file, const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_fdatasync(loop(), req->fs(), file, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_fdatasync(loop(), req->fs(), file, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_fdatasync(loop(), req->fs(), file, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsFtruncate(Fs *req, uv::File file, Long offset, const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_ftruncate(loop(), req->fs(), file, offset, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_ftruncate(loop(), req->fs(), file, offset, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_ftruncate(loop(), req->fs(), file, offset, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsCopyfile(Fs *req, const char *path, const char *new_path, int flags,
                  const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r =
-        uv_fs_copyfile(loop(), req->fs(), path, new_path, flags, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_copyfile(loop(), req->fs(), path, new_path, flags, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_copyfile(loop(), req->fs(), path, new_path, flags,
+                         Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsSendfile(Fs *req, uv::File out_fd, uv::File in_fd, Long in_offset,
                  size_t length, const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_sendfile(loop(), req->fs(), out_fd, in_fd, in_offset, length,
-                           Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_sendfile(loop(), req->fs(), out_fd, in_fd, in_offset, length,
+                         nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_sendfile(loop(), req->fs(), out_fd, in_fd, in_offset, length,
+                         Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsAccess(Fs *req, const char *path, int mode, const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_access(loop(), req->fs(), path, mode, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_access(loop(), req->fs(), path, mode, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_access(loop(), req->fs(), path, mode, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsChmod(Fs *req, const char *path, int mode, const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_chmod(loop(), req->fs(), path, mode, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_chmod(loop(), req->fs(), path, mode, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_chmod(loop(), req->fs(), path, mode, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsFchmod(Fs *req, uv::File file, int mode, const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_fchmod(loop(), req->fs(), file, mode, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_fchmod(loop(), req->fs(), file, mode, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_fchmod(loop(), req->fs(), file, mode, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsUtime(Fs *req, const char *path, double atime, double mtime,
               const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_utime(loop(), req->fs(), path, atime, mtime, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_utime(loop(), req->fs(), path, atime, mtime, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_utime(loop(), req->fs(), path, atime, mtime, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsFutime(Fs *req, uv::File file, double atime, double mtime,
                const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_futime(loop(), req->fs(), file, atime, mtime, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_futime(loop(), req->fs(), file, atime, mtime, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_futime(loop(), req->fs(), file, atime, mtime, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsLink(Fs *req, const char *path, const char *new_path,
              const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_link(loop(), req->fs(), path, new_path, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_link(loop(), req->fs(), path, new_path, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_link(loop(), req->fs(), path, new_path, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsSymlink(Fs *req, const char *path, const char *new_path, int flags,
                 const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r =
-        uv_fs_symlink(loop(), req->fs(), path, new_path, flags, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_symlink(loop(), req->fs(), path, new_path, flags, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_symlink(loop(), req->fs(), path, new_path, flags, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsReadlink(Fs *req, const char *path, const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_readlink(loop(), req->fs(), path, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_readlink(loop(), req->fs(), path, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_readlink(loop(), req->fs(), path, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsRealpath(Fs *req, const char *path, const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_realpath(loop(), req->fs(), path, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_realpath(loop(), req->fs(), path, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_realpath(loop(), req->fs(), path, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsChown(Fs *req, const char *path, uv::UidT uid, uv::GidT gid,
               const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_chown(loop(), req->fs(), path, uid, gid, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_chown(loop(), req->fs(), path, uid, gid, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_chown(loop(), req->fs(), path, uid, gid, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsFchown(Fs *req, uv::File file, uv::UidT uid, uv::GidT gid,
                const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_fchown(loop(), req->fs(), file, uid, gid, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_fchown(loop(), req->fs(), file, uid, gid, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_fchown(loop(), req->fs(), file, uid, gid, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }
 
   int fsLchown(Fs *req, const char *path, uv::UidT uid, uv::GidT gid,
                const Fs::Callback &cb) {
-    req->_impl._callback = cb;
-    int r = uv_fs_lchown(loop(), req->fs(), path, uid, gid, Fs::callback);
+    int r = 0;
+    if (!cb) {
+      r = uv_fs_lchown(loop(), req->fs(), path, uid, gid, nullptr);
+    } else {
+      req->_impl._callback = cb;
+      r = uv_fs_lchown(loop(), req->fs(), path, uid, gid, Fs::callback);
+    }
     LOG_IF_ERROR(r);
     return r;
   }

@@ -36,7 +36,7 @@ inline uv::BufT moveToBuf(char *p, size_t len) {
 }
 
 inline void freeBuf(uv::BufT buf) {
-  UVP_ASSERT(!buf.base);
+  UVP_ASSERT(buf.base);
   free(buf.base);
 }
 
@@ -86,4 +86,37 @@ inline std::string nameOfSock(int af, TcpI *tcp) {
 */
 // --
 
+inline int ip4Addr(const char *ip, int port, sockaddr_in *addr) {
+  int r = uv_ip4_addr(ip, port, addr);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+inline int ip6Addr(const char *ip, int port, sockaddr_in6 *addr) {
+  int r = uv_ip6_addr(ip, port, addr);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+inline int ip4Name(const struct sockaddr_in* src, char* dst, size_t size) {
+  int r = uv_ip4_name(src, dst, size);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+inline int ip6Name(const struct sockaddr_in6* src, char* dst, size_t size) {
+  int r= uv_ip6_name(src, dst, size);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+inline int interfaceAddresses(uv::InterfaceAddress **addresses, int *count) {
+  int r = uv_interface_addresses(addresses, count);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+inline void freeInterfaceAddress(uv::InterfaceAddress* addresses, int count) {
+  return uv_free_interface_addresses(addresses, count);
+}
 } // namespace uvp

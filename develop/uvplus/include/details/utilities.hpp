@@ -14,7 +14,7 @@
 
 #define LOG_IF_ERROR(e)                                                        \
   do {                                                                         \
-    if (e) {                                                                   \
+    if ((e) < 0) {                                                                   \
       LOG_UV_ERROR(e);                                                         \
     }                                                                          \
   } while (false)
