@@ -3,112 +3,67 @@
 
 #include <uvp.hpp>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <uv.h>
-
-uv_loop_t *loop;
-
-void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
-  buf->base = (char*)malloc(suggested_size);
-  buf->len = suggested_size;
-}
-
-void on_read(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {
-    if (nread < 0) {
-        if (nread != UV_EOF)
-            fprintf(stderr, "Read error %s\n", uv_err_name(nread));
-        uv_close((uv_handle_t*) client, NULL);
-        free(buf->base);
-        free(client);
-        return;
+void onRead(uvp::Stream *client, ssize_t nread, const uv_buf_t *buf) {
+  if (nread < 0) {
+    if (nread != UV_EOF) {
+      std::cerr << "read error: " << uvp::Error(nread).strerror() << std::endl;
     }
-
-    char *data = (char*) malloc(sizeof(char) * (nread+1));
-    data[nread] = '\0';
-    strncpy(data, buf->base, nread);
-
-    fprintf(stderr, "%s", data);
-    free(data);
-    free(buf->base);
+    client->close(nullptr);
+  } else if (nread > 0) {
+    std::string data(buf->base, nread);
+    std::cout << data;
+  }
 }
 
-void on_connect(uv_connect_t *req, int status) {
-    if (status < 0) {
-        fprintf(stderr, "connect failed error %s\n", uv_err_name(status));
-        free(req);
-        return;
-    }
+void onConnect(uvp::Stream *client, int status) {
+  if (status < 0) {
+    std::cout << "connect failed error: " << uvp::Error(status).strerror()
+              << std::endl;
+    return;
+  }
 
-    uv_read_start((uv_stream_t*) req->handle, alloc_buffer, on_read);
-    free(req);
+  client->readStart(nullptr, onRead);
 }
 
-void on_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res) {
-    if (status < 0) {
-        fprintf(stderr, "getaddrinfo callback error %s\n", uv_err_name(status));
-        return;
-    }
-
-    char addr[17] = {'\0'};
-    uv_ip4_name((struct sockaddr_in*) res->ai_addr, addr, 16);
-    fprintf(stderr, "%s\n", addr);
-
-    uv_connect_t *connect_req = (uv_connect_t*) malloc(sizeof(uv_connect_t));
-    uv_tcp_t *socket = (uv_tcp_t*) malloc(sizeof(uv_tcp_t));
-    uv_tcp_init(loop, socket);
-
-    uv_tcp_connect(connect_req, socket, (const struct sockaddr*) res->ai_addr, on_connect);
-
-    uv_freeaddrinfo(res);
-}
-
-int main() {
-    loop = uv_default_loop();
-
-    struct addrinfo hints;
-    hints.ai_family = PF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_protocol = IPPROTO_TCP;
-    hints.ai_flags = 0;
-
-    uv_getaddrinfo_t resolver;
-    fprintf(stderr, "irc.freenode.net is... ");
-    int r = uv_getaddrinfo(loop, &resolver, on_resolved, "irc.freenode.net", "6667", &hints);
-
-    if (r) {
-        fprintf(stderr, "getaddrinfo call error %s\n", uv_err_name(r));
-        return 1;
-    }
-    return uv_run(loop, UV_RUN_DEFAULT);
-}
-
-/*
 int main(int argc, char *argv[]) {
   uvp::initialize("./", "dns", 1, 3);
   auto l = std::make_unique<uvp::LoopObject>();
 
-  uvp::UdpObject sendSocket(l.get()), recvSocket(l.get());
-  sockaddr_in recvAddr = {0};
-  uvp::ip4Addr("0.0.0.0", 68, &recvAddr);
-  recvSocket.bind((const sockaddr *)&recvAddr, UV_UDP_REUSEADDR);
-  recvSocket.recvStart(nullptr, onRecv);
+  auto tcpSocket = std::make_unique<uvp::TcpObject>(l.get());
+  auto onResolver = [&tcpSocket](uvp::Getaddrinfo *req, int status,
+                                 addrinfo *res) {
+    if (status < 0) {
+      std::cerr << "getaddrinfo callback error: "
+                << uvp::Error(status).strerror() << std::endl;
+      return;
+    }
 
-  sockaddr_in broadcastAddr = {0};
-  uvp::ip4Addr("0.0.0.0", 0, &broadcastAddr);
-  sendSocket.bind((const sockaddr *)&broadcastAddr, 0);
-  sendSocket.setBroadcast(1);
+    char addr[17] = {0};
+    uvp::ip4Name((const sockaddr_in *)res->ai_addr, addr, sizeof(addr) - 1);
+    std::cout << addr << std::endl;
 
-  uvp::uv::BufT discoverMsg = makeDiscoverMsg();
-  sockaddr_in sendAddr = {0};
-  uvp::ip4Addr("255.255.255.255", 67, &sendAddr);
-  sendSocket.send(&discoverMsg, 1, (const sockaddr *)&sendAddr, onSend);
+    tcpSocket->connect((const sockaddr *)res->ai_addr, onConnect);
+  };
 
-  int r = l->run(UV_RUN_DEFAULT);
+  addrinfo hints = {0};
+  hints.ai_family = PF_INET;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_protocol = IPPROTO_TCP;
+  hints.ai_flags = 0;
+
+  uvp::GetaddrinfoReq resolver;
+  std::cout << "irc.freenode.net is... ";
+  int r =
+      l->getAddrInfo(&resolver, onResolver, "irc.freenode.net", "6667", &hints);
+
+  if (r) {
+    std::cerr << "getaddrinfo call error: " << uvp::Error(r).strerror()
+              << std::endl;
+  }
+
+  r = l->run(UV_RUN_DEFAULT);
   r = l->close();
 
   LOG_INFO << "quit with return code: " << r;
   return r;
 }
-*/

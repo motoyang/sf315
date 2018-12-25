@@ -98,6 +98,41 @@ public:
     return data;
   }
 
+  // Thread pool work scheduling
+  int queueWork(Work *req, const Work::WorkCallback &work_cb,
+                const Work::AfterWorkCallback &afterwork_cb) {
+    UVP_ASSERT(work_cb && afterwork_cb);
+    req->_impl._workCallback = work_cb;
+    req->_impl._afterWorkCallback = afterwork_cb;
+
+    int r = uv_queue_work(loop(), req->work(), Work::work_callback,
+                          Work::afterwork_callback);
+    LOG_IF_ERROR(r);
+    return r;
+  }
+
+  // dns functions
+  int getAddrInfo(Getaddrinfo *req, const Getaddrinfo::Callback &cb,
+                  const char *node, const char *service,
+                  const addrinfo *hints) {
+    UVP_ASSERT(cb);
+    req->_impl._callback = cb;
+
+    int r = uv_getaddrinfo(loop(), req->getaddrinfo(), Getaddrinfo::callback,
+                           node, service, hints);
+    LOG_IF_ERROR(r);
+    return r;
+  }
+
+  int getNameInfo(Getnameinfo* req, const Getnameinfo::Callback& cb, const struct sockaddr* addr, int flags) {
+    UVP_ASSERT(cb);
+    req->_impl._callback = cb;
+
+    int r = uv_getnameinfo(loop(), req->getnameinfo(), Getnameinfo::callback, addr, flags);
+    LOG_IF_ERROR(r);
+    return r;
+  }
+  
   // filesystem operations
   int fsClose(Fs *req, uv::File file, const Fs::Callback &cb) {
     int r = 0;

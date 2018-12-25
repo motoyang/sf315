@@ -9,6 +9,7 @@
 #include <details/misc.hpp>
 #include <details/eventloop.hpp>
 #include <details/handle.hpp>
+#include <details/thread.hpp>
 
 namespace uvp {
 

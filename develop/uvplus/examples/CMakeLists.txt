@@ -21,4 +21,5 @@ example_build(tcp-echo-client)
 example_build(interfaces)
 example_build(udp-dhcp)
 example_build(dns)
+example_build(thread-create)
 

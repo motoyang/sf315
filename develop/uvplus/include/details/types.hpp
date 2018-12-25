@@ -45,7 +45,6 @@ using StatT = uv_stat_t;
 
 using InterfaceAddress = uv_interface_address_t;
 
-
 using TtyMode = uv_tty_mode_t;
 
 using HandleType = uv_handle_type;
@@ -57,6 +56,8 @@ using Membership = uv_membership;
 using ReqT = uv_req_t;
 using WorkT = uv_work_t;
 using FsT = uv_fs_t;
+using GetaddrinfoT = uv_getaddrinfo_t;
+using GetnameinfoT = uv_getnameinfo_t;
 using ConnectT = uv_connect_t;
 using WriteT = uv_write_t;
 using ShutdownT = uv_shutdown_t;
@@ -75,6 +76,15 @@ using AsyncT = uv_async_t;
 using SignalT = uv_signal_t;
 using ProcessT = uv_process_t;
 using FsEventT = uv_fs_event_t;
+
+using ThreadT = uv_thread_t;
+using KeyT = uv_key_t;
+using OnceT = uv_once_t;
+using MutexT = uv_mutex_t;
+using Rwlock = uv_rwlock_t;
+using SemT = uv_sem_t;
+using CondT = uv_cond_t;
+using BarrierT = uv_barrier_t;
 }
 
 // --

@@ -44,8 +44,8 @@ private:
 // --
 
 struct Work : public Req {
-  using WorkCallback = std::function<void(Work*)>;
-  using AfterWorkCallback = std::function<void(Work*, int)>;
+  using WorkCallback = std::function<void(Work *)>;
+  using AfterWorkCallback = std::function<void(Work *, int)>;
 
   struct Impl {
     WorkCallback _workCallback;
@@ -85,7 +85,7 @@ struct WorkReq : public Work {
   virtual ~WorkReq() {}
 
 private:
-  mutable uv::WorkT _work;
+  mutable uv::WorkT _work = {0};
 };
 
 // --
@@ -139,7 +139,77 @@ struct FsReq : public Fs {
   virtual ~FsReq() { uv_fs_req_cleanup(&_fs); }
 
 private:
-  mutable uv::FsT _fs;
+  mutable uv::FsT _fs = {0};
+};
+
+// --
+
+struct Getaddrinfo : public Req {
+  using Callback = std::function<void(Getaddrinfo *, int, addrinfo *)>;
+
+  struct Impl {
+    Callback _callback;
+  };
+  Impl _impl;
+
+  static void callback(uv::GetaddrinfoT *req, int status, addrinfo *res) {
+    auto p = (Getaddrinfo *)uv_req_get_data((uv::ReqT *)req);
+    if (p->_impl._callback) {
+      p->_impl._callback(p, status, res);
+    } else {
+      UVP_ASSERT(false);
+    }
+    uv_freeaddrinfo(res);
+  }
+
+  virtual uv::GetaddrinfoT *getaddrinfo() const = 0;
+};
+
+struct GetaddrinfoReq : public Getaddrinfo {
+  GetaddrinfoReq() { uv_req_set_data(req(), this); }
+  virtual ~GetaddrinfoReq() {}
+
+  virtual uv::ReqT *req() const override { return (uv::ReqT *)&_addr; }
+
+  virtual uv::GetaddrinfoT *getaddrinfo() const override { return &_addr; }
+
+private:
+  mutable uv::GetaddrinfoT _addr = {0};
+};
+
+// --
+
+struct Getnameinfo : public Req {
+  using Callback =
+      std::function<void(Getnameinfo *, int, const char *, const char *)>;
+
+  struct Impl {
+    Callback _callback;
+  };
+  Impl _impl;
+
+  static void callback(uv::GetnameinfoT *req, int status, const char *hostname,
+                       const char *service) {
+    auto p = (Getnameinfo *)uv_req_get_data((uv::ReqT *)req);
+    if (p->_impl._callback) {
+      p->_impl._callback(p, status, hostname, service);
+    } else {
+      UVP_ASSERT(false);
+    }
+  }
+
+  virtual uv::GetnameinfoT *getnameinfo() const = 0;
+};
+
+struct GetnameinfoReq : public Getnameinfo {
+  virtual uv::ReqT *req() const override { return (uv::ReqT *)&_name; }
+  virtual uv::GetnameinfoT *getnameinfo() const override { return &_name; }
+
+  GetnameinfoReq() { uv_req_set_data(req(), this); }
+  virtual ~GetnameinfoReq() {}
+
+private:
+  mutable uv::GetnameinfoT _name;
 };
 
 } // namespace uvp
