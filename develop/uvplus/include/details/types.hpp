@@ -42,6 +42,12 @@ using DirentT = uv_dirent_t;
 using UidT = uv_uid_t;
 using GidT = uv_gid_t;
 using StatT = uv_stat_t;
+using PidT = uv_pid_t;
+using UidT = uv_uid_t;
+using GidT = uv_gid_t;
+using StdioContainerT = uv_stdio_container_t;
+using ProcessOptionsT = uv_process_options_t;
+
 
 using InterfaceAddress = uv_interface_address_t;
 

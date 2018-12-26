@@ -16,8 +16,12 @@ struct Req {
 
   static const char *name(ReqType type) { return uv_req_type_name(type); }
 
-  Req() {}
+  struct Impl {
+    void *_data;
+  };
+  Impl _impl;
 
+  Req() {}
   virtual ~Req() {}
 
   int cancel() {
@@ -27,8 +31,13 @@ struct Req {
   }
 
   ReqType type() const { return uv_req_get_type(req()); }
-  void *data(void *data);
-  void *data() const;
+
+  void *data(void *data) {
+    _impl._data = data;
+    return data;
+  }
+  
+  void *data() const { return _impl._data; }
 };
 /*
 struct ReqReq : public Req {

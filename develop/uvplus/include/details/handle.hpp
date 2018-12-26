@@ -1010,11 +1010,43 @@ public:
 
 class Process : public Handle {
 public:
-  using Options = uv_process_options_t;
-  using Pid = uv_pid_t;
+  using Pid = uv::PidT;
+  using Uid = uv::UidT;
+  using Gid = uv::GidT;
+  using StdioContainer = uv::StdioContainerT;
+
+  using Callback =
+      std::function<void(Process *, int64_t exit_status, int term_signal)>;
+
+  struct Options {
+    Callback exit_cb; /* Called after the process exits. */
+    const char *file; /* Path to program to execute. */
+    char **args;
+    char **env;
+    const char *cwd;
+    unsigned int flags;
+    int stdio_count;
+    StdioContainer* stdio;
+    Uid uid;
+    Gid gid;
+  };
 
 protected:
+  struct Impl {
+    Callback _callback;
+  };
+  Impl _impl;
+
   virtual uv_process_t *process() const = 0;
+
+  static void callback(uv::ProcessT* handle, int64_t exit_status, int term_signal) {
+    auto p = (Process*)uv_handle_get_data((uv::HandleT *)handle);
+    if (p->_impl._callback) {
+      p->_impl._callback(p, exit_status, term_signal);
+    } else {
+      UVP_ASSERT(false);
+    }
+  }
 
   static void disableStdioInheritance() { uv_disable_stdio_inheritance(); }
 
@@ -1026,7 +1058,21 @@ protected:
 
 public:
   int spawn(Loop *loop, const Options *options) {
-    int r = uv_spawn(loop->loop(), process(), options);
+    _impl._callback = options->exit_cb;
+
+    uv::ProcessOptionsT opt = {0};
+    opt.args = options->args;
+    opt.cwd = options->cwd;
+    opt.env = options->env;
+    opt.exit_cb = options->exit_cb? Process::callback: nullptr;
+    opt.file = options->file;
+    opt.flags = options->flags;
+    opt.gid = options->gid;
+    opt.stdio = options->stdio;
+    opt.stdio_count = options->stdio_count;
+    opt.uid = options->uid;
+
+    int r = uv_spawn(loop->loop(), process(), &opt);
     LOG_IF_ERROR(r);
     return r;
   }

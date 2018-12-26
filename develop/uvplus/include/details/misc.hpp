@@ -119,4 +119,15 @@ inline int interfaceAddresses(uv::InterfaceAddress **addresses, int *count) {
 inline void freeInterfaceAddress(uv::InterfaceAddress* addresses, int count) {
   return uv_free_interface_addresses(addresses, count);
 }
+
+inline uv::PidT getpid() {
+  return uv_os_getpid();
+}
+
+inline int exepath(char* buffer, size_t* size) {
+  int r = uv_exepath(buffer, size);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
 } // namespace uvp
