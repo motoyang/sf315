@@ -73,8 +73,6 @@ protected:
   };
   Impl _impl;
 
-  virtual uv::HandleT *handle() const = 0;
-
   static void alloc_callback(uv::HandleT *handle, size_t suggested_size,
                              uv::BufT *buf) {
     auto p = (Handle *)uv_handle_get_data(handle);
@@ -96,6 +94,8 @@ protected:
   }
 
 public:
+  virtual uv::HandleT *handle() const = 0;
+
   static size_t size(Type t) { return uv_handle_size(t); }
 
   static const char *typeName(Type t) { return uv_handle_type_name(t); }
@@ -186,9 +186,9 @@ protected:
     }
   }
 
+public:
   virtual uv::IdleT *idle() const = 0;
 
-public:
   Idle() {}
   virtual ~Idle() {}
 
@@ -210,12 +210,11 @@ public:
 class IdleObject : public Idle {
   mutable uv::IdleT _idle;
 
-protected:
+public:
   virtual uv::HandleT *handle() const override { return (uv::HandleT *)&_idle; }
 
   virtual uv::IdleT *idle() const override { return &_idle; }
 
-public:
   IdleObject(Loop *loop) {
     int r = uv_idle_init(loop->loop(), idle());
     LOG_IF_ERROR_EXIT(r);
@@ -245,9 +244,9 @@ protected:
     }
   }
 
+public:
   virtual uv_timer_t *timer() const = 0;
 
-public:
   Timer() {}
   virtual ~Timer() {}
 
@@ -280,13 +279,12 @@ public:
 class TimerObject : public Timer {
   mutable uv::TimerT _timer;
 
-protected:
+public:
   virtual uv::HandleT *handle() const override {
     return (uv::HandleT *)&_timer;
   }
   virtual uv::TimerT *timer() const override { return &_timer; }
 
-public:
   TimerObject(Loop *loop) {
     int r = uv_timer_init(loop->loop(), &_timer);
     LOG_IF_ERROR_EXIT(r);
@@ -378,9 +376,9 @@ protected:
     }
   }
 
+public:
   virtual uv_stream_t *stream() const = 0;
 
-public:
   Stream() {}
   virtual ~Stream() {}
 
@@ -483,14 +481,13 @@ class StreamObject : public Stream {
   friend class Stream;
   mutable uv::StreamT _stream;
 
-protected:
+public:
   virtual uv::HandleT *handle() const override {
     return (uv::HandleT *)&_stream;
   }
 
   virtual uv::StreamT *stream() const override { return &_stream; }
 
-public:
   StreamObject() { uv_handle_set_data((uv_handle_t *)&_stream, this); }
   virtual ~StreamObject() {}
 };
@@ -498,10 +495,9 @@ public:
 // --
 
 class Pipe : public Stream {
-protected:
+public:
   virtual uv::PipeT *pipe() const = 0;
 
-public:
   int open(uv::File file) {
     int r = uv_pipe_open(pipe(), file);
     LOG_IF_ERROR(r);
@@ -554,12 +550,11 @@ public:
 class PipeObject : public Pipe {
   mutable uv::PipeT _pipe;
 
-protected:
+public:
   virtual uv::HandleT *handle() const override { return (uv::HandleT *)&_pipe; }
   virtual uv::StreamT *stream() const override { return (uv::StreamT *)&_pipe; }
   virtual uv::PipeT *pipe() const override { return &_pipe; }
 
-public:
   PipeObject(Loop *loop, int ipc) {
     int r = uv_pipe_init(loop->loop(), &_pipe, ipc);
     LOG_IF_ERROR_EXIT(r);
@@ -572,10 +567,9 @@ public:
 // --
 
 class Tcp : public Stream {
-protected:
+public:
   virtual uv_tcp_t *tcp() const = 0;
 
-public:
   int open(uv::OsSockT sock) {
     int r = uv_tcp_open(tcp(), sock);
     LOG_IF_ERROR(r);
@@ -644,12 +638,11 @@ public:
 class TcpObject : public Tcp {
   mutable uv::TcpT _tcp;
 
-protected:
+public:
   virtual uv::HandleT *handle() const override { return (uv::HandleT *)&_tcp; }
   virtual uv::StreamT *stream() const override { return (uv::StreamT *)&_tcp; }
   virtual uv::TcpT *tcp() const override { return &_tcp; }
 
-public:
   TcpObject(Loop *loop) {
     int r = uv_tcp_init(loop->loop(), &_tcp);
     LOG_IF_ERROR_EXIT(r);
@@ -668,11 +661,10 @@ public:
 // --
 
 class Tty : public Stream {
-protected:
-  virtual uv::TtyT *tty() const = 0;
-
 public:
   using TtyMode = uv::TtyMode;
+
+  virtual uv::TtyT *tty() const = 0;
 
   static int resetMode() {
     int r = uv_tty_reset_mode();
@@ -696,12 +688,11 @@ public:
 class TtyObject : public Tty {
   mutable uv::TtyT _tty;
 
-protected:
+public:
   virtual uv::HandleT *handle() const override { return (uv::HandleT *)&_tty; }
   virtual uv::StreamT *stream() const override { return (uv::StreamT *)&_tty; }
   virtual uv::TtyT *tty() const override { return &_tty; }
 
-public:
   TtyObject(Loop *loop, uv::File fd, int unused) {
     int r = uv_tty_init(loop->loop(), &_tty, fd, unused);
     LOG_IF_ERROR_EXIT(r);
@@ -759,9 +750,9 @@ protected:
     */
   }
 
+public:
   virtual uv_udp_t *udp() const = 0;
 
-public:
   int open(uv::OsSockT sock) {
     int r = uv_udp_open(udp(), sock);
     LOG_IF_ERROR(r);
@@ -871,11 +862,10 @@ public:
 class UdpObject : public Udp {
   mutable uv::UdpT _udp;
 
-protected:
+public:
   virtual uv::HandleT *handle() const { return (uv::HandleT *)&_udp; }
   virtual uv::UdpT *udp() const { return &_udp; }
 
-public:
   UdpObject(Loop *loop) {
     int r = uv_udp_init(loop->loop(), &_udp);
     LOG_IF_ERROR_EXIT(r);
@@ -910,9 +900,9 @@ protected:
     }
   }
 
+public:
   virtual uv_async_t *async() const = 0;
 
-public:
   int send() {
     int r = uv_async_send(async());
     LOG_IF_ERROR(r);
@@ -923,11 +913,10 @@ public:
 class AsyncObject : public Async {
   mutable uv::AsyncT _async;
 
-protected:
+public:
   virtual uv::HandleT *handle() const { return (uv::HandleT *)&_async; }
   virtual uv::AsyncT *async() const { return &_async; }
 
-public:
   AsyncObject(Loop *loop, const Async::AsyncCallback &cb) {
     UVP_ASSERT(cb);
     Async::_impl._asyncCallback = cb;
@@ -959,9 +948,9 @@ protected:
     }
   }
 
+public:
   virtual uv_signal_t *signal() const = 0;
 
-public:
   int start(const SignalCallback &cb, int signum) {
     UVP_ASSERT(cb);
     _impl._signalCallback = cb;
@@ -990,13 +979,12 @@ public:
 class SignalObject : public Signal {
   mutable uv::SignalT _signal;
 
-protected:
+public:
   virtual uv::HandleT *handle() const override {
     return (uv::HandleT *)&_signal;
   }
   virtual uv::SignalT *signal() const override { return &_signal; }
 
-public:
   SignalObject(Loop *loop) {
     int r = uv_signal_init(loop->loop(), &_signal);
     LOG_IF_ERROR_EXIT(r);
@@ -1037,8 +1025,6 @@ protected:
   };
   Impl _impl;
 
-  virtual uv_process_t *process() const = 0;
-
   static void callback(uv::ProcessT* handle, int64_t exit_status, int term_signal) {
     auto p = (Process*)uv_handle_get_data((uv::HandleT *)handle);
     if (p->_impl._callback) {
@@ -1057,6 +1043,8 @@ protected:
   }
 
 public:
+  virtual uv_process_t *process() const = 0;
+
   int spawn(Loop *loop, const Options *options) {
     _impl._callback = options->exit_cb;
 
@@ -1089,13 +1077,12 @@ public:
 class ProcessObject : public Process {
   mutable uv::ProcessT _process;
 
-protected:
+public:
   virtual uv::HandleT *handle() const override {
     return (uv::HandleT *)&_process;
   }
   virtual uv::ProcessT *process() const override { return &_process; }
 
-public:
   ProcessObject() { uv_handle_set_data(handle(), this); }
   virtual ~ProcessObject(){};
 };
@@ -1120,9 +1107,9 @@ protected:
     }
   }
 
+public:
   virtual uv::FsEventT *fsEvent() const = 0;
 
-public:
   int start(const Callback &cb, const char *path, unsigned int flags) {
     UVP_ASSERT(cb);
     _impl._callback = cb;
@@ -1155,13 +1142,12 @@ public:
 class FsEventObject : public FsEvent {
   mutable uv::FsEventT _fsEvent;
 
-protected:
+public:
   virtual uv::HandleT *handle() const override {
     return (uv::HandleT *)&_fsEvent;
   }
   virtual uv::FsEventT *fsEvent() const override { return &_fsEvent; }
 
-public:
   FsEventObject(Loop *loop) {
     int r = uv_fs_event_init(loop->loop(), &_fsEvent);
     LOG_IF_ERROR_EXIT(r);

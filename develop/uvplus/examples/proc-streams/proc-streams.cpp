@@ -22,7 +22,7 @@ int main(int argc, char *ls[]) {
   args[0] = path;
   args[1] = NULL;
 
-  uvp::Process::Options options;
+  uvp::Process::Options options = {0};
   options.stdio_count = 3;
   uvp::Process::StdioContainer child_stdio[3];
   child_stdio[0].flags = UV_IGNORE;
@@ -43,8 +43,6 @@ int main(int argc, char *ls[]) {
   } else {
     std::cout << "launched proc-test with PID " << child.getPid() << std::endl;
   }
-  child.close(nullptr);
-  child.unref();
 
   l->run(UV_RUN_DEFAULT);
   l->close();
