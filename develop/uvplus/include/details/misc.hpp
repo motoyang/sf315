@@ -130,4 +130,14 @@ inline int exepath(char* buffer, size_t* size) {
   return r;
 }
 
+inline int cpuInfo(uvp::uv::CpuInfoT** cpu_infos, int *count) {
+  int r= uv_cpu_info(cpu_infos, count);
+  LOG_IF_ERROR(r);
+  return r;
+}
+
+inline void freeCpuInfo(uvp::uv::CpuInfoT* cpu_infos, int count) {
+  uv_free_cpu_info(cpu_infos, count);
+}
+
 } // namespace uvp

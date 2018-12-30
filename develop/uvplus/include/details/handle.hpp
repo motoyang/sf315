@@ -443,12 +443,13 @@ public:
 
   int write2(const uv::BufT bufs[], unsigned int nbufs, Stream *sendstream,
              const WriteCallback &cb) {
-    UVP_ASSERT(cb);
+    // UVP_ASSERT(cb);
     _impl._writeCallback = cb;
 
     auto req = allocAnyReq<uv::WriteT>(bufs, nbufs);
     int r = uv_write2((uv::WriteT *)req, stream(), bufs, nbufs,
-                      sendstream->stream(), write_callback);
+                      sendstream->stream(),
+                      _impl._writeCallback ? write_callback : nullptr);
     if (r) {
       freeAnyReq(req);
       LOG_IF_ERROR(r);
@@ -1014,7 +1015,7 @@ public:
     const char *cwd;
     unsigned int flags;
     int stdio_count;
-    StdioContainer* stdio;
+    StdioContainer *stdio;
     Uid uid;
     Gid gid;
   };
@@ -1025,8 +1026,9 @@ protected:
   };
   Impl _impl;
 
-  static void callback(uv::ProcessT* handle, int64_t exit_status, int term_signal) {
-    auto p = (Process*)uv_handle_get_data((uv::HandleT *)handle);
+  static void callback(uv::ProcessT *handle, int64_t exit_status,
+                       int term_signal) {
+    auto p = (Process *)uv_handle_get_data((uv::HandleT *)handle);
     if (p->_impl._callback) {
       p->_impl._callback(p, exit_status, term_signal);
     } else {
@@ -1052,7 +1054,7 @@ public:
     opt.args = options->args;
     opt.cwd = options->cwd;
     opt.env = options->env;
-    opt.exit_cb = options->exit_cb? Process::callback: nullptr;
+    opt.exit_cb = options->exit_cb ? Process::callback : nullptr;
     opt.file = options->file;
     opt.flags = options->flags;
     opt.gid = options->gid;

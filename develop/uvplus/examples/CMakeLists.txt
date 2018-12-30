@@ -33,3 +33,8 @@ example_build(proc-streams)
 add_executable(proc-test "proc-streams/test.c")
 example_build(cgi)
 add_executable(tick "cgi/tick.c")
+example_build(pipe-echo-server)
+example_build(pipe-echo-client)
+example_build(multi-echo-server)
+example_build(multi-echo-worker)
+

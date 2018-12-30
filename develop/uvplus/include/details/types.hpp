@@ -47,7 +47,7 @@ using UidT = uv_uid_t;
 using GidT = uv_gid_t;
 using StdioContainerT = uv_stdio_container_t;
 using ProcessOptionsT = uv_process_options_t;
-
+using CpuInfoT = uv_cpu_info_t;
 
 using InterfaceAddress = uv_interface_address_t;
 

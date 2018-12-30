@@ -3,17 +3,17 @@
 
 #include <uvp.hpp>
 
-void invokeCgiScript(uvp::Stream* server, uvp::Tcp *client, uvp::Process* child) {
+void invokeCgiScript(uvp::Stream *server, uvp::Tcp *client,
+                     uvp::Process *child) {
   size_t size = 500;
   char path[size];
   uvp::exepath(path, &size);
   strcpy(path + (strlen(path) - strlen("cgi")), "tick");
 
-  auto cleanupHandles = [server, client](uvp::Process *process, int64_t exit_status,
-                                  int term_signal) {
+  auto cleanupHandles = [server, client](uvp::Process *process,
+                                         int64_t exit_status, int term_signal) {
     std::cerr << "Process exited with status " << exit_status << ", signal "
               << term_signal << std::endl;
-    // auto client = (uvp::Tcp*)process->data();
     process->close(nullptr);
     client->close(nullptr);
     server->close(nullptr);
@@ -36,7 +36,6 @@ void invokeCgiScript(uvp::Stream* server, uvp::Tcp *client, uvp::Process* child)
   options.file = args[0];
   options.args = args;
 
-  child->data(client);
   uvp::Loop *l = client->loop();
   int r = child->spawn(l, &options);
   if (r) {
