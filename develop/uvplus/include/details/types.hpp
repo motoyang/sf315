@@ -59,6 +59,8 @@ using FsType = uv_fs_type;
 
 using Membership = uv_membership;
 
+using LibT = uv_lib_t;
+
 using ReqT = uv_req_t;
 using WorkT = uv_work_t;
 using FsT = uv_fs_t;
@@ -71,6 +73,8 @@ using UdpSendT = uv_udp_send_t;
 
 using LoopT = uv_loop_t;
 using HandleT = uv_handle_t;
+using PrepareT = uv_prepare_t;
+using CheckT = uv_check_t;
 using IdleT = uv_idle_t;
 using TimerT = uv_timer_t;
 using StreamT = uv_stream_t;

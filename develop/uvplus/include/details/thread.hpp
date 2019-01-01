@@ -36,19 +36,19 @@ public:
     _impl.arg = arg;
 
     int r = uv_thread_create(&_thread, Thread::callback, this);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int join() {
     int r = uv_thread_join(&_thread);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int equal(const Thread *t2) const {
     int r = uv_thread_equal(&_thread, &t2->_thread);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 };
@@ -60,7 +60,7 @@ class Key {
 public:
   Key() {
     int r = uv_key_create(&_key);
-    LOG_IF_ERROR_EXIT(r);
+    UVP_LOG_ERROR_EXIT(r);
   }
   virtual ~Key() { uv_key_delete(&_key); }
 
@@ -83,7 +83,7 @@ public:
     } else {
       uv_mutex_init(&_mutex);
     }
-    LOG_IF_ERROR_EXIT(r);
+    UVP_LOG_ERROR_EXIT(r);
   }
   virtual ~Mutex() { uv_mutex_destroy(&_mutex); }
 
@@ -91,7 +91,7 @@ public:
 
   int tryLock() {
     int r = uv_mutex_trylock(&_mutex);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -104,7 +104,7 @@ class Rwlock {
 public:
   Rwlock() {
     int r = uv_rwlock_init(&_rwlock);
-    LOG_IF_ERROR_EXIT(r);
+    UVP_LOG_ERROR_EXIT(r);
   }
   virtual ~Rwlock() { uv_rwlock_destroy(&_rwlock); }
 
@@ -112,7 +112,7 @@ public:
 
   int tryRdlock() {
     int r = uv_rwlock_tryrdlock(&_rwlock);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -122,7 +122,7 @@ public:
 
   int tryWrlock() {
     int r = uv_rwlock_trywrlock(&_rwlock);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -137,7 +137,7 @@ class Sem {
 public:
   Sem(unsigned int value) {
     int r = uv_sem_init(&_sem, value);
-    LOG_IF_ERROR_EXIT(r);
+    UVP_LOG_ERROR_EXIT(r);
   }
   virtual ~Sem() { uv_sem_destroy(&_sem); }
 
@@ -145,7 +145,7 @@ public:
   void wait() { return uv_sem_wait(&_sem); }
   int tryWait() {
     int r = uv_sem_trywait(&_sem);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 };
@@ -158,7 +158,7 @@ class Cond {
 public:
   Cond() {
     int r = uv_cond_init(&_cond);
-    LOG_IF_ERROR_EXIT(r);
+    UVP_LOG_ERROR_EXIT(r);
   }
   virtual ~Cond() { uv_cond_destroy(&_cond); }
 
@@ -170,7 +170,7 @@ public:
 
   int timedWait(Mutex *mutex, uint64_t timeout) {
     int r = uv_cond_timedwait(&_cond, &mutex->_mutex, timeout);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 };

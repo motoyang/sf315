@@ -37,7 +37,7 @@ include_directories(
 link_directories(${PROJECT_SOURCE_DIR}/libs)
 
 # 设置生成的库文件目录
-set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/libs)
+set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 # 设置可执行文件目录
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 

@@ -26,7 +26,7 @@ struct Req {
 
   int cancel() {
     int r = uv_cancel(req());
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -39,17 +39,7 @@ struct Req {
   
   void *data() const { return _impl._data; }
 };
-/*
-struct ReqReq : public Req {
-  virtual uv::ReqT *req() const { return &_req; }
 
-  ReqReq() {}
-  virtual ~ReqReq() {}
-
-private:
-  mutable uv::ReqT _req;
-};
-*/
 // --
 
 struct Work : public Req {
@@ -125,7 +115,7 @@ struct Fs : public Req {
 
   int fsScandirNext(uv::DirentT *ent) {
     int r = uv_fs_scandir_next(fs(), ent);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 

@@ -49,20 +49,20 @@ public:
     int r = 0;
     for (auto ptr = options.begin(); ptr != options.end(); ptr++) {
       r = uv_loop_configure(loop(), *ptr);
-      LOG_IF_ERROR_RETURN(r);
+      UVP_LOG_ERROR_RETURN(r);
     }
     return r;
   }
 
   int close() {
     int r = uv_loop_close(loop());
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int run(RunMode mode) {
     int r = uv_run(loop(), mode);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -87,7 +87,7 @@ public:
 
   int fork() {
     int r = uv_loop_fork(loop());
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -96,6 +96,15 @@ public:
   void *data(void *data) {
     _impl._data = data;
     return data;
+  }
+
+  // print handles
+  void printAllHandles(FILE* file) {
+    uv_print_all_handles(loop(), file);
+  }
+
+  void printActiveHandles(FILE* file) {
+    uv_print_active_handles(loop(), file);
   }
 
   // Thread pool work scheduling
@@ -107,7 +116,7 @@ public:
 
     int r = uv_queue_work(loop(), req->work(), Work::work_callback,
                           Work::afterwork_callback);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -120,7 +129,7 @@ public:
 
     int r = uv_getaddrinfo(loop(), req->getaddrinfo(), Getaddrinfo::callback,
                            node, service, hints);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -129,7 +138,7 @@ public:
     req->_impl._callback = cb;
 
     int r = uv_getnameinfo(loop(), req->getnameinfo(), Getnameinfo::callback, addr, flags);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
   
@@ -142,7 +151,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_close(loop(), req->fs(), file, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -155,7 +164,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_open(loop(), req->fs(), path, flags, mode, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -169,7 +178,7 @@ public:
       r = uv_fs_read(loop(), req->fs(), file, bufs, nbufs, offset,
                      Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -181,7 +190,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_unlink(loop(), req->fs(), path, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -195,7 +204,7 @@ public:
       r = uv_fs_write(loop(), req->fs(), file, bufs, nbufs, offset,
                       Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -207,7 +216,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_mkdir(loop(), req->fs(), path, mode, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -219,7 +228,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_mkdtemp(loop(), req->fs(), tpl, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -231,7 +240,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_rmdir(loop(), req->fs(), path, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -243,7 +252,7 @@ public:
       req->_impl._callback = cb;
       int r = uv_fs_scandir(loop(), req->fs(), path, flags, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -255,7 +264,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_stat(loop(), req->fs(), path, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -267,7 +276,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_fstat(loop(), req->fs(), file, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -279,7 +288,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_lstat(loop(), req->fs(), path, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -292,7 +301,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_rename(loop(), req->fs(), path, new_path, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -304,7 +313,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_fsync(loop(), req->fs(), file, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -316,7 +325,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_fdatasync(loop(), req->fs(), file, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -328,7 +337,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_ftruncate(loop(), req->fs(), file, offset, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -342,7 +351,7 @@ public:
       r = uv_fs_copyfile(loop(), req->fs(), path, new_path, flags,
                          Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -357,7 +366,7 @@ public:
       r = uv_fs_sendfile(loop(), req->fs(), out_fd, in_fd, in_offset, length,
                          Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -369,7 +378,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_access(loop(), req->fs(), path, mode, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -381,7 +390,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_chmod(loop(), req->fs(), path, mode, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -393,7 +402,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_fchmod(loop(), req->fs(), file, mode, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -406,7 +415,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_utime(loop(), req->fs(), path, atime, mtime, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -419,7 +428,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_futime(loop(), req->fs(), file, atime, mtime, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -432,7 +441,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_link(loop(), req->fs(), path, new_path, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -445,7 +454,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_symlink(loop(), req->fs(), path, new_path, flags, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -457,7 +466,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_readlink(loop(), req->fs(), path, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -469,7 +478,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_realpath(loop(), req->fs(), path, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -482,7 +491,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_chown(loop(), req->fs(), path, uid, gid, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -495,7 +504,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_fchown(loop(), req->fs(), file, uid, gid, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -508,7 +517,7 @@ public:
       req->_impl._callback = cb;
       r = uv_fs_lchown(loop(), req->fs(), path, uid, gid, Fs::callback);
     }
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 };
@@ -519,7 +528,7 @@ class LoopObject : public Loop {
 public:
   LoopObject() {
     int r = uv_loop_init(&_loop);
-    LOG_IF_ERROR_EXIT(r);
+    UVP_LOG_ERROR_EXIT(r);
     uv_loop_set_data(loop(), this);
   }
   virtual ~LoopObject() {}

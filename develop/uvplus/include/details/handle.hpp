@@ -19,14 +19,14 @@ template <typename T>
 AnyReq<T> *allocAnyReq(const uv::BufT bufs[], size_t nbufs) {
   auto req = (AnyReq<T> *)malloc(sizeof(AnyReq<T>));
   if (!req) {
-    LOG_IF_ERROR_EXIT(UV_ENOMEM);
+    UVP_LOG_ERROR_EXIT(UV_ENOMEM);
   }
 
   size_t len = sizeof(uv::BufT) * nbufs;
   if (len) {
     req->buf.base = (char *)malloc(len);
     if (!req->buf.base) {
-      LOG_IF_ERROR_EXIT(UV_ENOMEM);
+      UVP_LOG_ERROR_EXIT(UV_ENOMEM);
     }
 
     // 注意：这个BufT的len与base的长度不同！
@@ -153,18 +153,121 @@ public:
 
   Type type() const { return uv_handle_get_type(handle()); }
 };
-/*
-class HandleObject : public Handle {
-  mutable uv::HandleT _handle;
+
+// --
+
+class Prepare : public Handle {
+public:
+  using Callback = std::function<void(Prepare *handle)>;
 
 protected:
-  virtual uv::HandleT *handle() const override { return &_handle; }
+  struct Impl {
+    Callback _callback;
+  };
+  Impl _impl;
+
+  static void callback(uvp::uv::PrepareT *handle) {
+    auto p = (Prepare *)uv_handle_get_data((uv::HandleT *)handle);
+    if (p->_impl._callback) {
+      p->_impl._callback(p);
+    } else {
+      UVP_ASSERT(false);
+    }
+  }
 
 public:
-  HandleObject() { uv_handle_set_data(handle(), this); }
-  virtual ~HandleObject() {}
+  virtual uvp::uv::PrepareT *prepare() const = 0;
+
+  int start(const Callback &cb) {
+    assert(cb);
+    _impl._callback = cb;
+    int r = uv_prepare_start(prepare(), Prepare::callback);
+    UVP_LOG_ERROR(r);
+    return r;
+  }
+
+  int stop() {
+    int r = uv_prepare_stop(prepare());
+    UVP_LOG_ERROR(r);
+    return r;
+  }
 };
-*/
+
+class PrepareObject : public Prepare {
+  mutable uvp::uv::PrepareT _prepare;
+
+public:
+  virtual uvp::uv::HandleT *handle() const override {
+    return (uvp::uv::HandleT *)&_prepare;
+  }
+
+  virtual uvp::uv::PrepareT *prepare() const override { return &_prepare; }
+
+  PrepareObject(uvp::Loop *loop) {
+    int r = uv_prepare_init(loop->loop(), prepare());
+    UVP_LOG_ERROR_EXIT(r);
+    uv_handle_set_data(handle(), this);
+  }
+  virtual ~PrepareObject() {}
+};
+
+// --
+
+class Check : public Handle {
+public:
+  using Callback = std::function<void(Check *)>;
+
+protected:
+  struct Impl {
+    Callback _callback;
+  };
+  Impl _impl;
+
+  static void callback(uvp::uv::CheckT *handle) {
+    auto p = (Check *)uv_handle_get_data((uv::HandleT *)handle);
+    if (p->_impl._callback) {
+      p->_impl._callback(p);
+    } else {
+      UVP_ASSERT(false);
+    }
+  }
+
+public:
+  virtual uvp::uv::CheckT *check() const = 0;
+
+  int start(const Callback &cb) {
+    assert(cb);
+    _impl._callback = cb;
+    int r = uv_check_start(check(), Check::callback);
+    UVP_LOG_ERROR(r);
+    return r;
+  }
+
+  int stop() {
+    int r = uv_check_stop(check());
+    UVP_LOG_ERROR(r);
+    return r;
+  }
+};
+
+class CheckObject : public Check {
+  mutable uvp::uv::CheckT _check;
+
+public:
+  virtual uvp::uv::HandleT *handle() const override {
+    return (uvp::uv::HandleT *)&_check;
+  }
+
+  virtual uvp::uv::CheckT *check() const override { return &_check; }
+
+  CheckObject(uvp::Loop *loop) {
+    int r = uv_check_init(loop->loop(), check());
+    UVP_LOG_ERROR_EXIT(r);
+    uv_handle_set_data(handle(), this);
+  }
+  virtual ~CheckObject() {}
+};
+
 // --
 
 class Idle : public Handle {
@@ -196,13 +299,13 @@ public:
     UVP_ASSERT(cb);
     _impl._idleCallback = cb;
     int r = uv_idle_start(idle(), idle_callback);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int stop() {
     int r = uv_idle_stop(idle());
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 };
@@ -217,7 +320,7 @@ public:
 
   IdleObject(Loop *loop) {
     int r = uv_idle_init(loop->loop(), idle());
-    LOG_IF_ERROR_EXIT(r);
+    UVP_LOG_ERROR_EXIT(r);
     uv_handle_set_data(handle(), this);
   }
   virtual ~IdleObject() {}
@@ -255,19 +358,19 @@ public:
     UVP_ASSERT(cb);
     _impl._timerCallback = cb;
     int r = uv_timer_start(timer(), timer_callback, timeout, repeat);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int stop() {
     int r = uv_timer_stop(timer());
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int again() {
     int r = uv_timer_again(timer());
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -287,7 +390,7 @@ public:
 
   TimerObject(Loop *loop) {
     int r = uv_timer_init(loop->loop(), &_timer);
-    LOG_IF_ERROR_EXIT(r);
+    UVP_LOG_ERROR_EXIT(r);
 
     uv_handle_set_data(handle(), this);
   }
@@ -332,14 +435,6 @@ protected:
     if (p->_impl._readCallback) {
       p->_impl._readCallback(p, nread, buf);
     }
-    /*
-        //
-       释放在read时分配的memory，这个memory是通过Handle的allocCallback分配的。
-        if (p->Handle::_impl._freeCallback) {
-          UVP_ASSERT(p->Handle::_impl._allocCallback);
-          p->Handle::_impl._freeCallback(*buf);
-        }
-    */
   }
 
   static void write_callback(uv::WriteT *req, int status) {
@@ -383,14 +478,12 @@ public:
   virtual ~Stream() {}
 
   int shutdown(const ShutdownCallback &cb) {
-    UVP_ASSERT(cb);
-    _impl._shutdownCallback = cb;
-
     auto req = allocAnyReq<uv_shutdown_t>(nullptr, 0);
-    int r = uv_shutdown(&req->req, stream(), shutdown_callback);
+    int r = uv_shutdown(&req->req, stream(), cb ? _impl._shutdownCallback = cb,
+                        shutdown_callback : nullptr);
     if (r) {
       freeAnyReq(req);
-      LOG_IF_ERROR(r);
+      UVP_LOG_ERROR(r);
     }
     return r;
   }
@@ -400,13 +493,13 @@ public:
     _impl._connectionCallback = cb;
 
     int r = uv_listen(stream(), backlog, connection_callback);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int accept(Stream *client) {
     int r = uv_accept(stream(), client->stream());
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -417,49 +510,44 @@ public:
     Handle::_impl._allocCallback = alloc_cb;
 
     int r = uv_read_start(stream(), Handle::alloc_callback, read_callback);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int readStop() {
     int r = uv_read_stop(stream());
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int write(const uv::BufT bufs[], unsigned int nbufs,
             const WriteCallback &cb) {
-    UVP_ASSERT(cb);
-    _impl._writeCallback = cb;
-
     auto req = allocAnyReq<uv::WriteT>(bufs, nbufs);
-    int r = uv_write((uv::WriteT *)req, stream(), bufs, nbufs, write_callback);
+    int r = uv_write((uv::WriteT *)req, stream(), bufs, nbufs,
+                     cb ? _impl._writeCallback = cb, write_callback : nullptr);
     if (r) {
       freeAnyReq(req);
-      LOG_IF_ERROR(r);
+      UVP_LOG_ERROR(r);
     }
     return r;
   }
 
   int write2(const uv::BufT bufs[], unsigned int nbufs, Stream *sendstream,
              const WriteCallback &cb) {
-    // UVP_ASSERT(cb);
-    _impl._writeCallback = cb;
-
     auto req = allocAnyReq<uv::WriteT>(bufs, nbufs);
     int r = uv_write2((uv::WriteT *)req, stream(), bufs, nbufs,
-                      sendstream->stream(),
-                      _impl._writeCallback ? write_callback : nullptr);
+                      sendstream->stream(), cb ? _impl._writeCallback = cb,
+                      write_callback : nullptr);
     if (r) {
       freeAnyReq(req);
-      LOG_IF_ERROR(r);
+      UVP_LOG_ERROR(r);
     }
     return r;
   }
 
   int tryWrite(uv::BufT bufs[], unsigned int nbufs) {
     int r = uv_try_write(stream(), bufs, nbufs);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -469,7 +557,7 @@ public:
 
   int setBlocking(int blocking) {
     int r = uv_stream_set_blocking(stream(), blocking);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -501,13 +589,13 @@ public:
 
   int open(uv::File file) {
     int r = uv_pipe_open(pipe(), file);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int bind(const char *name) {
     int r = uv_pipe_bind(pipe(), name);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -521,13 +609,13 @@ public:
 
   int getSockname(char *buffer, size_t *size) const {
     int r = uv_pipe_getsockname(pipe(), buffer, size);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int getPeername(char *buffer, size_t *size) const {
     int r = uv_pipe_getpeername(pipe(), buffer, size);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -535,7 +623,7 @@ public:
 
   int pendingCount() {
     int r = uv_pipe_pending_count(pipe());
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -543,7 +631,7 @@ public:
 
   int chmod(int flags) {
     int r = uv_pipe_chmod(pipe(), flags);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 };
@@ -558,7 +646,7 @@ public:
 
   PipeObject(Loop *loop, int ipc) {
     int r = uv_pipe_init(loop->loop(), &_pipe, ipc);
-    LOG_IF_ERROR_EXIT(r);
+    UVP_LOG_ERROR_EXIT(r);
 
     uv_handle_set_data(handle(), this);
   }
@@ -573,43 +661,43 @@ public:
 
   int open(uv::OsSockT sock) {
     int r = uv_tcp_open(tcp(), sock);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int nodelay(int enable) {
     int r = uv_tcp_nodelay(tcp(), enable);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int keepalive(int enable, unsigned int delay) {
     int r = uv_tcp_keepalive(tcp(), enable, delay);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int simultaneousAcepts(int enable) {
     int r = uv_tcp_simultaneous_accepts(tcp(), enable);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int bind(const struct sockaddr *addr, unsigned int flags) {
     int r = uv_tcp_bind(tcp(), addr, flags);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int getsockname(struct sockaddr *name, int *namelen) {
     int r = uv_tcp_getsockname(tcp(), name, namelen);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int getpeername(struct sockaddr *name, int *namelen) {
     int r = uv_tcp_getpeername(tcp(), name, namelen);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -622,7 +710,7 @@ public:
     if (r) {
       // 如果失败，释放申请的req。如果成功，在connect_cb中释放req。
       freeAnyReq(req);
-      LOG_IF_ERROR(r);
+      UVP_LOG_ERROR(r);
     }
     return r;
   }
@@ -630,7 +718,7 @@ public:
   // extend functions
   int reinit() {
     int r = uv_tcp_init(loop()->loop(), tcp());
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     uv_handle_set_data(handle(), this);
     return r;
   }
@@ -646,13 +734,13 @@ public:
 
   TcpObject(Loop *loop) {
     int r = uv_tcp_init(loop->loop(), &_tcp);
-    LOG_IF_ERROR_EXIT(r);
+    UVP_LOG_ERROR_EXIT(r);
 
     uv_handle_set_data(handle(), this);
   }
   TcpObject(Loop *loop, unsigned int flags) {
     int r = uv_tcp_init_ex(loop->loop(), &_tcp, flags);
-    LOG_IF_ERROR_EXIT(r);
+    UVP_LOG_ERROR_EXIT(r);
 
     uv_handle_set_data(handle(), this);
   }
@@ -669,19 +757,19 @@ public:
 
   static int resetMode() {
     int r = uv_tty_reset_mode();
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int setMode(TtyMode mode) {
     int r = uv_tty_set_mode(tty(), mode);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int getWinsize(int *width, int *height) {
     int r = uv_tty_get_winsize(tty(), width, height);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 };
@@ -696,7 +784,7 @@ public:
 
   TtyObject(Loop *loop, uv::File fd, int unused) {
     int r = uv_tty_init(loop->loop(), &_tty, fd, unused);
-    LOG_IF_ERROR_EXIT(r);
+    UVP_LOG_ERROR_EXIT(r);
 
     uv_handle_set_data(handle(), this);
   }
@@ -741,14 +829,6 @@ protected:
     if (p->_impl._recvCallback) {
       p->_impl._recvCallback(p, nread, buf, addr, flags);
     }
-    /*
-        //
-       释放在recv时分配的memory，这个memory是通过Handle的allocCallback分配的。
-        if (p->Handle::_impl._freeCallback) {
-          UVP_ASSERT(p->Handle::_impl._allocCallback);
-          p->Handle::_impl._freeCallback(*buf);
-        }
-    */
   }
 
 public:
@@ -756,19 +836,19 @@ public:
 
   int open(uv::OsSockT sock) {
     int r = uv_udp_open(udp(), sock);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int bind(const struct sockaddr *addr, unsigned int flags) {
     int r = uv_udp_bind(udp(), addr, flags);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int getsockname(struct sockaddr *name, int *namelen) const {
     int r = uv_udp_getsockname(udp(), name, namelen);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -776,36 +856,36 @@ public:
                     MemberShip membership) {
     int r = uv_udp_set_membership(udp(), multicast_addr, interface_addr,
                                   membership);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int setMulticastLoop(int on) {
     int r = uv_udp_set_multicast_loop(udp(), on);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
   int setMulticastTtl(int ttl) {
     int r = uv_udp_set_multicast_ttl(udp(), ttl);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int setMulticastInterface(const char *interface_addr) {
     int r = uv_udp_set_multicast_interface(udp(), interface_addr);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int setBroadcast(int on) {
     int r = uv_udp_set_broadcast(udp(), on);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int setTtl(int ttl) {
     int r = uv_udp_set_ttl(udp(), ttl);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -819,7 +899,7 @@ public:
                         send_callback);
     if (r) {
       freeAnyReq(req);
-      LOG_IF_ERROR(r);
+      UVP_LOG_ERROR(r);
     }
     return r;
   }
@@ -827,7 +907,7 @@ public:
   int trySend(const uv::BufT bufs[], unsigned int nbufs,
               const struct sockaddr *addr) {
     int r = uv_udp_try_send(udp(), bufs, nbufs, addr);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -837,25 +917,25 @@ public:
     Handle::_impl._allocCallback = alloc_cb;
 
     int r = uv_udp_recv_start(udp(), Handle::alloc_callback, recv_callback);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int recvStop() {
     int r = uv_udp_recv_stop(udp());
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int getSendQueueSize() const {
     int r = uv_udp_get_send_queue_size(udp());
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int getSendQueueCount() const {
     int r = uv_udp_get_send_queue_count(udp());
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 };
@@ -869,13 +949,13 @@ public:
 
   UdpObject(Loop *loop) {
     int r = uv_udp_init(loop->loop(), &_udp);
-    LOG_IF_ERROR_EXIT(r);
+    UVP_LOG_ERROR_EXIT(r);
 
     uv_handle_set_data(handle(), this);
   }
   UdpObject(Loop *loop, unsigned int flags) {
     int r = uv_udp_init_ex(loop->loop(), &_udp, flags);
-    LOG_IF_ERROR_EXIT(r);
+    UVP_LOG_ERROR_EXIT(r);
 
     uv_handle_set_data(handle(), this);
   }
@@ -906,7 +986,7 @@ public:
 
   int send() {
     int r = uv_async_send(async());
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 };
@@ -923,7 +1003,7 @@ public:
     Async::_impl._asyncCallback = cb;
 
     int r = uv_async_init(loop->loop(), &_async, async_callback);
-    LOG_IF_ERROR_EXIT(r);
+    UVP_LOG_ERROR_EXIT(r);
 
     uv_handle_set_data(handle(), this);
   }
@@ -957,7 +1037,7 @@ public:
     _impl._signalCallback = cb;
 
     int r = uv_signal_start(signal(), signal_callback, signum);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -966,13 +1046,13 @@ public:
     _impl._signalCallback = cb;
 
     int r = uv_signal_start_oneshot(signal(), signal_callback, signum);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int stop() {
     int r = uv_signal_stop(signal());
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 };
@@ -988,7 +1068,7 @@ public:
 
   SignalObject(Loop *loop) {
     int r = uv_signal_init(loop->loop(), &_signal);
-    LOG_IF_ERROR_EXIT(r);
+    UVP_LOG_ERROR_EXIT(r);
 
     uv_handle_set_data(handle(), this);
   }
@@ -1008,8 +1088,8 @@ public:
       std::function<void(Process *, int64_t exit_status, int term_signal)>;
 
   struct Options {
-    Callback exit_cb; /* Called after the process exits. */
-    const char *file; /* Path to program to execute. */
+    Callback exit_cb;
+    const char *file;
     char **args;
     char **env;
     const char *cwd;
@@ -1040,7 +1120,7 @@ protected:
 
   static int kill(int pid, int signum) {
     int r = uv_kill(pid, signum);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -1063,13 +1143,13 @@ public:
     opt.uid = options->uid;
 
     int r = uv_spawn(loop->loop(), process(), &opt);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int kill(int signum) {
     int r = uv_process_kill(process(), signum);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -1117,13 +1197,13 @@ public:
     _impl._callback = cb;
 
     int r = uv_fs_event_start(fsEvent(), callback, path, flags);
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
   int stop() {
     int r = uv_fs_event_stop(fsEvent());
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 
@@ -1136,7 +1216,7 @@ public:
       r = uv_fs_event_getpath(fsEvent(), path.data(), &len);
     }
     path.at(len) = 0;
-    LOG_IF_ERROR(r);
+    UVP_LOG_ERROR(r);
     return r;
   }
 };
@@ -1152,7 +1232,7 @@ public:
 
   FsEventObject(Loop *loop) {
     int r = uv_fs_event_init(loop->loop(), &_fsEvent);
-    LOG_IF_ERROR_EXIT(r);
+    UVP_LOG_ERROR_EXIT(r);
 
     uv_handle_set_data(handle(), this);
   }
