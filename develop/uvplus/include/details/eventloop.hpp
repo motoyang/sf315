@@ -1,10 +1,10 @@
 #pragma once
 
-#include <details/types.hpp>
-#include <details/utilities.hpp>
-#include <details/req.hpp>
-
 #include <functional>
+
+#include "types.hpp"
+#include "utilities.hpp"
+#include "req.hpp"
 
 // --
 

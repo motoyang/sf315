@@ -1,9 +1,9 @@
 #pragma once
 
-#include <details/types.hpp>
-#include <details/utilities.hpp>
-
 #include <string>
+
+#include "types.hpp"
+#include "utilities.hpp"
 
 // --
 

@@ -2,9 +2,9 @@
 
 #include <functional>
 
-#include <details/types.hpp>
-#include <details/misc.hpp>
-#include <details/eventloop.hpp>
+#include "types.hpp"
+#include "misc.hpp"
+#include "eventloop.hpp"
 
 // --
 
@@ -93,28 +93,24 @@ protected:
     }
   }
 
+  Handle() {}
+
 public:
+  virtual ~Handle() {}
+  
   virtual uv::HandleT *handle() const = 0;
 
   static size_t size(Type t) { return uv_handle_size(t); }
 
   static const char *typeName(Type t) { return uv_handle_type_name(t); }
 
-  Handle() {}
-
-  virtual ~Handle() {}
-
   bool isActive() const { return uv_is_active(handle()); }
 
   bool isClosing() const { return uv_is_closing(handle()); }
 
   void close(const CloseCallback &cb) {
-    if (!cb) {
-      uv_close(handle(), nullptr);
-    } else {
-      _impl._closeCallback = cb;
-      uv_close(handle(), close_callback);
-    }
+    _impl._closeCallback = cb;
+    uv_close(handle(), _impl._closeCallback ? close_callback : nullptr);
   }
 
   void ref() { uv_ref(handle()); }
@@ -140,7 +136,7 @@ public:
   int fileno(uv::OsFdT *fd) { return uv_fileno(handle(), fd); }
 
   Loop *loop() const {
-    uv_loop_t *loop = uv_handle_get_loop(handle());
+    uv::LoopT *loop = uv_handle_get_loop(handle());
     return (Loop *)uv_loop_get_data(loop);
   }
 
@@ -152,36 +148,49 @@ public:
   }
 
   Type type() const { return uv_handle_get_type(handle()); }
+
+  // extend functions
+  void allocCallback(const AllocCallback &cb) { _impl._allocCallback = cb; }
+  AllocCallback allocCallback() const { return _impl._allocCallback; }
+  void closeCallback(const CloseCallback &cb) { _impl._closeCallback = cb; }
+  CloseCallback closeCallback() const { return _impl._closeCallback; }
+  void close() {
+    uv_close(handle(), _impl._closeCallback ? close_callback : nullptr);
+  }
 };
 
 // --
 
 class Prepare : public Handle {
 public:
-  using Callback = std::function<void(Prepare *handle)>;
+  using PrepareCallback = std::function<void(Prepare *handle)>;
 
 protected:
   struct Impl {
-    Callback _callback;
+    PrepareCallback _prepareCallback;
   };
   Impl _impl;
 
-  static void callback(uvp::uv::PrepareT *handle) {
+  static void prepare_callback(uv::PrepareT *handle) {
     auto p = (Prepare *)uv_handle_get_data((uv::HandleT *)handle);
-    if (p->_impl._callback) {
-      p->_impl._callback(p);
+    if (p->_impl._prepareCallback) {
+      p->_impl._prepareCallback(p);
     } else {
       UVP_ASSERT(false);
     }
   }
 
-public:
-  virtual uvp::uv::PrepareT *prepare() const = 0;
+  Prepare() {}
 
-  int start(const Callback &cb) {
-    assert(cb);
-    _impl._callback = cb;
-    int r = uv_prepare_start(prepare(), Prepare::callback);
+public:
+  virtual ~Prepare() {}
+
+  virtual uv::PrepareT *prepare() const = 0;
+
+  int start(const PrepareCallback &cb) {
+    UVP_ASSERT(cb);
+    _impl._prepareCallback = cb;
+    int r = uv_prepare_start(prepare(), Prepare::prepare_callback);
     UVP_LOG_ERROR(r);
     return r;
   }
@@ -191,19 +200,31 @@ public:
     UVP_LOG_ERROR(r);
     return r;
   }
+
+  // extend functions
+  PrepareCallback startCallback() const { return _impl._prepareCallback; }
+  void startCallback(const PrepareCallback &cb) {
+    UVP_ASSERT(cb);
+    _impl._prepareCallback = cb;
+  }
+  int start() {
+    int r = uv_prepare_start(prepare(), Prepare::prepare_callback);
+    UVP_LOG_ERROR(r);
+    return r;
+  }
 };
 
 class PrepareObject : public Prepare {
-  mutable uvp::uv::PrepareT _prepare;
+  mutable uv::PrepareT _prepare;
 
 public:
-  virtual uvp::uv::HandleT *handle() const override {
-    return (uvp::uv::HandleT *)&_prepare;
+  virtual uv::HandleT *handle() const override {
+    return (uv::HandleT *)&_prepare;
   }
 
-  virtual uvp::uv::PrepareT *prepare() const override { return &_prepare; }
+  virtual uv::PrepareT *prepare() const override { return &_prepare; }
 
-  PrepareObject(uvp::Loop *loop) {
+  PrepareObject(Loop *loop) {
     int r = uv_prepare_init(loop->loop(), prepare());
     UVP_LOG_ERROR_EXIT(r);
     uv_handle_set_data(handle(), this);
@@ -215,30 +236,34 @@ public:
 
 class Check : public Handle {
 public:
-  using Callback = std::function<void(Check *)>;
+  using CheckCallback = std::function<void(Check *)>;
 
 protected:
   struct Impl {
-    Callback _callback;
+    CheckCallback _checkCallback;
   };
   Impl _impl;
 
-  static void callback(uvp::uv::CheckT *handle) {
+  static void check_callback(uv::CheckT *handle) {
     auto p = (Check *)uv_handle_get_data((uv::HandleT *)handle);
-    if (p->_impl._callback) {
-      p->_impl._callback(p);
+    if (p->_impl._checkCallback) {
+      p->_impl._checkCallback(p);
     } else {
       UVP_ASSERT(false);
     }
   }
 
-public:
-  virtual uvp::uv::CheckT *check() const = 0;
+  Check() {}
 
-  int start(const Callback &cb) {
-    assert(cb);
-    _impl._callback = cb;
-    int r = uv_check_start(check(), Check::callback);
+public:
+  virtual ~Check() {}
+
+  virtual uv::CheckT *check() const = 0;
+
+  int start(const CheckCallback &cb) {
+    UVP_ASSERT(cb);
+    _impl._checkCallback = cb;
+    int r = uv_check_start(check(), Check::check_callback);
     UVP_LOG_ERROR(r);
     return r;
   }
@@ -248,19 +273,31 @@ public:
     UVP_LOG_ERROR(r);
     return r;
   }
+
+  // extend functions
+  CheckCallback startCallback() const { return _impl._checkCallback; }
+  void startCallback(const CheckCallback &cb) {
+    UVP_ASSERT(cb);
+    _impl._checkCallback = cb;
+  }
+  int start() {
+    int r = uv_check_start(check(), Check::check_callback);
+    UVP_LOG_ERROR(r);
+    return r;
+  }
 };
 
 class CheckObject : public Check {
-  mutable uvp::uv::CheckT _check;
+  mutable uv::CheckT _check;
 
 public:
-  virtual uvp::uv::HandleT *handle() const override {
-    return (uvp::uv::HandleT *)&_check;
+  virtual uv::HandleT *handle() const override {
+    return (uv::HandleT *)&_check;
   }
 
-  virtual uvp::uv::CheckT *check() const override { return &_check; }
+  virtual uv::CheckT *check() const override { return &_check; }
 
-  CheckObject(uvp::Loop *loop) {
+  CheckObject(Loop *loop) {
     int r = uv_check_init(loop->loop(), check());
     UVP_LOG_ERROR_EXIT(r);
     uv_handle_set_data(handle(), this);
@@ -289,11 +326,12 @@ protected:
     }
   }
 
-public:
-  virtual uv::IdleT *idle() const = 0;
-
   Idle() {}
+
+public:
   virtual ~Idle() {}
+
+  virtual uv::IdleT *idle() const = 0;
 
   int start(const IdleCallback &cb) {
     UVP_ASSERT(cb);
@@ -305,6 +343,18 @@ public:
 
   int stop() {
     int r = uv_idle_stop(idle());
+    UVP_LOG_ERROR(r);
+    return r;
+  }
+
+  // extend functions
+  IdleCallback startCallback() const { return _impl._idleCallback; }
+  void startCallback(const IdleCallback &cb) {
+    UVP_ASSERT(cb);
+    _impl._idleCallback = cb;
+  }
+  int start() {
+    int r = uv_idle_start(idle(), idle_callback);
     UVP_LOG_ERROR(r);
     return r;
   }
@@ -347,11 +397,12 @@ protected:
     }
   }
 
-public:
-  virtual uv_timer_t *timer() const = 0;
-
   Timer() {}
+
+public:
   virtual ~Timer() {}
+
+  virtual uv::TimerT *timer() const = 0;
 
   int start(const TimerCallback &cb, UnsignedLong timeout,
             UnsignedLong repeat) {
@@ -377,6 +428,18 @@ public:
   void repeat(uint64_t repeat) { uv_timer_set_repeat(timer(), repeat); }
 
   UnsignedLong repeat() const { return uv_timer_get_repeat(timer()); }
+
+  // extend functions
+  TimerCallback startCallback() const { return _impl._timerCallback; }
+  void startCallback(const TimerCallback &cb) {
+    UVP_ASSERT(cb);
+    _impl._timerCallback = cb;
+  }
+  int start(UnsignedLong timeout, UnsignedLong repeat) {
+    int r = uv_timer_start(timer(), timer_callback, timeout, repeat);
+    UVP_LOG_ERROR(r);
+    return r;
+  }
 };
 
 class TimerObject : public Timer {
@@ -471,11 +534,12 @@ protected:
     }
   }
 
-public:
-  virtual uv_stream_t *stream() const = 0;
-
   Stream() {}
+
+public:
   virtual ~Stream() {}
+
+  virtual uv::StreamT *stream() const = 0;
 
   int shutdown(const ShutdownCallback &cb) {
     auto req = allocAnyReq<uv_shutdown_t>(nullptr, 0);
@@ -564,6 +628,81 @@ public:
   int getWriteQueueSize() const {
     return uv_stream_get_write_queue_size(stream());
   }
+
+  // extend functions
+  void shutdownCallback(const ShutdownCallback &cb) {
+    _impl._shutdownCallback = cb;
+  }
+
+  ShutdownCallback shutdownCallback() const { return _impl._shutdownCallback; }
+
+  void connectionCallback(const ConnectionCallback &cb) {
+    UVP_ASSERT(cb);
+    _impl._connectionCallback = cb;
+  }
+
+  ConnectionCallback connectionCallback() const {
+    return _impl._connectionCallback;
+  }
+
+  void readCallback(const ReadCallback &cb) {
+    UVP_ASSERT(cb);
+    _impl._readCallback = cb;
+  }
+
+  ReadCallback readCallback() const { return _impl._readCallback; }
+
+  void writeCallback(const WriteCallback &cb) { _impl._writeCallback = cb; }
+
+  WriteCallback writeCallback() const { return _impl._writeCallback; }
+
+  int shutdown() {
+    auto req = allocAnyReq<uv_shutdown_t>(nullptr, 0);
+    int r = uv_shutdown(&req->req, stream(),
+                        _impl._shutdownCallback ? shutdown_callback : nullptr);
+    if (r) {
+      freeAnyReq(req);
+      UVP_LOG_ERROR(r);
+    }
+    return r;
+  }
+
+  int listen(int backlog) {
+    UVP_ASSERT(_impl._connectionCallback);
+    int r = uv_listen(stream(), backlog, connection_callback);
+    UVP_LOG_ERROR(r);
+    return r;
+  }
+
+  int readStart() {
+    UVP_ASSERT(_impl._readCallback);
+    int r = uv_read_start(stream(), Handle::alloc_callback, read_callback);
+    UVP_LOG_ERROR(r);
+    return r;
+  }
+
+  int write(const uv::BufT bufs[], unsigned int nbufs) {
+    auto req = allocAnyReq<uv::WriteT>(bufs, nbufs);
+    int r = uv_write((uv::WriteT *)req, stream(), bufs, nbufs,
+                     _impl._writeCallback ? write_callback : nullptr);
+    if (r) {
+      freeAnyReq(req);
+      UVP_LOG_ERROR(r);
+    }
+    return r;
+  }
+
+  int write2(const uv::BufT bufs[], unsigned int nbufs, Stream *sendstream) {
+    auto req = allocAnyReq<uv::WriteT>(bufs, nbufs);
+    int r = uv_write2((uv::WriteT *)req, stream(), bufs, nbufs,
+                      sendstream->stream(),
+                      _impl._writeCallback ? write_callback : nullptr);
+    if (r) {
+      freeAnyReq(req);
+      UVP_LOG_ERROR(r);
+    }
+    return r;
+  }
 };
 
 class StreamObject : public Stream {
@@ -577,14 +716,19 @@ public:
 
   virtual uv::StreamT *stream() const override { return &_stream; }
 
-  StreamObject() { uv_handle_set_data((uv_handle_t *)&_stream, this); }
+  StreamObject() { uv_handle_set_data((uv::HandleT *)&_stream, this); }
   virtual ~StreamObject() {}
 };
 
 // --
 
 class Pipe : public Stream {
+protected:
+  Pipe() {}
+
 public:
+  virtual ~Pipe() {}
+
   virtual uv::PipeT *pipe() const = 0;
 
   int open(uv::File file) {
@@ -634,6 +778,22 @@ public:
     UVP_LOG_ERROR(r);
     return r;
   }
+
+  // extend functions
+  void connectCallback(const ConnectCallback &cb) {
+    UVP_ASSERT(cb);
+    Stream::_impl._connectCallback = cb;
+  }
+
+  ConnectCallback connectCallback() const {
+    return Stream::_impl._connectCallback;
+  }
+  
+  void connect(const char *name) {
+    UVP_ASSERT(Stream::_impl._connectCallback);
+    auto req = allocAnyReq<uv::ConnectT>(nullptr, 0);
+    uv_pipe_connect(&req->req, pipe(), name, Stream::connect_callback);
+  }
 };
 
 class PipeObject : public Pipe {
@@ -656,8 +816,13 @@ public:
 // --
 
 class Tcp : public Stream {
+protected:
+  Tcp() {}
+
 public:
-  virtual uv_tcp_t *tcp() const = 0;
+  virtual ~Tcp() {}
+
+  virtual uv::TcpT *tcp() const = 0;
 
   int open(uv::OsSockT sock) {
     int r = uv_tcp_open(tcp(), sock);
@@ -689,13 +854,13 @@ public:
     return r;
   }
 
-  int getsockname(struct sockaddr *name, int *namelen) {
+  int getsockname(struct sockaddr *name, int *namelen) const {
     int r = uv_tcp_getsockname(tcp(), name, namelen);
     UVP_LOG_ERROR(r);
     return r;
   }
 
-  int getpeername(struct sockaddr *name, int *namelen) {
+  int getpeername(struct sockaddr *name, int *namelen) const {
     int r = uv_tcp_getpeername(tcp(), name, namelen);
     UVP_LOG_ERROR(r);
     return r;
@@ -716,11 +881,70 @@ public:
   }
 
   // extend functions
+  void connectCallback(const ConnectCallback &cb) {
+    UVP_ASSERT(cb);
+    Stream::_impl._connectCallback = cb;
+  }
+
+  ConnectCallback connectCallback() const {
+    return Stream::_impl._connectCallback;
+  }
+
+  int connect(const struct sockaddr *addr) {
+    UVP_ASSERT(Stream::_impl._connectCallback);
+    auto req = allocAnyReq<uv::ConnectT>(nullptr, 0);
+    int r = uv_tcp_connect(&req->req, tcp(), addr, Stream::connect_callback);
+    if (r) {
+      // 如果失败，释放申请的req。如果成功，在connect_cb中释放req。
+      freeAnyReq(req);
+      UVP_LOG_ERROR(r);
+    }
+    return r;
+  }
+
   int reinit() {
     int r = uv_tcp_init(loop()->loop(), tcp());
     UVP_LOG_ERROR(r);
     uv_handle_set_data(handle(), this);
     return r;
+  }
+
+  std::string peer() const {
+    sockaddr addr = {0};
+    sockaddr_in *paddr_in = (sockaddr_in *)&addr;
+
+    int len = sizeof(addr);
+    int r = getpeername(&addr, &len);
+    UVP_LOG_ERROR(r);
+
+    char name[INET6_ADDRSTRLEN] = {0};
+    r = inetNtop(paddr_in->sin_family, (const void *)&paddr_in->sin_addr, name,
+                 sizeof(name));
+    UVP_LOG_ERROR(r);
+    int port = ntohs(paddr_in->sin_port);
+
+    std::stringstream ss;
+    ss << name << ":" << port;
+    return ss.str();
+  }
+
+  std::string name() const {
+    sockaddr addr = {0};
+    sockaddr_in *paddr_in = (sockaddr_in *)&addr;
+
+    int len = sizeof(addr);
+    int r = getsockname(&addr, &len);
+    UVP_LOG_ERROR(r);
+
+    char name[INET6_ADDRSTRLEN] = {0};
+    r = inetNtop(paddr_in->sin_family, (const void *)&paddr_in->sin_addr, name,
+                 sizeof(name));
+    UVP_LOG_ERROR(r);
+    int port = ntohs(paddr_in->sin_port);
+
+    std::stringstream ss;
+    ss << name << ":" << port;
+    return ss.str();
   }
 };
 
@@ -750,7 +974,12 @@ public:
 // --
 
 class Tty : public Stream {
+protected:
+  Tty() {}
+
 public:
+  virtual ~Tty() {}
+
   using TtyMode = uv::TtyMode;
 
   virtual uv::TtyT *tty() const = 0;
@@ -808,7 +1037,7 @@ protected:
   };
   Impl _impl;
 
-  static void send_callback(uv_udp_send_t *req, int status) {
+  static void send_callback(uv::UdpSendT *req, int status) {
     uv::UdpT *h = req->handle;
     auto p = (Udp *)uv_handle_get_data((uv::HandleT *)h);
     auto anyReq = (AnyReq<uv::UdpSendT> *)req;
@@ -831,8 +1060,12 @@ protected:
     }
   }
 
+  Udp() {}
+
 public:
-  virtual uv_udp_t *udp() const = 0;
+  virtual ~Udp() {}
+
+  virtual uv::UdpT *udp() const = 0;
 
   int open(uv::OsSockT sock) {
     int r = uv_udp_open(udp(), sock);
@@ -938,6 +1171,41 @@ public:
     UVP_LOG_ERROR(r);
     return r;
   }
+
+  // extend functions
+  void sendCallback(const SendCallback &cb) {
+    UVP_ASSERT(cb);
+    _impl._sendCallback = cb;
+  }
+
+  SendCallback sendCallback() const { return _impl._sendCallback; }
+
+  void recvCallback(const RecvCallback &cb) {
+    UVP_ASSERT(cb);
+    _impl._recvCallback = cb;
+  }
+
+  RecvCallback recvCallback() const { return _impl._recvCallback; }
+
+  int recvStart() {
+    UVP_ASSERT(_impl._recvCallback);
+    int r = uv_udp_recv_start(udp(), Handle::alloc_callback, recv_callback);
+    UVP_LOG_ERROR(r);
+    return r;
+  }
+
+  int send(const uv::BufT bufs[], unsigned int nbufs,
+           const struct sockaddr *addr) {
+    UVP_ASSERT(_impl._sendCallback);
+    auto req = allocAnyReq<uv::UdpSendT>(bufs, nbufs);
+    int r = uv_udp_send((uv::UdpSendT *)req, udp(), bufs, nbufs, addr,
+                        send_callback);
+    if (r) {
+      freeAnyReq(req);
+      UVP_LOG_ERROR(r);
+    }
+    return r;
+  }
 };
 
 class UdpObject : public Udp {
@@ -981,8 +1249,12 @@ protected:
     }
   }
 
+  Async() {}
+
 public:
-  virtual uv_async_t *async() const = 0;
+  virtual ~Async() {}
+
+  virtual uv::AsyncT *async() const = 0;
 
   int send() {
     int r = uv_async_send(async());
@@ -1029,8 +1301,12 @@ protected:
     }
   }
 
+  Signal() {}
+
 public:
-  virtual uv_signal_t *signal() const = 0;
+  virtual ~Signal() {}
+
+  virtual uv::SignalT *signal() const = 0;
 
   int start(const SignalCallback &cb, int signum) {
     UVP_ASSERT(cb);
@@ -1052,6 +1328,28 @@ public:
 
   int stop() {
     int r = uv_signal_stop(signal());
+    UVP_LOG_ERROR(r);
+    return r;
+  }
+
+  // extend functions
+  void startCallback(const SignalCallback &cb) {
+    UVP_ASSERT(cb);
+    _impl._signalCallback = cb;
+  }
+
+  SignalCallback startCallback() const { return _impl._signalCallback; }
+
+  int start(int signum) {
+    UVP_ASSERT(_impl._signalCallback);
+    int r = uv_signal_start(signal(), signal_callback, signum);
+    UVP_LOG_ERROR(r);
+    return r;
+  }
+
+  int startOneshort(int signum) {
+    UVP_ASSERT(_impl._signalCallback);
+    int r = uv_signal_start_oneshot(signal(), signal_callback, signum);
     UVP_LOG_ERROR(r);
     return r;
   }
@@ -1124,8 +1422,12 @@ protected:
     return r;
   }
 
+  Process() {}
+
 public:
-  virtual uv_process_t *process() const = 0;
+  virtual ~Process() {}
+
+  virtual uv::ProcessT *process() const = 0;
 
   int spawn(Loop *loop, const Options *options) {
     _impl._callback = options->exit_cb;
@@ -1173,30 +1475,34 @@ public:
 
 class FsEvent : public Handle {
 public:
-  using Callback = std::function<void(FsEvent *, const char *, int, int)>;
+  using StartCallback = std::function<void(FsEvent *, const char *, int, int)>;
 
 protected:
   struct Impl {
-    Callback _callback;
+    StartCallback _startCallback;
   };
   Impl _impl;
 
-  static void callback(uv::FsEventT *handle, const char *filename, int events,
-                       int status) {
+  static void start_callback(uv::FsEventT *handle, const char *filename,
+                             int events, int status) {
     auto p = (FsEvent *)uv_handle_get_data((uv::HandleT *)handle);
-    if (p->_impl._callback) {
-      p->_impl._callback(p, filename, events, status);
+    if (p->_impl._startCallback) {
+      p->_impl._startCallback(p, filename, events, status);
     }
   }
 
+  FsEvent() {}
+
 public:
+  virtual ~FsEvent() {}
+  
   virtual uv::FsEventT *fsEvent() const = 0;
 
-  int start(const Callback &cb, const char *path, unsigned int flags) {
+  int start(const StartCallback &cb, const char *path, unsigned int flags) {
     UVP_ASSERT(cb);
-    _impl._callback = cb;
+    _impl._startCallback = cb;
 
-    int r = uv_fs_event_start(fsEvent(), callback, path, flags);
+    int r = uv_fs_event_start(fsEvent(), FsEvent::start_callback, path, flags);
     UVP_LOG_ERROR(r);
     return r;
   }
@@ -1216,6 +1522,21 @@ public:
       r = uv_fs_event_getpath(fsEvent(), path.data(), &len);
     }
     path.at(len) = 0;
+    UVP_LOG_ERROR(r);
+    return r;
+  }
+
+  // extend functions
+  void startCallback(const StartCallback &cb) {
+    UVP_ASSERT(cb);
+    _impl._startCallback = cb;
+  }
+
+  StartCallback startCallback() const { return _impl._startCallback; }
+  
+  int start(const char *path, unsigned int flags) {
+    UVP_ASSERT(_impl._startCallback);
+    int r = uv_fs_event_start(fsEvent(), FsEvent::start_callback, path, flags);
     UVP_LOG_ERROR(r);
     return r;
   }

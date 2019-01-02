@@ -4,13 +4,15 @@
 
 #pragma once
 
-#include <details/version.hpp>
-#include <details/utilities.hpp>
-#include <details/misc.hpp>
-#include <details/eventloop.hpp>
-#include <details/handle.hpp>
-#include <details/thread.hpp>
-#include <details/plugin.hpp>
+#include <iostream>
+
+#include "details/version.hpp"
+#include "details/utilities.hpp"
+#include "details/misc.hpp"
+#include "details/eventloop.hpp"
+#include "details/handle.hpp"
+#include "details/thread.hpp"
+#include "details/plugin.hpp"
 
 namespace uvp {
 

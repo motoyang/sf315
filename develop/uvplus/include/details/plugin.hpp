@@ -2,8 +2,8 @@
 
 #include <functional>
 
-#include <details/types.hpp>
-#include <details/misc.hpp>
+#include "types.hpp"
+#include "misc.hpp"
 
 namespace uvp {
 

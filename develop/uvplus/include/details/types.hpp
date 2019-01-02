@@ -25,12 +25,6 @@ typedef std::uintptr_t UnsignedPointer;
 
 // --
 
-using FunType = std::string (*)(Pointer, const char *, std::size_t, std::size_t,
-                                std::size_t);
-using ValueType = std::pair<FunType, Pointer>;
-
-// --
-
 namespace uv {
 
 using File = uv_file;

@@ -15,7 +15,7 @@ configure_file (
   "${PROJECT_SOURCE_DIR}/ver.h.in"
   "${PROJECT_BINARY_DIR}/ver.h"
   )
-# include_directories ("${PROJECT_BINARY_DIR}")
+include_directories ("${PROJECT_BINARY_DIR}")
  
 # ON is the default
 option(USE_CLANG "build application with clang" ON)
@@ -31,20 +31,17 @@ endif()
 
 include_directories(
   ${PROJECT_SOURCE_DIR}/uv
+  ${PROJECT_SOURCE_DIR}/msgpack-c
   ${PROJECT_SOURCE_DIR}/include
   )
 
 link_directories(${PROJECT_SOURCE_DIR}/libs)
 
-# 设置生成的库文件目录
-set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
-# 设置可执行文件目录
-set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
-
 set(CMAKE_CXX_STANDARD 17)
 
 # 添加子目录（每个子目录下都必须有自已的CMakeLists.txt文件
-add_subdirectory(examples)
+add_subdirectory(uvbook-examples)
+add_subdirectory(uvplus-examples)
 
 set (VER_TARGET "_Version")
 add_custom_target(${VER_TARGET} ALL)

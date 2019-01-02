@@ -3,14 +3,15 @@
 #include <cassert>
 #include <cxxabi.h>
 
-#include <details/error.hpp>
 #include <nanolog.hpp>
+
+#include "error.hpp"
 
 // --
 
 #define UVP_ASSERT(f) assert(f)
 
-#define INNER_LOG_ERROR(e) log_error(e, __FILE__, __func__, __LINE__)
+#define INNER_LOG_ERROR(e) uvp::log_error(e, __FILE__, __func__, __LINE__)
 
 #define UVP_LOG_ERROR(e)                                                       \
   do {                                                                         \
