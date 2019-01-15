@@ -19,10 +19,25 @@ namespace uvp {
 inline void initialize(const char *path, const char *name,
                        UnsignedInt log_file_roll_size_mb,
                        UnsignedInt log_file_count = UINT32_MAX) {
-  nanolog::initialize(nanolog::GuaranteedLogger(), path, name,
+  nlog::initialize(nlog::GuaranteedLogger(), path, name,
                       log_file_roll_size_mb, log_file_count);
   LOG_INFO << "libuv version: " << Version().str();
   std::cout << "libuv version: " << Version().str() << std::endl;
 }
+/*
+class GuaranteedLogger {
+  GuaranteedLogger(const char *path, const char *name,
+         UnsignedInt log_file_roll_size_mb = 1,
+         UnsignedInt log_file_count = 5) {
+    nlog::initialize(nlog::GuaranteedLogger(), path, name,
+                     log_file_roll_size_mb, log_file_count);
+    LOG_INFO << "Guaranteed Logger starts. libuv version: " << Version().str();
+  }
+  ~GuaranteedLogger() {
+    LOG_INFO << "Guaranteed Logger ends.";
+  }
+};
+*/
+
 
 } // namespace uvp

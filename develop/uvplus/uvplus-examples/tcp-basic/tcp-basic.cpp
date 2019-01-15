@@ -45,8 +45,21 @@ int main(int argc, char *argv[]) {
     return 0;
   }
 
-  // 根据参数，做不同的事情
   unsigned int log_file_count = 5;
+  std::string name_of_logger;
+  if (opt.is_true('d')) {
+    name_of_logger = "tcp-basic-d";
+  } else if (opt.is_true('s')) {
+    name_of_logger = "tcp-basic-s";
+  } else if (opt.is_true('c')) {
+    name_of_logger = "tcp-basic-c";
+  } else {
+    name_of_logger = "tcp-basic";
+  }
+  nlog::Logger logger(nlog::NonGuaranteedLogger(1), "/tmp/",
+                      name_of_logger.c_str(), 1, log_file_count);
+
+  // 根据参数，做不同的事情
   int r = 0;
   if (opt.is_true('k')) {
     if (opt.is_true('d') || opt.is_true('s') || opt.is_true('c')) {
@@ -65,16 +78,12 @@ int main(int argc, char *argv[]) {
   }
 
   if (opt.is_true('d')) {
-    nanolog::initialize(nanolog::GuaranteedLogger(), "/tmp/", "uvpd", 1,
-                        log_file_count);
     LOG_INFO << "libuv version: " << uvp::Version().str();
     std::cout << "libuv version: " << uvp::Version().str() << std::endl;
 
     // r = startDaemon(opt);
   }
   if (opt.is_true('s')) {
-    nanolog::initialize(nanolog::GuaranteedLogger(), "/tmp/", "uvps", 1,
-                        log_file_count);
     LOG_INFO << "pid = " << getpid();
     LOG_INFO << "libuv version: " << uvp::Version().str();
     std::cout << "libuv version: " << uvp::Version().str() << std::endl;
@@ -85,14 +94,11 @@ int main(int argc, char *argv[]) {
     tcp_server();
   }
   if (opt.is_true('c')) {
-    nanolog::initialize(nanolog::GuaranteedLogger(), "/tmp/", "uvpc", 1,
-                        log_file_count);
     LOG_INFO << "libuv version: " << uvp::Version().str();
     std::cout << "libuv version: " << uvp::Version().str() << std::endl;
 
     tcp_client();
   }
-  LOG_INFO << "uvp quit with return code: " << 0;
 
   return 0;
 }

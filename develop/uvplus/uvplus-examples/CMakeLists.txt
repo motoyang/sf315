@@ -15,3 +15,4 @@ macro (example_build arg1)
 endmacro (example_build)
 
 example_build(tcp-basic)
+example_build(nlog)

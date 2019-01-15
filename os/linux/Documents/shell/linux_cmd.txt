@@ -1,3 +1,435 @@
+# --------------------------------------------
+# 使用openssl加密和解密，如果不输入密码，就在回车后输入
+openssl enc -aes-256-cbc -e -in backup20180115.tar.gz -out vps_config.tar.gz.aes
+openssl enc -aes-256-cbc -d -in vps_config.tar.gz.aes -out vps_config.tar.gz
+openssl enc -des3 -d -k 密码 -in AppleKey.tar.bz2.des3 -out AppleKey.tar.bz2
+
+openssl enc -des3 -d -in AppleKey.tar.bz2.des3 -out AppleKey.tar.bz2
+
+# 把tar、bzip2、openssl结合在一起，对文件进行压缩加密。如果没有-k参数，就在回车后输入密码
+tar -cjf - Apple_ID.png | openssl enc -des3 -e -k 密码 -out AppleKey.tar.bz2.des3
+openssl enc -des3 -d -k 密码 -in AppleKey.tar.bz2.des3 | tar -xjf -
+
+# 把tar、bzip2、openssl结合在一起，使用aes-256-cbc算法对文件进行压缩加密。如果不输入密码，就在回车后输入
+tar -cjf - Apple_ID.png | openssl enc -aes-256-cbc -e -k 密码 -out AppleKey.tar.bz2.aes256
+openssl enc -aes-256-cbc -d -k 密码 -in AppleKey.tar.bz2.aes256 | tar -xjf -
+
+openssl enc -aes-256-cbc -d -in zs.tar.bz2.a | tar -xjf -
+openssl enc -aes-256-cbc -d -in b.tar.bz2.a | tar -xjf -
+openssl enc -aes-256-cbc -d -in a20170818.tar.bz2.a | tar -xjf -
+
+tar -cjf - m20170818.txt | openssl enc -des3 -e -out a20170818.tar.bz2.des3
+tar -cjf - m20170818.txt | openssl enc -aes-256-cbc -e -out a20170818.tar.bz2.a
+tar -cjf - *.jpeg | openssl enc -aes-256-cbc -e  -out file.tar.bz2.a
+openssl enc -aes-256-cbc -d -in file.tar.bz2.a | tar -xjf -
+openssl enc -aes-256-cbc -d -in a.tar.bz2.a | tar -xjf -
+
+// -----------------------------------------------
+hg255d: 电源口径：5.5, 3.5，12V1.5A
+murcery mw300r：电源规格9v0.6a，5.5*2.1接口，兼容5.5*2.5接口
+
+# -----------------------------------
+# openwrt完整备份
+
+1.查看 firmware 分区所对应的 mtd 设备
+cat /proc/mtd
+
+dev: size erasesize name
+mtd0: 00040000 00020000 "u-boot"
+mtd1: 00040000 00020000 "u-boot-env"
+mtd2: 00040000 00020000 "caldata"
+mtd3: 00080000 00020000 "pot"
+mtd4: 00200000 00020000 "language"
+mtd5: 00080000 00020000 "config"
+mtd6: 00300000 00020000 "traffic_meter"
+mtd7: 00200000 00020000 "kernel"
+mtd8: 07700000 00020000 "ubi"
+mtd9: 07900000 00020000 "firmware"
+mtd10: 00040000 00020000 "caldata_backup"
+
+这里就是mtd9
+2.得到固件备份文件 firmware_backup.bin，在 /tmp 目录下
+dd if=/dev/mtd9 of=/tmp/firmware_backup.bin
+
+3.恢复该固件：
+将 firmware_backup.bin 上传至 /tmp，使用命令
+mtd -r write /tmp/firmware_backup.bin firmware
+
+即可恢复，恢复完成路由器会自行重启
+
+不过，如果在没有重刷固件的情况下，我建议仅对 /overlay 进行打包并备份：
+tar -czvf /tmp/overlay_backup.tar.gz /overlay
+
+然后下次直接将 overlay_backup.tar.gz 上传至 /tmp ，然后清空 /overlay 并恢复备份：
+rm -rvf /overlay/*
+cd / && tar -xzvf /tmp/overlay_backup.tar.gz
+
+
+#--------------------------------------
+# openwrt（明月20180218版本），shadowsocks配置
+
+# fireware配置如下
+vi /etc/config/fireware
+
+# 内容如下：
+config defaults
+	option syn_flood '1'
+	option input 'ACCEPT'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+
+config zone
+	option name 'lan'
+	option input 'ACCEPT'
+	option output 'ACCEPT'
+	option forward 'ACCEPT'
+	option network 'lan'
+
+config zone
+	option name 'wan'
+	option network 'wan6'
+	option input 'REJECT'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+	option masq '1'
+	option mtu_fix '1'
+
+config forwarding
+	option dest 'wan'
+	option src 'lan'
+
+config forwarding
+	option dest 'lan'
+	option src 'wan'
+
+
+# 首先安装Shadowsocks-client，可以在luci界面安装。
+
+# 在/etc/config/sslocal中做配置
+vi /etc/config/sslocal 
+
+# 内容如下
+config sslocal
+       option server_addr '65.49.221.234'
+       option server_port '57'
+       option local_addr '192.168.10.1'
+       option local_port '3080'
+       option password 'hjyhj.ltb,0yue'
+       option method 'rc4'
+
+# 启动shadowsocks
+/etc/init.d/sslocal start
+
+
+#----------------------------------------------
+# chinaDNS配置
+# 首先确保shadowsocks配置页面的UDP转发关闭；并且确保你可以正常使用国外公共DNS服务。
+
+vi /etc/config/chinadns
+
+# 内容如下：
+config chinadns
+	option enable '0'
+	option bidirectional '0'
+	option chnroute '/etc/chinadns_chnroute.txt'
+	option port '5353'
+	option server '114.114.114.114,208.67.222.222:443,8.8.8.8'
+	option automod '1'
+	option boot_time '10'
+	option refreshtime '30'
+	option autorefresh '0'
+
+# 在Luci中切换至“网络”-“DHCP/DNS”设置
+在”DNS转发”中填入127.0.0.1#5353
+
+# 其中，5353是ChinaDNS的端口，如果你在之前设置界面里端口号不是5353，这里记得和前面保持一致。
+然后切到HOSTS和解析文件选项卡，勾中“忽略解析文件”
+
+# ---------------------------------------------
+# 在上面的准备工作都完成之后，就可以正式开始配置了。首先准备一份刚装好的干净的 OpenWRT 路由器（用过了也没关系，一般情况下不会有冲突），把 6 个软件包复制到 pscp 的目录下，打开命令行，输入以下命令：
+
+pscp -scp kmod-ipt-nat-extra_3.3.8-1_ar71xx.ipk root@192.168.1.1:/tmp
+pscp -scp iptables-mod-nat-extra_1.4.10-4_ar71xx.ipk root@192.168.1.1:/tmp
+pscp -scp zlib_1.2.7-1_ar71xx.ipk root@192.168.1.1:/tmp
+pscp -scp libopenssl_1.0.1h-1_ar71xx.ipk root@192.168.1.1:/tmp
+pscp -scp shadowsocks-libev_1.6.1-1_ar71xx.ipk root@192.168.1.1:/tmp
+pscp -scp ChinaDNS-C_1.1.8-1_ar71xx.ipk root@192.168.1.1:/tmp
+
+# 完成之后，软件包就都上传到路由器的 /tmp 目录下了。然后使用 putty 打开路由器地址 192.168.1.1，运行以下命令：
+	
+cd /tmp
+opkg install kmod-ipt-nat-extra_3.3.8-1_ar71xx.ipk
+opkg install iptables-mod-nat-extra_1.4.10-4_ar71xx.ipk
+opkg install zlib_1.2.7-1_ar71xx.ipk
+opkg install libopenssl_1.0.1h-1_ar71xx.ipk
+opkg install shadowsocks-libev_1.6.1-1_ar71xx.ipk
+opkg install ChinaDNS-C_1.1.8-1_ar71xx.ipk
+
+# 建议严格按照顺序执行上面的命令，以避免软件包依赖问题。然后执行下面的命令编辑防火墙规则（也可以在 LuCI Web 界面的 Network – Firewall – Custom Rules 下设置）：
+
+vi /etc/firewall.user
+
+# 正常情况下，里面应该只有 3 行以 # 开头的注释。在注释下面加入以下内容
+iptables -t nat -N SHADOWSOCKS
+iptables -t nat -F SHADOWSOCKS
+ 
+# server
+iptables -t nat -A SHADOWSOCKS -d x.x.x.x -j RETURN
+ 
+# reserved networks
+iptables -t nat -A SHADOWSOCKS -d 10.0.0.0/8 -j RETURN
+iptables -t nat -A SHADOWSOCKS -d 127.0.0.0/8 -j RETURN
+iptables -t nat -A SHADOWSOCKS -d 172.16.0.0/12 -j RETURN
+iptables -t nat -A SHADOWSOCKS -d 192.168.0.0/16 -j RETURN
+ 
+# google
+iptables -t nat -A SHADOWSOCKS -p tcp -d 74.125.0.0/16 -j REDIRECT --to-ports 8001
+iptables -t nat -A SHADOWSOCKS -p tcp -d 173.194.0.0/16 -j REDIRECT --to-ports 8001
+ 
+# apply the rules
+iptables -t nat -I PREROUTING -j SHADOWSOCKS
+ 
+# start china-dns
+chinadns -p 5353 -s y.y.y.y,8.8.4.4 -l /etc/chinadns_iplist.txt  -c /etc/chinadns_chnroute.txt &
+ 
+# start shadowsocks-local
+ss-local -s server -p port -k password -m aes-256-cfb -l 8000 -u &
+ 
+# start shadowsocks-redir
+ss-redir -s server -p port -k password -m aes-256-cfb -l 8001 -u &
+
+这个脚本里有几个需要修改的地方：
+
+    第 5 行的 x.x.x.x 需要修改为 shadowsocks 服务器的 IP 地址
+    第 21 行的 y.y.y.y 需要修改为原来的（国内的） DNS 服务器的 IP 地址
+    第 24 和 27 行的 server 需要修改为 shadowsocks 服务器的域名（IP 地址也行），port 需要修改为服务器端口号，password 修改为你的密码，加密方式这里填的是 AES-256-CFB，但是你的服务可能用的并不是这个加密方式，所以需要根据需要进行修改。
+
+这个脚本完成之后，编辑 dnsmasq 的配置文件：
+vi /etc/dnsmasq.conf
+
+在文件的最后加入下面两行（注意这里用的是 # 而不是冒号）：
+no-resolv
+server=127.0.0.1#5353
+
+最后，保存文件，然后重启路由器：
+reboot
+
+这样路由器的配置就完成了，但是 Windows 可能还在使用老的 DNS 数据库。运行下面的命令刷新 DNS 缓存：
+ipconfig /flushdns
+
+如果没有什么差错的话，接下来就能够访问 Google 搜索、Google Code 和 Gmail 了，手机连上 WIFI 后能够直接访问 Google Play！
+
+# ----------------------------------
+# 开启bbr，增加tcp性能
+
+1、修改系统变量
+
+echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
+echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
+
+2、保存生效
+
+sysctl -p
+
+3、查看内核是否已开启BBR
+
+sysctl net.ipv4.tcp_available_congestion_control
+
+显示以下即已开启：
+
+# sysctl net.ipv4.tcp_available_congestion_control
+net.ipv4.tcp_available_congestion_control = bbr cubic reno
+
+4、查看BBR是否启动
+
+lsmod | grep bbr
+
+显示以下即启动成功：
+
+# lsmod | grep bbr
+tcp_bbr                20480  14
+
+
+# -----------------------------------
+# 服务器端一键安装shadowsocks-libev，也可以用apt安装
+
+wget --no-check-certificate https://raw.githubusercontent.com/teddysun/shadowsocks_install/master/shadowsocks-libev-debian.sh
+
+chmod +x shadowsocks-libev-debian.sh
+
+./shadowsocks-libev-debian.sh 2>&1 | tee shadowsocks-libev-debian.log
+
+# 配置
+sudo vi /etc/shadowsocks-libev/config.json
+
+# 输入如下内容：
+{
+    "server":"0.0.0.0",
+    "server_port":57,
+    "local_port":1080,
+    "password":"hjyhj.ltb,0yue",
+    "timeout":60,
+    "method":"aes-256-cfb"
+}
+
+# 修改shadowsocks-libev.service
+sudo vi /lib/systemd/system/shadowsocks-libev.service
+
+# 如下内容，这样就可以使用1000以下的系统端口号
+[Unit]
+Description=Shadowsocks-libev Default Server Service
+Documentation=man:shadowsocks-libev(8)
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/shadowsocks-libev
+User=root
+Group=root
+LimitNOFILE=32768
+ExecStart=/usr/bin/ss-server -c $CONFFILE $DAEMON_ARGS
+
+[Install]
+WantedBy=multi-user.target
+
+# 使用如下命令更新systemd配置
+sudo systemctl daemon-reload 
+
+# 使用systemd启动、停止、查看状态，
+sudo systemctl start shadowsocks-libev.service
+sudo systemctl stop shadowsocks-libev.service
+sudo systemctl status shadowsocks-libev.service
+
+# ---------------------------------------------
+# 客户端shadowsocks-libev安装
+sudo apt install shadowsocks-libev
+
+# 配置：
+sudo vi /etc/shadowsocks-libev/config.json
+# 输入如下内容：
+{ 
+	"server":"65.49.221.234",
+	"server_port":57, 
+	"local_address":"127.0.0.1", 
+	"local_port":1080, 
+	"password":"hjyhj.ltb,0yue", 
+	"timeout":300, 
+	"method":"aes-256-cfb", 
+	"fast_open":false
+}
+
+# 更改systemd的服务配置
+sudo vi /lib/systemd/systems/shadowsocks-libev
+
+# 内容如下：
+[Unit]
+Description=Shadowsocks-libev Default Server Service
+Documentation=man:shadowsocks-libev(8)
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/shadowsocks-libev
+User=nobody
+Group=nogroup
+LimitNOFILE=32768
+ExecStart=/usr/bin/ss-local -c $CONFFILE $DAEMON_ARGS
+
+[Install]
+WantedBy=multi-user.target
+
+# 使用如下命令更新systemd配置
+sudo systemctl daemon-reload 
+
+# 使用systemd启动、停止、查看状态，
+sudo systemctl start shadowsocks-libev.service
+sudo systemctl stop shadowsocks-libev.service
+sudo systemctl status shadowsocks-libev.service
+
+# -----------------------------------
+# 安装shadowsocks
+wget --no-check-certificate -O shadowsocks.sh https://raw.githubusercontent.com/teddysun/shadowsocks_install/master/shadowsocks.sh
+
+chmod +x shadowsocks.sh 
+
+./shadowsocks.sh 2>&1 | tee shadowsocks.log
+
+# 配置服务器上的shadowsocks
+vi /etc/shadowsocks.json
+
+# 输入如下内容
+{
+    "server":"0.0.0.0",
+    "server_port":18888,
+    "local_address":"127.0.0.1",
+    "local_port":1080,
+    "password":"c2kc2kc2k",
+    "timeout":300,
+    "method":"aes-256-cfb",
+    "fast_open":false
+}
+
+# 启动shadowsocks服务
+/etc/init.d/shadowsocks restart
+
+
+# 客户端安装
+apt install python-pip
+pip install shadowsocks
+
+# 客户端配置
+{ 
+	"server":"65.49.221.234",
+	"server_port":18888, 
+	"local_address":"127.0.0.1", 
+	"local_port":1080, 
+	"password":"c2kc2kc2k", 
+	"timeout":300, 
+	"method":"rc4-md5", 
+	"fast_open":false
+}
+
+# 客户端配置开机自启
+# 以下使用Systemd来实现shadowsocks开机自启。
+sudo vim /etc/systemd/system/shadowsocks.service
+
+# 在里面填写如下内容：
+[Unit]
+Description=Shadowsocks Client Service
+After=network.target
+
+[Service]
+Type=simple
+User=xt
+ExecStart=/home/xt/.local/bin/sslocal -c /etc/shadowsocks.json
+
+[Install]
+WantedBy=multi-user.target
+
+# 配置生效：
+sudo systemctl enable /etc/systemd/system/shadowsocks.service
+
+# firefox配置使用shadowsocks
+# 在firefox中Add-ones->Extensions中搜索安装插件Foxyproxy。注意：在终端命令启用ss客户端后插件才能生效
+# 打开Foxyproxy的options，点击ADD，Proxy Type选择SOCKS5，IP Address填127.0.0.1，Port填1080，点击save保存
+# 点击浏览器菜单栏中Foxyproxy插件图标，选择相应的代理模式
+
+# -----------------------------------
+本文适用于解决openssl升级到1.1.0以上版本，导致shadowsocks2.8.2启动报undefined symbol: EVP_CIPHER_CTX_cleanup错误。
+
+ 修改方法：
+
+    用vim打开文件：vim /usr/local/lib/python2.7/dist-packages/shadowsocks/crypto/openssl.py (该路径请根据自己的系统情况自行修改，如果不知道该文件在哪里的话，可以使用find命令查找文件位置)
+    跳转到52行（shadowsocks2.8.2版本，其他版本搜索一下cleanup）
+    进入编辑模式
+    将第52行libcrypto.EVP_CIPHER_CTX_cleanup.argtypes = (c_void_p,) 
+    改为libcrypto.EVP_CIPHER_CTX_reset.argtypes = (c_void_p,)
+    再次搜索cleanup（全文件共2处，此处位于111行），将libcrypto.EVP_CIPHER_CTX_cleanup(self._ctx) 
+    改为libcrypto.EVP_CIPHER_CTX_reset(self._ctx)
+    保存并退出
+    启动shadowsocks服务：service shadowsocks start 或 sslocal -c ss配置文件目录
+    问题解决
+
 # ----------------------------------
 # diff 和 patch
 

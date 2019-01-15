@@ -56,9 +56,9 @@ inline std::ostream &hex_dump(std::ostream &o, std::string const &v) {
 // 处理libuv相关的错误
 inline void log_error(int err, const char *fn, const char *fun, uint64_t ln) {
   Error e(err);
-  nanolog::is_logged(nanolog::LogLevel::CRIT) &&
-      nanolog::NanoLog() ==
-          nanolog::NanoLogLine(nanolog::LogLevel::CRIT, fn, fun, ln)
+  nlog::inner::is_logged(nlog::LogLevel::CRIT) &&
+      nlog::inner::NanoLog() ==
+          nlog::inner::NanoLogLine(nlog::LogLevel::CRIT, fn, fun, ln)
               << "err: " << err << ", name: " << e.name()
               << ", desc: " << e.strerror();
 }
