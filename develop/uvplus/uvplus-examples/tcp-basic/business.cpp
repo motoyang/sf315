@@ -4,11 +4,14 @@
 #include <memory>
 #include <atomic>
 
+#include <pp/prettyprint.h>
+
 #include "business.h"
 
 // --
 
 void Business::operator()() {
+  std::srand(std::time(nullptr));
   while (_running) {
     std::vector<uvplus::Packet> packets;
     size_t count = _tcp->upwardDequeue(packets);
@@ -26,6 +29,14 @@ void Business::operator()() {
 int f31(int i, int j) {
   int r = i + j;
   std::cout << i << " + " << j << " = " << r << std::endl;
+  return r;
+}
+
+auto f32() {
+  int i = std::rand() % 100, j = std::rand() % 200;
+  std::string s("abcde");
+  auto r = std::make_tuple(i, s, j);
+  std::cout << r << std::endl;
   return r;
 }
 
@@ -85,7 +96,7 @@ Business::Business(const std::string &name)
     : _replier(std::make_unique<uvplus::Replier<int>>()),
       _resolver(std::make_unique<uvplus::Resolver<int>>()), _name(name),
       _pool(1) {
-  _replier->defineFun(31, f31);
+  _replier->defineFun(31, f31).defineFun(32, f32);
   _resolver->defineFun(23, f23);
 }
 

@@ -4,6 +4,7 @@
 #include <uvplus.hpp>
 
 #include <pp/prettyprint.h>
+
 #include "client.h"
 
 // --
@@ -70,6 +71,12 @@ int f_output(uvplus::TcpConnector<uvplus::Codec2> *client) {
       } else {
         std::cout << "timeout..." << std::endl;
       }
+      std::tuple<int, std::string, int> result2;
+      if (0 == client->request(result2, 32)) {
+        std::cout << "resutl2 = " << result2 << std::endl;
+      } else {
+        std::cout << "timeout2..." << std::endl;
+      }
     }
 
     r = client->transmit(uvp::BufType::BUF_RESOLVE_TYPE, 23, 99, (double)0.1386,
@@ -107,7 +114,7 @@ int tcp_client() {
       .defineFun(24, f24_pair);
 
   sockaddr_in dest;
-  uvp::ip4Addr("127.0.0.1", 7001, &dest);
+  uvp::ip4Addr("65.49.221.234", 7001, &dest);
 
   auto loop = std::make_unique<uvp::LoopObject>();
   uvplus::TcpConnector<uvplus::Codec2> client(loop.get(),

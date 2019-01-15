@@ -5,8 +5,10 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin2)
 # 设置可执行文件目录
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin2)
 
-set(UV_LIB "uv")
+set(UV_LIB "libuv.a")
 set(PTHREAD_LIB "pthread")
+
+set(CMAKE_BUILD_TYPE "Release")
 
 macro (example_build arg1)
   file(GLOB EXAMPLE_SRC_FILES "${arg1}/*.cpp")   

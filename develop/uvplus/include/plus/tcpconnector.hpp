@@ -77,6 +77,7 @@ template<typename C> class TcpConnector {
       UVP_LOG_ERROR(nread);
       _socket.readStop();
       _socket.close();
+      _timer.start(5000, 5000);
       return;
     }
 
@@ -102,11 +103,10 @@ template<typename C> class TcpConnector {
       return;
     }
     LOG_INFO << "client socket connected to: " << peer();
-    // nameOfPeer(AF_INET, &_socket);
-    // _name = nameOfSock(AF_INET, &_socket);
-    _socket.readStart();
 
-    _timer.start(1000, 5000);
+    _socket.readStart();
+    _async.send();
+    _timer.stop();
   }
 
   void onShutdown(uvp::Stream *stream, int status) {
@@ -162,6 +162,19 @@ template<typename C> class TcpConnector {
         UVP_LOG_ERROR(r);
       }
     }
+  }
+
+  template <typename T, typename... Args>
+  int packToQueue(uvp::BufType bt, int token, T const &tag, Args &&... args) {
+    std::stringstream ss;
+    msgpack::pack(ss, (int)bt);
+    msgpack::pack(ss, token);
+    msgpack::pack(ss, tag);
+    ((msgpack::pack(ss, std::forward<Args>(args)), ...));
+
+    int r = downwardEnqueue(ss.str().data(), ss.str().length());
+    UVP_LOG_ERROR(r);
+    return r;
   }
 
 public:
@@ -223,7 +236,7 @@ public:
 
     uvp::uv::BufT b = {0};
     if (!_codec.encode(b, p, len)) {
-      return 0;
+      return -1;
     }
     // 进队列失败时，重新进队列直到进入队列成功。
     while (!_gangway._downward.enqueue(b)) {
@@ -240,15 +253,7 @@ public:
     static std::atomic<int> token_seed = 0;
     int token = ++token_seed;
 
-    std::stringstream ss;
-    msgpack::pack(ss, (int)bt);
-    msgpack::pack(ss, token);
-    msgpack::pack(ss, tag);
-    ((msgpack::pack(ss, std::forward<Args>(args)), ...));
-
-    int r = downwardEnqueue(ss.str().data(), ss.str().length());
-    UVP_LOG_ERROR(r);
-    return r;
+    return packToQueue(bt, token, tag, args...);
   }
 
   template <typename R, typename T, typename... Args>
@@ -261,47 +266,36 @@ public:
       std::lock_guard<std::mutex> lk(_mutex);
       _reqMap.insert({token, buf});
     } while (false);
+    packToQueue(uvp::BufType::BUF_REQ_TYPE, token, tag, args...);
 
-    std::stringstream ss;
-    msgpack::pack(ss, (int)uvp::BufType::BUF_REQ_TYPE);
-    msgpack::pack(ss, token);
-    msgpack::pack(ss, tag);
-    ((msgpack::pack(ss, std::forward<Args>(args)), ...));
-    int r = downwardEnqueue(ss.str().data(), ss.str().length());
-    if (r) {
-      UVP_LOG_ERROR(r);
-      return r;
-    }
-
-    uvp::uv::BufT b = {0};
-    bool waited = false;
     do {
       std::unique_lock<std::mutex> lk(_mutex);
-      waited = _cond_var.wait_for(lk, std::chrono::milliseconds(5000),
-                                  [&b, token, this]() {
-                                    b = _reqMap.at(token);
-                                    return b.len;
+      bool waited = _cond_var.wait_for(lk, std::chrono::milliseconds(5000),
+                                  [&buf, token, this]() {
+                                    buf = _reqMap.at(token);
+                                    return buf.base;
                                   });
       _reqMap.erase(token);
+
+      if (!waited) {
+        return -1;
+      }
     } while (false);
 
-    if (!waited) {
-      return -1;
-    }
 
     size_t offset = 0;
     int buf_type = 0;
     int token_return = 0;
-    msgpack::object_handle oh = msgpack::unpack(b.base, b.len, offset);
+    msgpack::object_handle oh = msgpack::unpack(buf.base, buf.len, offset);
     oh.get().convert(buf_type);
     assert(buf_type == (int)uvp::BufType::BUF_REP_TYPE);
-    msgpack::object_handle oh2 = msgpack::unpack(b.base, b.len, offset);
+    msgpack::object_handle oh2 = msgpack::unpack(buf.base, buf.len, offset);
     oh2.get().convert(token_return);
     assert(token == token_return);
     std::string s;
-    msgpack::object_handle oh3 = msgpack::unpack(b.base, b.len, offset);
+    msgpack::object_handle oh3 = msgpack::unpack(buf.base, buf.len, offset);
     oh3.get().convert(s);
-    uvp::freeBuf(b);
+    uvp::freeBuf(buf);
 
     msgpack::object_handle oh4 = msgpack::unpack(s.data(), s.length());
     oh4.get().convert(result);
