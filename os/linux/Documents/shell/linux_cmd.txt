@@ -1,6 +1,58 @@
+	你的公网 IPv4 地址是 120.229.94.41
+
+	你的公网 IPv6 地址是 2409:8a55:3344:8e10:484f:b774:ac35:4646
+
+	你的运营商（ISP）是 CMNET-GUANGDONG-AP China Mobile communications corporation
+
+	在你所处的地区，本站的测试结果并不可靠。
+
+	你已经有 IPv6 地址了，但你的浏览器不太愿意用，这一点比较令人担心。 [更多信息]
+
+	你的浏览器屏蔽了测试 URL，我们将尝试备用方案，因此可能无法显示你的 IP 地址，并且难以给出恰当的建议。 [更多信息]
+
+	这最有可能是 NoScript 或 AdBlock+ 造成的。可以设置 NoScript 允许此页面执行所有脚本（可能需要重复几次），至少允许下列 URL。 [更多信息]
+
+	你的浏览器屏蔽了 http://ipv6.vm0.test-ipv6.com/ip/?callback=?&testdomain=test-ipv6.com&testname=test_aaaa
+
+	你的 DNS 服务器（可能由运营商提供）已经接入 IPv6 互联网了。
+
+	糟糕！IPv6 基本正常，但较大的数据包传输失败，这可能导致部分网站显示不全。询问你的运营商是不是 MTU 的问题，这可能与你的隧道有关。 检查你的防火墙，确保已放行 ICMPv6 消息（尤其是第 2 类，“数据包过大”）。 [更多信息]
+	
+# --------------------------------------------
+# 型号：F663N，亲测广东可用
+usr:CMCCAdmin
+pwd:aDm8H%MdA
+
+普通登陆：
+user
+dc3ss
+
+# --------------------------------------------
+# 创建一个swap文件：
+
+# bs 为块大小,count为块的数量即分配1K*2M=2G swap
+sudo dd if=/dev/zero of=/swapfile  bs=1K count=2M
+
+# 将生成的swapfile文件转换成Swap文件
+sudo mkswap /swapfile
+
+# 锁定文件的root权限：
+sudo chmod 600 /swapfile
+
+# 激活swap文件
+sudo swapon /swapfile 
+
+# 如果需要卸载这个swap文件则：
+sudo swapoff swapfile
+# 如果需要一直保持这个swap大小，则把它追加写入/etc/fstab文件：
+/swapfile none swap sw 0 0
+
+#查看当前使用的swap文件名称、目录、大小、使用情况、优先级。
+sudo swapon -s 
+
 # --------------------------------------------
 # 使用openssl加密和解密，如果不输入密码，就在回车后输入
-openssl enc -aes-256-cbc -e -in backup20180115.tar.gz -out vps_config.tar.gz.aes
+openssl enc -aes-256-cbc -e -in backup20180115.tar.sgz -out vps_config.tar.gz.aes
 openssl enc -aes-256-cbc -d -in vps_config.tar.gz.aes -out vps_config.tar.gz
 openssl enc -des3 -d -k 密码 -in AppleKey.tar.bz2.des3 -out AppleKey.tar.bz2
 
