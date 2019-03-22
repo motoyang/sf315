@@ -7,7 +7,7 @@
 #include "business.h"
 #include "sighandler.h"
 
-extern uvplus::TcpAcceptor<uvplus::Codec2> *g_acceptor;
+extern uvplus::TcpAcceptor *g_acceptor;
 extern Business *g_business;
 
 // --
@@ -16,7 +16,7 @@ extern Business *g_business;
 void sig12_handler(int signum, siginfo_t *info, void *myact) {
   LOG_INFO << "received signal: " << signum << " and tag: " << info->si_int;
   if (info->si_int ==
-      (int)uvplus::TcpAcceptor<uvplus::Codec2>::NotifyTag::NT_CLOSE) {
+      (int)uvplus::TcpAcceptor::NotifyTag::NT_CLOSE) {
     g_business->stop();
   }
   g_acceptor->notify(info->si_int);

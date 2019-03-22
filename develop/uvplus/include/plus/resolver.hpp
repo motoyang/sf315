@@ -17,72 +17,83 @@ namespace uvplus {
 
 // --
 
-using FunType = std::string (*)(uvp::Pointer, const char *, std::size_t, std::size_t,
-                                std::size_t);
+using FunType = std::string (*)(uvp::Pointer, const char *, std::size_t,
+                                std::size_t, std::size_t);
 using ValueType = std::pair<FunType, uvp::Pointer>;
 
 // --
 
-template <typename T> class Resolver {
-protected:
+template <typename T>
+class Resolver {
+ protected:
   std::unordered_map<T, ValueType> _map;
   std::map<T, std::string> _queryMap;
 
-public:
-  template <typename FP> Resolver<T> &defineFun(T const &tag, FP const pf) {
+ public:
+  template <typename FP>
+  Resolver<T> &defineFun(T const &tag, FP const pf) {
     ValueType v = std::make_pair(&Call3<FP>::f, *(uvp::Pointer *)(&pf));
-    auto i = _map.insert(std::make_pair(tag, v));
-    if (!i.second) {
-      LOG_CRIT << "same tag is not allowed, tag: " << tag;
-    }
 
-    _queryMap.insert(std::make_pair(tag, uvp::demangle(typeid(pf).name())));
+    if (auto i = _map.insert(std::make_pair(tag, v)); !i.second) {
+      LOG_CRIT << "same tag is not allowed, tag: " << tag;
+    } else {
+      _queryMap.insert(std::make_pair(tag, uvp::demangle(typeid(pf).name())));
+    }
 
     return *this;
   }
 
   std::string resolve(const char *buf, size_t len, size_t &off) {
-    msgpack::object_handle oh = msgpack::unpack(buf, len, off);
     T tag;
+    msgpack::object_handle oh = msgpack::unpack(buf, len, off);
     oh.get().convert(tag);
 
-    auto i = _map.find(tag);
-    if (i == _map.end()) {
+    std::string result;
+    if (auto i = _map.find(tag); i == _map.end()) {
       LOG_WARN << "can't find tag: " << tag;
-      return std::string();
+    } else {
+      auto f = i->second.first;
+      result = f(i->second.second, buf, len, off, 0);
     }
-    auto f = i->second.first;
-    std::string result = f(i->second.second, buf, len, off, 0);
 
     return result;
+  }
+
+  void show(std::ostream& os) const {
+    os << "functions defined: " << std::endl << _queryMap << std::endl;
   }
 };
 
 // --
 
-template <typename T> class Replier;
-template <typename T> class Class {
+template <typename T>
+class Replier;
+template <typename T>
+class Class {
   friend class Replier<T>;
 
   T _tag;
   std::unordered_map<T, ValueType> &_map;
   std::map<T, std::string> &_queryMap;
 
-protected:
+ protected:
   explicit Class(T const &tag, std::unordered_map<std::string, ValueType> &cm,
                  std::map<std::string, std::string> &qm)
       : _tag(tag), _map(cm), _queryMap(qm) {}
 
-public:
-  template <typename FP> Class &defineMethod(T const &tag, FP const &pf) {
-    auto i = _queryMap.insert(std::make_pair(tag, uvp::demangle(typeid(pf).name())));
-    if (!i.second) {
+ public:
+  template <typename FP>
+  Class &defineMethod(T const &tag, FP const &pf) {
+    if (auto i = _queryMap.insert(
+            std::make_pair(tag, uvp::demangle(typeid(pf).name())));
+        !i.second) {
       LOG_CRIT << "same tag is not allowed, tag: " << tag;
+    } else {
+      auto p = std::make_unique<FP>(pf);
+      ValueType v =
+          std::make_pair(&CallMember3<FP>::f, (uvp::Pointer)(p.release()));
+      _map.insert(std::make_pair(tag, v));
     }
-
-    auto p = std::make_unique<FP>(pf);
-    ValueType v = std::make_pair(&CallMember3<FP>::f, (uvp::Pointer)(p.release()));
-    _map.insert(std::make_pair(tag, v));
 
     return *this;
   }
@@ -90,11 +101,12 @@ public:
 
 // --
 
-template <typename T> class Replier : public Resolver<T> {
+template <typename T>
+class Replier : public Resolver<T> {
   std::unordered_map<T, std::unordered_map<T, ValueType>> _mapClasses;
   std::map<T, std::map<T, std::string>> _queryClassesMap;
 
-public:
+ public:
   virtual ~Replier() {
     // 删除成员函数的存储空间，这些空间是在Class::defineMethod()中申请的。
     for (auto &c : _mapClasses) {
@@ -108,9 +120,10 @@ public:
   Class<T> defineClass(T const &tag) {
     if (_mapClasses.find(tag) != _mapClasses.end()) {
       LOG_CRIT << "same tag is not allowed, tag: " << tag;
+    } else {
+      _mapClasses.emplace(tag, std::unordered_map<T, ValueType>());
+      _queryClassesMap.emplace(tag, std::map<T, std::string>());
     }
-    _mapClasses.emplace(tag, std::unordered_map<T, ValueType>());
-    _queryClassesMap.emplace(tag, std::map<T, std::string>());
 
     return Class<T>(tag, _mapClasses.at(tag), _queryClassesMap.at(tag));
   }
@@ -146,10 +159,10 @@ public:
     return result;
   }
 
-  void show() const {
-    std::cout << Resolver<T>::_queryMap << std::endl;
-    std::cout << _queryClassesMap << std::endl;
+  void show(std::ostream& os) const {
+    Resolver<T>::show(os);
+    os << "classes defined: " << std::endl << _queryClassesMap << std::endl;
   }
 };
 
-} // namespace uvp
+}  // namespace uvplus

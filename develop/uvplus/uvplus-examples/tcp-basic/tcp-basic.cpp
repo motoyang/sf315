@@ -77,16 +77,13 @@ int main(int argc, char *argv[]) {
     return r;
   }
 
+  LOG_INFO << "libuv version: " << uvp::Version().str();
+  std::cout << "libuv version: " << uvp::Version().str() << std::endl;
   if (opt.is_true('d')) {
-    LOG_INFO << "libuv version: " << uvp::Version().str();
-    std::cout << "libuv version: " << uvp::Version().str() << std::endl;
-
     // r = startDaemon(opt);
   }
   if (opt.is_true('s')) {
     LOG_INFO << "pid = " << getpid();
-    LOG_INFO << "libuv version: " << uvp::Version().str();
-    std::cout << "libuv version: " << uvp::Version().str() << std::endl;
 
     // 安装信号处理，处理SIGUSR2(12)号信号
     sig_capture(SIGUSR2, sig12_handler);
@@ -94,9 +91,6 @@ int main(int argc, char *argv[]) {
     tcp_server();
   }
   if (opt.is_true('c')) {
-    LOG_INFO << "libuv version: " << uvp::Version().str();
-    std::cout << "libuv version: " << uvp::Version().str() << std::endl;
-
     tcp_client();
   }
 

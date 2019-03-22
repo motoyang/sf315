@@ -97,9 +97,12 @@ Business::Business(const std::string &name)
       _resolver(std::make_unique<uvplus::Resolver<int>>()), _name(name),
       _pool(1) {
   _replier->defineFun(31, f31).defineFun(32, f32);
+  _replier->show(std::cout);
+
   _resolver->defineFun(23, f23);
+  _resolver->show(std::cout);
 }
 
 void Business::stop() { _running.store(false); }
 
-void Business::bind(uvplus::TcpAcceptor<uvplus::Codec2> *tcp) { _tcp = tcp; }
+void Business::bind(uvplus::TcpAcceptor *tcp) { _tcp = tcp; }

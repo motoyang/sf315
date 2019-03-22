@@ -6,7 +6,7 @@
 // --
 
 class Business {
-  uvplus::TcpAcceptor<uvplus::Codec2>* _tcp;
+  uvplus::TcpAcceptor* _tcp;
   std::unique_ptr<uvplus::Replier<int>> _replier;
   std::unique_ptr<uvplus::Resolver<int>> _resolver;
 
@@ -19,7 +19,7 @@ class Business {
 
 public:
   Business(const std::string &name);
-  void bind(uvplus::TcpAcceptor<uvplus::Codec2>* tcp);
+  void bind(uvplus::TcpAcceptor* tcp);
 
   void operator()();
   void stop();

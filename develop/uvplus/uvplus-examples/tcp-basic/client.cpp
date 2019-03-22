@@ -23,36 +23,32 @@ int netStart(uvp::Loop *loop) {
 
 void f21_pair(int i, const std::string &s, float f) {
   static size_t count = 0;
-  if (++count % 10000)
-    return;
+  if (++count % 10000) return;
   std::cout << "f21_pair: i = " << i << ", s = " << s << ", f = " << f
             << std::endl;
 }
 
 void f22_pair(float f, const std::string &s) {
   static size_t count = 0;
-  if (++count % 10000)
-    return;
+  if (++count % 10000) return;
   std::cout << "f22_pair: f = " << f << ", s = " << s << std::endl;
 }
 
 void f23_pair(const std::string &s) {
   static size_t count = 0;
-  if (++count % 10000)
-    return;
+  if (++count % 10000) return;
   std::cout << "f23_pair: s = " << s << std::endl;
 }
 
 void f24_pair(const std::tuple<int, std::string, float, double> &t) {
   static size_t count = 0;
-  if (++count % 10000)
-    return;
+  if (++count % 10000) return;
   std::cout << "f24_pair: t = " << t << std::endl;
 }
 
 bool g_running = true;
 
-int f_output(uvplus::TcpConnector<uvplus::Codec2> *client) {
+int f_output(uvplus::TcpConnector *client) {
   std::srand(std::time(nullptr));
   for (int i = 0; i < 10000; ++i) {
     int r = client->transmit(uvp::BufType::BUF_ECHO_TYPE, 21, 38,
@@ -94,7 +90,7 @@ int f_output(uvplus::TcpConnector<uvplus::Codec2> *client) {
   return 0;
 }
 
-int f_output2(uvplus::TcpConnector<uvplus::Codec2> *client) {
+int f_output2(uvplus::TcpConnector *client) {
   for (int i = 0; i < 20000000; ++i) {
     std::string s(std::rand() % 46 + 1, '=');
     client->downwardEnqueue(s.data(), s.length());
@@ -112,13 +108,14 @@ int tcp_client() {
       .defineFun(22, f22_pair)
       .defineFun(23, f23_pair)
       .defineFun(24, f24_pair);
+  resolver->show(std::cout);
 
   sockaddr_in dest;
-  uvp::ip4Addr("65.49.221.234", 7001, &dest);
+  uvp::ip4Addr("127.0.0.1", 7001, &dest);
 
   auto loop = std::make_unique<uvp::LoopObject>();
-  uvplus::TcpConnector<uvplus::Codec2> client(loop.get(),
-                                              (const sockaddr *)&dest);
+  uvplus::TcpConnector client(loop.get(), (const sockaddr *)&dest);
+  client.packInterface(std::make_unique<uvplus::Pack2>(50));
   std::thread t1(netStart, loop.get());
   std::thread t2(f_output, &client);
 

@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cxxabi.h>
+#include <string>
 
 #include <nanolog.hpp>
 
@@ -63,19 +64,16 @@ inline void log_error(int err, const char *fn, const char *fun, uint64_t ln) {
               << ", desc: " << e.strerror();
 }
 
-inline const char *demangle(const char *name) {
-  char buf[1024] = {0};
-  size_t len = sizeof(buf);
+inline std::string demangle(const char *name) {
+  size_t len = 4096;
+  std::string s(len, 0);
   int status = 0;
-  abi::__cxa_demangle(name, buf, &len, &status);
-  std::string s;
+  abi::__cxa_demangle(name, s.data(), &len, &status);
   if (status) {
     LOG_WARN << "abi::__cxa_demangle() return, status: " << status;
     s = name;
-  } else {
-    s = buf;
   }
-  return s.c_str();
+  return s;
 }
 
 // --

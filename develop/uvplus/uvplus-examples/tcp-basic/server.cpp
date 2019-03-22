@@ -6,7 +6,7 @@
 
 // --
 
-uvplus::TcpAcceptor<uvplus::Codec2> *g_acceptor;
+uvplus::TcpAcceptor *g_acceptor;
 Business *g_business;
 
 int loopRun(uvp::Loop *loop) {
@@ -26,8 +26,8 @@ int tcp_server() {
   auto loop = std::make_unique<uvp::LoopObject>();
   sockaddr_in addr;
   uvp::ip4Addr("0", 7001, &addr);
-  uvplus::TcpAcceptor<uvplus::Codec2> acceptor(loop.get(),
-                                               (const sockaddr *)&addr);
+  uvplus::TcpAcceptor acceptor(loop.get(), (const sockaddr *)&addr);
+  acceptor.packInterface(std::make_unique<uvplus::Pack2>(50));
   g_acceptor = &acceptor;
 
   Business bness("business");

@@ -13,25 +13,25 @@
 
 namespace uvplus {
 
-template<typename C> class TcpAcceptor {
+class TcpAcceptor {
   class TcpPeer {
     uvp::TcpObject _socket;
     std::string _peer;
     TcpAcceptor &_acceptor;
 
-    C _codec;
+    std::unique_ptr<PackInterface> _packInterface;
 
     void makeup(const char *p, size_t len) {
       int remain = len;
       do {
-        int writed = _codec.ringBuffer().write(p, remain);
+        int writed = _packInterface->feed(p, remain);
         remain -= writed;
         p += writed;
 
         while (true) {
           // 解析出每个包
           uvp::uv::BufT b = {0};
-          if (!_codec.decode(b)) {
+          if (!_packInterface->unpack(b)) {
             break;
           }
 
@@ -80,7 +80,7 @@ template<typename C> class TcpAcceptor {
       LOG_INFO << "handle of agent socket closed." << _peer;
     }
 
-  public:
+   public:
     TcpPeer(uvp::Loop *loop, TcpAcceptor &server)
         : _socket(loop), _acceptor(server) {
       _socket.writeCallback(std::bind(
@@ -104,6 +104,10 @@ template<typename C> class TcpAcceptor {
       }
       return _peer;
     }
+
+    void packInterface(std::unique_ptr<PackInterface> &&pi) {
+      _packInterface = std::forward<decltype(pi)>(pi);
+    }
   };
 
   uvp::TcpObject _socket;
@@ -113,7 +117,7 @@ template<typename C> class TcpAcceptor {
   uvp::Loop *_loop;
   std::unordered_map<std::string, std::unique_ptr<TcpPeer>> _clients;
 
-  C _codec;
+  std::unique_ptr<PackInterface> _packInterface;
   Gangway _gangway;
 
   bool readStopped = false;
@@ -161,6 +165,7 @@ template<typename C> class TcpAcceptor {
     }
 
     auto client = std::make_unique<TcpPeer>(_loop, *this);
+    client->packInterface(_packInterface->clone());
     int r = _socket.accept(client->socket());
     if (r < 0) {
       UVP_LOG_ERROR(r);
@@ -225,11 +230,11 @@ template<typename C> class TcpAcceptor {
     }
   }
 
-
   void addClient(std::unique_ptr<TcpPeer> &&client) {
     std::string n = client->peer();
-    auto i = _clients.insert({n, std::forward<decltype(client)>(client)});
-    if (!i.second) {
+
+    if (auto i = _clients.insert({n, std::forward<decltype(client)>(client)});
+        !i.second) {
       LOG_CRIT << "client agent has a same name: " << n;
     }
     LOG_INFO << "add client: " << n;
@@ -270,13 +275,15 @@ template<typename C> class TcpAcceptor {
     return _gangway._downward.try_dequeue_bulk(packets.begin(), packets.size());
   }
 
-public:
+ public:
   enum class NotifyTag { NT_NOTHING = 0, NT_CLOSE, NT_CLIENTS_SHUTDOWN };
 
   TcpAcceptor(uvp::Loop *loop, const struct sockaddr *addr)
-      : _socket(loop), _async(loop, std::bind(&TcpAcceptor::onAsync, this,
-                                              std::placeholders::_1)),
-        _timer(loop), _loop(loop) {
+      : _socket(loop),
+        _async(loop,
+               std::bind(&TcpAcceptor::onAsync, this, std::placeholders::_1)),
+        _timer(loop),
+        _loop(loop) {
     const int backlog = 128;
 
     _socket.connectionCallback(std::bind(&TcpAcceptor::onConnection, this,
@@ -307,6 +314,10 @@ public:
     return _name;
   }
 
+  void packInterface(std::unique_ptr<PackInterface> &&pi) {
+    _packInterface = std::forward<decltype(pi)>(pi);
+  }
+
   bool upwardDequeue(Packet &packet) {
     return _gangway._upward.wait_dequeue_timed(packet,
                                                std::chrono::milliseconds(500));
@@ -321,7 +332,7 @@ public:
 
   int downwardEnqueue(const char *name, const char *p, size_t len) {
     uvp::uv::BufT b = {0};
-    if (!_codec.encode(b, p, len)) {
+    if (!_packInterface->pack(b, p, len)) {
       return -1;
     }
     Packet packet(name, b);
@@ -344,4 +355,4 @@ public:
 
 // --
 
-} // namespace uvplus
+}  // namespace uvplus

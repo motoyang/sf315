@@ -62,16 +62,30 @@ struct GangwayInConnector {
 
 // --
 
-class Codec {
+struct NoCopyable {
+  NoCopyable() = default;
+  NoCopyable(const NoCopyable&) = delete;
+  NoCopyable& operator=(const NoCopyable&) = delete;
+};
+
+struct PackInterface: NoCopyable {
+  virtual ~PackInterface() = default;
+  virtual bool pack(uvp::uv::BufT &buf, const char *p, unsigned short len) = 0;
+  virtual size_t feed(const char *data, size_t bytes) = 0;
+  virtual bool unpack(uvp::uv::BufT &buf) = 0;
+  virtual std::unique_ptr<PackInterface> clone() const = 0;
+};
+
+// --
+
+class Pack1: public PackInterface {
   char _mark;
-  mutable RingBuffer _ring;
+  RingBuffer _ring;
 
 public:
-  Codec(char mark) : _mark(mark), _ring(45) {}
+  Pack1(char mark, size_t len) : _mark(mark), _ring(len) {}
 
-  RingBuffer &ringBuffer() const { return _ring; }
-
-  bool encode(uvp::uv::BufT &buf, const char *p, unsigned short len) {
+  bool pack(uvp::uv::BufT &buf, const char *p, unsigned short len) override {
     UVP_ASSERT(buf.len == 0 && buf.base == nullptr);
     if (!p || !len) {
       UVP_ASSERT(false);
@@ -93,7 +107,11 @@ public:
     return true;
   }
 
-  virtual bool decode(uvp::uv::BufT &buf) {
+  size_t feed(const char *data, size_t bytes) override {
+    return _ring.write(data, bytes);
+  }
+
+  bool unpack(uvp::uv::BufT &buf) override {
     UVP_ASSERT(buf.len == 0 && buf.base == nullptr);
 
     char *body = _ring.search(_mark);
@@ -126,17 +144,19 @@ public:
 
     return true;
   }
+
+  std::unique_ptr<PackInterface> clone() const override {
+    return std::make_unique<Pack1>(_mark, _ring.capacity());
+  }
 };
 
-class Codec2 {
-  mutable RingBuffer _ring;
+class Pack2: public PackInterface {
+  RingBuffer _ring;
 
 public:
-  Codec2() : _ring(48) {}
+  Pack2(size_t len) : _ring(len) {}
 
-  RingBuffer &ringBuffer() const { return _ring; }
-
-  bool encode(uvp::uv::BufT &buf, const char *p, unsigned short len) {
+  bool pack(uvp::uv::BufT &buf, const char *p, unsigned short len) override {
     UVP_ASSERT(buf.len == 0 && buf.base == nullptr);
     if (!p || !len) {
       UVP_ASSERT(false);
@@ -156,7 +176,11 @@ public:
     return true;
   }
 
-  bool decode(uvp::uv::BufT &buf) {
+  size_t feed(const char *data, size_t bytes) override {
+    return _ring.write(data, bytes);
+  }
+
+  bool unpack(uvp::uv::BufT &buf) override {
     UVP_ASSERT(buf.len == 0 && buf.base == nullptr);
 
     int head_len = sizeof(unsigned short);
@@ -178,6 +202,12 @@ public:
 
     return true;
   }
+
+  std::unique_ptr<PackInterface> clone() const override {
+    return std::make_unique<Pack2>(_ring.capacity());
+  }
 };
+
+// --
 
 } // namespace uvplus

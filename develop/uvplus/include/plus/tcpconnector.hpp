@@ -13,12 +13,12 @@
 
 namespace uvplus {
 
-template<typename C> class TcpConnector {
+class TcpConnector {
   uvp::TcpObject _socket;
   uvp::AsyncObject _async;
   uvp::TimerObject _timer;
 
-  C _codec;
+  std::unique_ptr<PackInterface> _packInterface;
   GangwayInConnector _gangway;
   std::atomic<int> _notifyTag{0};
 
@@ -54,17 +54,17 @@ template<typename C> class TcpConnector {
     }
   }
 
-  void makeup(const char *p, size_t len) {
+  void collect(const char *p, size_t len) {
     int remain = len;
     do {
-      int writed = _codec.ringBuffer().write(p, remain);
+      int writed = _packInterface->feed(p, remain);
       remain -= writed;
       p += writed;
 
       while (true) {
         // 解析出每个包
         uvp::uv::BufT b = {0};
-        if (!_codec.decode(b)) {
+        if (!_packInterface->unpack(b)) {
           break;
         }
         dispatch(b);
@@ -82,7 +82,7 @@ template<typename C> class TcpConnector {
     }
 
     if (nread) {
-      makeup(buf->base, nread);
+      collect(buf->base, nread);
     }
   }
 
@@ -218,6 +218,10 @@ public:
     return _peer;
   }
 
+  void packInterface(std::unique_ptr<PackInterface>&& pi) {
+    _packInterface = std::forward<decltype(pi)>(pi);
+  }
+
   void notify(int tag) {
     _notifyTag = tag;
     _async.send();
@@ -235,7 +239,7 @@ public:
     }
 
     uvp::uv::BufT b = {0};
-    if (!_codec.encode(b, p, len)) {
+    if (!_packInterface->pack(b, p, len)) {
       return -1;
     }
     // 进队列失败时，重新进队列直到进入队列成功。
