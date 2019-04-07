@@ -1,0 +1,5 @@
+[2019-04-02 18:04:26.1554199466009][INFO][140030359375680][../src/nanolog.hpp:Logger:665] Non-guaranteed Logger starts.
+[2019-04-02 18:04:26.1554199466009][CRIT][140030359375680][../test/t1/test_record_protocol.cpp:_DOCTEST_ANON_FUNC_3:21] abcdef
+[2019-04-02 18:04:26.1554199466009][WARN][140030359375680][../test/t1/test_record_protocol.cpp:_DOCTEST_ANON_FUNC_3:22] abcdef
+[2019-04-02 18:04:26.1554199466009][INFO][140030359375680][../test/t1/test_record_protocol.cpp:_DOCTEST_ANON_FUNC_3:23] abcdef
+[2019-04-02 18:04:26.1554199466012][INFO][140030359375680][../src/nanolog.hpp:~Logger:672] Logger ends.

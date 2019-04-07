@@ -1,0 +1,410 @@
+HKDF-Expand-Label(Secret, Label, Context, Length) = HKDF-Expand(Secret, HkdfLabel, Length)
+
+Where HkdfLabel is specified as:
+struct {
+uint16 length = Length;
+opaque label<7..255> = "tls13 " + Label;
+opaque context<0..255> = Context;
+} HkdfLabel;
+
+Derive-Secret(Secret, Label, Messages) = HKDF-Expand-Label(Secret, Label, Transcript-Hash(Messages), Hash.length)
+
+Derive-Secret(Secret, Label, Messages) =
+  HKDF-Expand(Secret, HkdfLabel{Hash.length, "tls13 " + Label, Transcript-Hash(Messages)}, Hash.length)
+
+Transcript-Hash = SHA-256
+
+-------
+
+根据RFC的定义：
+Derive-Secret(Secret, Label, Messages) = HKDF-Expand-Label(Secret, Label, Transcript-Hash(Messages), Hash.length)
+
+而：
+HKDF-Expand-Label(Secret, Label, Context, Length) = HKDF-Expand(Secret, HkdfLabel, Length)
+
+所以：
+Derive-Secret(Secret, Label, Messages) = HKDF-Expand(Secret, HkdfLabel, Hash.length)
+
+struct {
+    uint16 length = Length;
+    opaque label<7..255> = "tls13 " + Label;
+    opaque context<0..255> = Context;
+} HkdfLabel;
+
+其中：
+HkdfLabel = Hash.length(2 字节) + label_length(1字节) + "tls13 " + Label + Hash.length(1字节) + HASH(Messages)
+也就是说Derive-Secret就是HKDF的expand操作。
+
+-----------------------
+
+psk和0生成 early secret
+early secret和pms生成handshake secret
+handshake secret和0生成master secret
+
+计算出来的 early secret、handshake secret、master secret并不会直接用来加密数据，完全可以理解为是为了计算秘钥key而产生的临时变量。
+这些临时变量需要按照 图1 中右侧的流程计算，生成的XXX_traffic_secret ( XXX_traffic_secret被称之为basekey )，
+然而XXX_traffic_secret也不会用来加密。。。还需要按照RFC 7.3 节中描述的步骤:
+[sender]_write_key = HKDF-Expand-Label(Secret, "key", "", key_length)
+[sender]_write_iv  = HKDF-Expand-Label(Secret, "iv" , "", iv_length)
+
+其中 Secret 就是 XXX_traffic_secret 。而输出[sender]_write_key和[sender]_write_iv就是加密时实际使用的参数了 。
+
+
+--------------
+完整的 TLS 1.3 1-RTT描述
+
+Full handshake
+
+1：client发送Client Hello，携带如下几个重要信息
+（1）：支持的加密套件（该作用和之前一样）。
+（2）：supproted_versions 拓展。包含自己支持的TLS协议版本号。（之前协议没有）
+（3）：supproted_groups 拓展，表示自己支持的椭圆曲线类型。
+（4）：key_share拓展。包含supprot_groups中各椭圆曲线对应的public key。（当然可以发送空的，然后server会回复hello request，其中会包含server的key_share，可以用来探测，这里不讨论）。key_share中的椭圆曲线类型必须出现在supproted_groups中。（之前协议没有）
+
+2：server 发送Server Hello，携带如下几个重要信息
+（1）：supproted_versions 拓展。包含自己从client的supproted_versions中选择的TLS协议版本号。（之前协议没有）
+（2）：key_share拓展。包含自己选中的椭圆曲线，以及自己计算出来的公钥。（之前协议没有）
+
+3：server 发送Change Cipher Spec。（允许不发送）
+
+4：server发送Encrypted Extension。（加密的）
+（1:）：ServerHello之后必须立刻发送Encrypted Extension。这是第一个被加密的数据数据。显然，放在这里的拓展，是和秘钥协商没关系的拓展。（之前协议没有）
+
+5：server发送Certificate。（加密的）
+这个报文和之前的协议没有太大区别，唯一的区别就是，在证书链中的每个证书后面，都有一个extension。（双向认证时也会有区别，有机会再说）。这个extension目前只能是OCSP Status extension和SignedCertificateTimestamps。
+
+6：server发送Certificate Verify（加密的）
+这个报文并不陌生，但是以前只出现在双向认证（客户端认证）中，以前Certificate Verify生成的逻辑是将当前所有的握手报文解析解析签名（简单的md+非对称加密）。而在TLS 1.3中，这个计算有些变化，但是还是很简单。计算逻辑如下：
+
+    u8 *p = tbs[BUFFER_SIZE];
+
+    memset(p, 0x20, 64);
+    p += 64;
+    memcpy(p, "TLS 1.3, server CertificateVerify", 33);
+    p += 33;
+    *p ++ = 0;
+    HASH(ALL_HANDSHKE, ALL_SIZE, P);
+    p += md_size;
+
+    SIGN(tbs)
+
+    1
+    2
+    3
+    4
+    5
+    6
+    7
+    8
+    9
+    10
+    11
+
+而TLS 1.2的计算是这样的：
+
+    SIGN(HASH(ALL_HANDSHKE, ALL_SIZE));
+
+    1
+
+7：server回复Finished（加密的）
+这个报文的目的和之前协议一样，检验握手报文的完整性。但是计算方法有变化。
+TLS 1.3 的计算方法，先计算md，然后计算hamc，其中finishkey详细如何生成见key_derive。
+
+    buffer = HMAC(HASH(ALL_HANDSHKE, finishkey)
+    buffer 前添加握手报文类型+长度
+    加密_send(buffer)
+
+    1
+    2
+    3
+
+TLS 1.2是这样计算的
+
+    buffer = prf("server finished" + HASH(ALL_HANDSHKE))
+    buffer 前添加握手报文类型+长度
+    加密_send(buffer)
+
+    1
+    2
+    3
+
+8：client发送Change Cipher Spec。（允许不发送）
+
+9：client发送 Finished（加密的）
+同7。
+
+10：server发送New Session Ticket（可选，0-RTT 依赖次报文）
+若server表明自己有能力读取0-RTT，则会在New Session Ticket后面添加一个max_early_data_size拓展。
+
+整个流程的目的和TLS 1.2是相似的，就是为了交换椭圆曲线参数。和之前不一样的就是，无非就是提前把所有的公钥计算了一遍，发给server，server再挑选。
+PSK handshake
+
+我还是习惯于叫会话复用。其流程如下图（解密后的）
+
+这里写图片描述
+1：client发送Client Hello，除了Full handshake中提到的携带的拓展以外还包含如下字段：
+（1）：psk_key_exchange_modes，目前只有psk_dhe_ke才能跑的通。
+（2）：pre_shared_key拓展，其实就是New Session Ticket+binders，由于TLS 1.3 中，Server的New Session Ticket可以在握手结束后随时随地的发送，且可能发送多次，这意味着client会缓存多个New Session Ticket，所以pre_shared_key会保存多对New Session Ticket+binders组合。详细pre_shared_key后文会将，为了方便理解PSK handshake和0-RTT握手，此处的pre_shared_key完全理解为 TLS 1.2中的Client Hello中携带的Session_Ticket_TLS拓展。
+
+2：server发送Server Hello，除了Full handshake中提到的携带的拓展以外还包含如下字段：
+（1）：pre_shared_key。表示自己正常解析了client发送的pre_shared_key，然后指定字节从client中选择的New Session Ticket+binders组合，用数字0,1,2,3…表示选择了第几个。
+
+3：server发送Change Cipher Spec（允许不发送）
+
+4：server发送Encrypted Extension
+同Full handshake中一样
+
+5：client发送Change Cipher Spec（允许不发送）
+
+6：client发送 Finished（加密的）
+同Full handshake中一样
+
+7：server发送New Session Ticket（可选）
+同Full handshake中一样
+
+可见，他和TLS 1.2的session ticket复用没什么区别，无非就是处理session ticket的方式有些改变而已。
+TLS 1.3 0-RTT 流程
+
+上面讲了1-RTT的情况，TLS 1.3 默认最多1-RTT（不考虑Hello request），所以从这个角度上来说，TLS 1.3已经相较于 TLS 1.2 有了握手速度的提升，但是最终极的做法是0-RTT。0-RTT必然存在重放攻击，但是在Google的威逼利诱下，TLS 1.3 还是同意支持了0-RTT。后面会说0-RTT下重放攻击。
+
+文章开头TLS 1.3 的握手概述一节中，对0-RTT已经有了一些描述，但是不详细，这里根据报文详细描述下其流程。
+RFC中的描述
+
+            ClientHello
+            + early_data
+            + key_share*
+            + psk_key_exchange_modes
+            + pre_shared_key
+            (Application Data*)     -------->
+                                                            ServerHello
+                                                       + pre_shared_key
+                                                           + key_share*
+                                                  {EncryptedExtensions}
+                                                          + early_data*
+                                                             {Finished}
+                                    <--------       [Application Data*]
+            (EndOfEarlyData)
+            {Finished}              -------->
+            [Application Data]      <------->        [Application Data]
+
+    1
+    2
+    3
+    4
+    5
+    6
+    7
+    8
+    9
+    10
+    11
+    12
+    13
+    14
+    15
+    16
+
+完整的TLS 1.3 0-RTT 描述
+
+0-RTT是基于上文中PSK handshake为基础的，所以这里和PSK handshake一样的地方直接一笔带过。
+
+1：client发送Client Hello，除了PSK handshake中提到的携带的拓展以外还包含如下字段：
+（1）：early_data拓展，表示其在Client Hello后面紧跟着early data
+
+2：client发送Change Cipher Spec。（可以选，允许不发送）
+
+3：client发送application data。
+这个application data是被加密的应用层数据，例如GET /...，可以发送好几个Application Data。
+
+4：server发送Server Hello
+同PSK Handshake
+
+5：server发送Change Cipher Spec（允许不发送）
+
+6：server发送Encrypted Extension。除了PSK Handshake中提到的携带的拓展以外还包含如下字段：
+（1）：early_data拓展，表示其愿意接受Client Hello发送的early data。
+
+7：server发送Finished
+
+8：client发送完early data后，发送End_Of_Early_Data报文表示client自己发送完了early data。
+注意，early data并不算在最后的Finished中，其次，End_Of_Early_Data不参与最后application traffic secret的计算。
+
+9：client发送完End_Of_Early_Data后，发送Finished。
+
+10：server发送New Session Ticket（可选）。
+
+11：server处理early data，这一步可能是server边收边处理的，所以放在3与4中间也行。
+0-RTT 处理顺序
+
+作为client，client发送early data之后，可以一直发early data。
+作为server，接受Client Hello后，立刻发送自己的数据Server Hello、Change Cipher Spec、Finished。
+作为client，当收到server的Finished后，才允许发送End_Of_Early_Data。
+作为client，在如果server没有接受自己发送的early data，则不发送End_Of_Early_Data。
+0-RTT 降级到 1-RTT
+
+上文TLS 1.3 的握手概述中描述过，完成0-RTT的条件有如下2个
+1：PSK Handshake成功
+2：Server配置了接受0-RTT
+那么自然，1和2都有可能发生错误（无论主观还是客观），肯定会由0-RTT降级到1-RTT的情况。降级必然需要妥善处理early data。
+
+对于server来说，拒绝early data，有2种程度的方式可以拒绝：
+（1）：拒绝PSK Handshake，即Server Hello中，不加入pre_shared_key拓展。这个常见于session ticket过期等情况。不支持PSK Handshake，自然而然不支持early data。
+（2）：只拒绝early data，但允许PSK Handshake。即Server Hello中，加入pre_shared_key拓展，但是Encrypted Extension报文中不加入early_data拓展。这个常见于server不准备读取early_data的情况。
+
+无论（1）和（2），都会忽略client发送的early data，如何忽略？其实如果server不准备读取early data，其当前阶段的secret导出是handshake secret而不是early secret（即想解密的是握手报文而不是early data），所以当拿这个secret去解密early data必然会出现错误，话句话说，所谓的忽略，就是忽略解密错误。
+TLS 1.3 中的 New Session Ticket
+TLS 1.2 中的New Session Ticket
+
+      struct {
+          uint32 ticket_lifetime_hint;
+          opaque ticket<0..2^16-1>;
+      } NewSessionTicket;
+
+    1
+    2
+    3
+    4
+
+很简单的格式，一个是ticket_lifetime_hint，告知客户端这个ticket的生命周期（老化时间），ticket就是主要包含了主秘钥等其他信息（客户端认证的话可能还包含客户端的证书）。
+
+只有在Client Hello和Server Hello中都携带了session ticket拓展，server才能在Change Cipher Spec之前发送New Session Ticket。
+TLS 1.3 中的New Session Ticket
+
+      struct {
+          uint32 ticket_lifetime;
+          uint32 ticket_age_add;
+          opaque ticket_nonce<0..255>;
+          opaque ticket<1..2^16-1>;
+          Extension extensions<0..2^16-2>;
+      } NewSessionTicket;
+
+    1
+    2
+    3
+    4
+    5
+    6
+    7
+
+ticket_lifetime和TLS 1.2中的ticket_lifetime_hint含义一样，用以告知客户端ticket的老化时间；ticket_age_add作用讲PSK还会再说，这里我们需要知道的是，该值主要是用来混淆PSK中携带的session ticket老化时间。ticket_nonce目前都是是一个counter，，初始值是0，发送一次后，counter++。ticket和TLS 1.2 中的含义类似，只是这里是PSK，而不是master_secret。Extension extensions目前只定义了一种拓展：max_early_data_size，该值的作用在上文多次提到过，就是表明server愿意接收多少early data，超过这个值，server会断开连接。
+这个PSK，需要着重说一下，RFC中其计算流程如下：
+
+HKDF-Expand-Label(resumption_master_secret,
+                "resumption", ticket_nonce, Hash.length) = PSK
+
+    1
+    2
+
+入参的核心是，resumption_master_secret，它是由Master Secret进行derive后获得的（详见key derive）。
+TLS 1.3 中的 pre_share_key
+
+先看一下RFC中对应的格式：
+
+      struct {
+          opaque identity<1..2^16-1>;
+          uint32 obfuscated_ticket_age;
+      } PskIdentity;
+
+      opaque PskBinderEntry<32..255>;
+
+      struct {
+          PskIdentity identities<7..2^16-1>;
+          PskBinderEntry binders<33..2^16-1>;
+      } OfferedPsks;
+
+      struct {
+          select (Handshake.msg_type) {
+              case client_hello: OfferedPsks;
+              case server_hello: uint16 selected_identity;
+          };
+      } PreSharedKeyExtension;
+
+    1
+    2
+    3
+    4
+    5
+    6
+    7
+    8
+    9
+    10
+    11
+    12
+    13
+    14
+    15
+    16
+    17
+    18
+    19
+
+上面的意思是说，对于Client Hello而言，发送的是OfferedPsks，也是这节我们关注的。（Server Hello中携带的PSK拓展，上文已经提到过了，也描述了其作用）。我们要关注3个值。
+1：Obfuscated Ticket Age
+2：Identity
+3：PSK binders
+Obfuscated Ticket Age
+
+个人理解，首先在TLS 1.2中，client发送的Session_Ticket_TLS拓展，并不携带该ticket在客户端已存在的时间。server收到后，靠ticket里面的内容来判断收到的ticket是否过期（例如server发送的ticket里面增加时间相关信息，收到后校验、或者server会定时更新解密key，解密失败意味着ticket过期），而在TLS 1.3中，特地增加一个值，表示ticket的年龄（即在客户端存在的时间）。但是，Client Hello是明文传输的，这个年龄必然也是明文传输的，所以中间人能够看到（看到有什么坏处呢？）。为了不让中间人知道这个ticket的年龄，很容易想到的是，对这个值 加盐。这个盐就是New Session Ticket中的ticket_age_add，因为New Session Ticket本身就是被加密的，所以这个ticket_age_add只有通信两端才知道。
+Obfuscated Ticket Age的计算方法，RFC中也提到了：
+
+The "obfuscated_ticket_age" field of each PskIdentity contains an obfuscated version of the ticket age formed by taking the age in milliseconds and adding the "ticket_age_add" value that was included with the ticket (seeSection 4.6.1), modulo 2^32
+
+    1
+
+即 obfuscated_ticket_age = (uint32)(jiffies + ticket_age_add)
+
+其次，Clienthello携带时间信息还有一个好处就是，Server可以依据这个时间来快速拒绝0-RTT。比如Server从这个时间信息恢复得到这个ticket在客户端的存在时间，判断这个ticket时间是否在自己可接受的范围之内。
+Identity
+
+其内容就是NewSessionTicket中的ticket部分。server用来恢复session的。这里不赘述了。
+PSK binders
+
+先说一下，对于client，PSK binders是怎么计算的：
+1、首先计算一个binder_key。
+
+                 0
+                 |
+                 v
+   PSK ->  HKDF-Extract = Early Secret
+                 |
+                 +-----> Derive-Secret(.,
+                 |                     "ext binder" |
+                 |                     "res binder",
+                 |                     "")
+                 |                     = binder_key
+
+    1
+    2
+    3
+    4
+    5
+    6
+    7
+    8
+    9
+    10
+
+（1）第一步就是获取PSK
+PSK哪里的？其实就是从New Session Ticket中的ticket恢复得到。
+
+（2）第二步就是PSK和0进行HKDF-Extract计算Early Secret
+（3）第三步就是计算binder_key。
+
+2、计算Finished key
+
+The PskBinderEntry is computed in the same way as the Finished message (Section 4.4.4) but with the BaseKey being the binder_key.
+
+    1
+
+所以我们需要计算Finished key，
+
+3、计算当前client hello的摘要md
+注意这个不包括PSK Binders和PSK Binders length，否则就出现鸡生蛋蛋生鸡的问题了。
+
+4、将md进行hmac计算，hmac的key是Finished key
+---------------------
+作者：Mrpre
+来源：CSDN
+原文：https://blog.csdn.net/mrpre/article/details/81532469
+版权声明：本文为博主原创文章，转载请附上博文链接！

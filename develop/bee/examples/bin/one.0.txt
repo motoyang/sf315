@@ -1,0 +1,2 @@
+[2019-04-08 00:21:40.1554654100506][INFO][140449261116864][../src/nanolog.hpp:Logger:665] Non-guaranteed Logger starts.
+[2019-04-08 00:21:40.1554654100506][INFO][140449261116864][../src/nanolog.hpp:~Logger:672] Logger ends.
