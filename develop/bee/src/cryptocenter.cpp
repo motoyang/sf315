@@ -1,6 +1,6 @@
 // #include "tls.h"
 // #include "cryptography.h"
-// #include "factory.hpp"
+#include "memoryimpl.h"
 #include "cryptocenter.h"
 
 // --
@@ -66,4 +66,56 @@ std::vector<uint8_t>
 Cryptocenter::decrypto(const uint8_t *p, size_t len,
                        const std::vector<uint8_t> &key) const {
   return std::vector<uint8_t>();
+}
+
+constexpr static CipherSuite s_supported_ciphersuits[] = {
+    CONST_HTONS(0x1301), // TLS_AES_128_GCM_SHA256
+    CONST_HTONS(0x1302), // TLS_AES_256_GCM_SHA384
+    CONST_HTONS(0x1303), // TLS_CHACHA20_POLY1305_SHA256
+    CONST_HTONS(0x1304), // TLS_AES_128_CCM_SHA256
+    CONST_HTONS(0x1305)  // TLS_AES_128_CCM_8_SHA256
+};
+
+bool Cryptocenter::select(CipherSuite &selected,
+                          const Container<uint16_t, CipherSuite> *css) const {
+  auto cs = css->data();
+  for (auto len = 0; len < css->len(); len += sizeof(CipherSuite)) {
+    auto found = std::find(std::cbegin(s_supported_ciphersuits),
+                           std::cend(s_supported_ciphersuits), *cs);
+    if (found != std::cend(s_supported_ciphersuits)) {
+      selected = *cs;
+      return true;
+    }
+    ++cs;
+  }
+  return false;
+}
+
+bool Cryptocenter::support(Container<uint16_t, CipherSuite> *supported) const {
+  supported->len(sizeof(s_supported_ciphersuits));
+  auto cs = supported->data();
+  auto count = COUNT_OF(s_supported_ciphersuits);
+  for (auto i = 0; i < count; ++i) {
+    cs[i] = s_supported_ciphersuits[i];
+  }
+  return true;
+}
+
+bool Cryptocenter::support(NamedGroupList *ngl) const {
+  ngl->len(sizeof(NamedGroup) * (_dhSupported.size() + _ecdhSupported.size()));
+  auto data = ngl->data();
+  for (const auto& dh: _dhSupported) {
+    *data = dh.first;
+    ++data;
+  }
+  for (const auto& ecdh: _ecdhSupported) {
+    *data = ecdh.first;
+    ++data;
+  }
+
+  return true;
+}
+bool Cryptocenter::select(NamedGroup &selected,
+                          const NamedGroupList *ngl) const {
+  return true;
 }

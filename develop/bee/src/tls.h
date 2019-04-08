@@ -4,6 +4,7 @@
 #include <cassert>
 #include <netinet/in.h>
 
+#include <type_traits>
 #include <string>
 #include <vector>
 
@@ -19,6 +20,8 @@
   (((x)&0x000000FFU) << 24 | ((x)&0x0000FF00U) << 8 | ((x)&0x00FF0000U) >> 8 | \
    ((x)&0xFF000000U) >> 24)
 
+#define COUNT_OF(t) (sizeof(t) / sizeof(t[0]))
+
 // --
 
 std::string hex2section(const std::string &hex, size_t bytesOfSection = 4,
@@ -27,6 +30,14 @@ std::string hex2section(const std::string &hex, size_t bytesOfSection = 4,
 // --
 
 #pragma pack(1)
+
+using ProtocolVersion = uint16_t;
+
+constexpr ProtocolVersion PV_SSL_3_0 = CONST_HTONS(0x0300),
+                          PV_TLS_1_0 = CONST_HTONS(0x0301),
+                          PV_TLS_1_1 = CONST_HTONS(0x0302),
+                          PV_TLS_1_2 = CONST_HTONS(0x0303),
+                          PV_TLS_1_3 = CONST_HTONS(0x0304);
 
 enum class ContentType : uint8_t {
   invalid = 0,
@@ -138,6 +149,43 @@ enum PskKeyExchangeMode : uint8_t {
   // , (255)
 };
 
+enum AlertLevel : uint8_t {
+  warning = 1,
+  fatal = 2,
+  // (255)
+};
+
+enum AlertDescription : uint8_t {
+  close_notify = 0,
+  unexpected_message = 10,
+  bad_record_mac = 20,
+  record_overflow = 22,
+  handshake_failure = 40,
+  bad_certificate = 42,
+  unsupported_certificate = 43,
+  certificate_revoked = 44,
+  certificate_expired = 45,
+  certificate_unknown = 46,
+  illegal_parameter = 47,
+  unknown_ca = 48,
+  access_denied = 49,
+  decode_error = 50,
+  decrypt_error = 51,
+  protocol_version = 70,
+  insufficient_security = 71,
+  internal_error = 80,
+  inappropriate_fallback = 86,
+  user_canceled = 90,
+  missing_extension = 109,
+  unsupported_extension = 110,
+  unrecognized_name = 112,
+  bad_certificate_status_response = 113,
+  unknown_psk_identity = 115,
+  certificate_required = 116,
+  no_application_protocol = 120,
+  // (255)
+};
+
 // --
 
 // --
@@ -169,8 +217,6 @@ public:
 
 // --
 
-using ProtocolVersion = uint16_t;
-
 // struct {
 //   ContentType type;
 //   ProtocolVersion legacy_record_version;
@@ -201,12 +247,7 @@ public:
     return innerPlaintext() + length() + sizeof(ContentType);
   }
   uint16_t size() const { return sizeof(*this) + length(); }
-  bool cryptoFlag() const {
-    if (type == ContentType::application_data) {
-      return true;
-    }
-    return false;
-  }
+  bool cryptoFlag() const { return type == ContentType::application_data; }
 
   static TLSPlaintext *alloc(ContentType ct, ProtocolVersion pv,
                              const uint8_t *data, uint16_t len);
@@ -292,10 +333,24 @@ public:
 template <typename T> struct Extension {
   ExtensionType extension_type;
   T *extension_data() const { return (T *)(this + 1); }
-  uint32_t size() const { return sizeof(*this) + extension_data()->size(); }
+  uint32_t size() const {
+    if constexpr (std::is_same_v<T, ProtocolVersion>)
+      return sizeof(*this) + sizeof(T);
+    else
+      return sizeof(*this) + extension_data()->size();
+  }
   uint8_t *next() const { return (uint8_t *)this + size(); }
 };
-
+/*
+template <> struct Extension<ProtocolVersion> {
+  ExtensionType extension_type;
+  ProtocolVersion *extension_data() const {
+    return (ProtocolVersion *)(this + 1);
+  }
+  uint32_t size() const { return sizeof(*this) + sizeof(ProtocolVersion); }
+  uint8_t *next() const { return (uint8_t *)this + size(); }
+};
+*/
 // using ProtocolVersion = uint16_t;
 // using Random = uint8_t[32];
 // uint8 CipherSuite[2]; /* Cryptographic suite selector */
@@ -455,14 +510,25 @@ struct KeyShareHelloRetryRequest {
 // struct {
 //   KeyShareEntry server_share;
 // } KeyShareServerHello;
-struct KeyShareServerHello {
-  KeyShareEntry server_share;
-};
+using KeyShareServerHello = KeyShareEntry;
+// struct KeyShareServerHello {
+//   KeyShareEntry server_share;
+//   uint16_t size() const { return sizeof(*this) + server_share.size(); }
+// };
 
 // struct {
 //   PskKeyExchangeMode ke_modes<1..255>;
 // } PskKeyExchangeModes;
 using PskKeyExchangeModes = Container<uint8_t, PskKeyExchangeMode>;
+
+// struct {
+//   AlertLevel level;
+//   AlertDescription description;
+// } Alert;
+struct Alert {
+  AlertLevel level;
+  AlertDescription description;
+};
 
 #pragma pack()
 

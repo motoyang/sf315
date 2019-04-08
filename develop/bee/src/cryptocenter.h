@@ -223,4 +223,11 @@ public:
                                 const std::vector<uint8_t> &key) const;
   std::vector<uint8_t> decrypto(const std::vector<uint8_t> &buf,
                                 const std::vector<uint8_t> &key) const;
+
+  bool select(CipherSuite &selected,
+              const Container<uint16_t, CipherSuite> *css) const;
+  bool support(Container<uint16_t, CipherSuite>* supported) const;
+
+  bool support(NamedGroupList* ngl) const;
+  bool select(NamedGroup& selected, const NamedGroupList* ngl) const;
 };

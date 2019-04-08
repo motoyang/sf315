@@ -3,6 +3,7 @@
 #include <stack>
 // --
 
+class VersionSupported;
 class Cryptocenter;
 class Channel;
 class RecordLayer;
@@ -20,6 +21,7 @@ class Client {
   };
 
   std::stack<Status> _status;
+  std::unique_ptr<VersionSupported> _vs;
   std::unique_ptr<RecordLayer> _rl;
   std::unique_ptr<Cryptocenter> _cryptocenter;
   std::unique_ptr<Channel> _channel;

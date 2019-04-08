@@ -8,6 +8,7 @@
 #include "cryptography.h"
 #include "recordlayer.h"
 #include "cryptocenter.h"
+#include "versionsupported.h"
 #include "channel.h"
 #include "client.h"
 
@@ -16,7 +17,8 @@
 // --
 
 Client::Client()
-    : _rl(std::make_unique<RecordLayer>()),
+    : _vs(std::make_unique<VersionSupported>()),
+      _rl(std::make_unique<RecordLayer>()),
       _channel(std::make_unique<Channel>()),
       _cryptocenter(std::make_unique<Cryptocenter>()) {
   _status.push(Client::Status::START);
@@ -33,37 +35,28 @@ const Handshake *Client::hello(std::vector<uint8_t> &buf) const {
 
   auto hs_frame = (Handshake *)buf.data();
   hs_frame->msg_type(HandshakeType::client_hello);
-  hs_frame->length(259);
+  // hs_frame->length(259);
 
   auto ch = (ClientHello *)hs_frame->message();
-  ch->legacy_version = 0x0303;
+  ch->legacy_version = PV_TLS_1_2;
   rng->randomize(ch->random, sizeof(ch->random));
   ch->legacy_session_id()->len(0);
-  ch->cipher_suites()->len(10);
-  auto cs = ch->cipher_suites()->data();
-  cs[0] = HTONS(0x1301);
-  cs[1] = HTONS(0x1302);
-  cs[2] = HTONS(0x1303);
-  cs[3] = HTONS(0x1304);
-  cs[4] = HTONS(0x1305);
+  _cryptocenter->support(ch->cipher_suites());
   ch->legacy_compression_methods()->len(1);
   ch->legacy_compression_methods()->data()[0] = 0;
 
   auto ex1 = (Extension<ClientSupportedVersions> *)ch->extensions()->data();
   ex1->extension_type = ExtensionType::supported_versions;
-  auto csv = ex1->extension_data();
-  csv->len(4);
-  auto pv = csv->data();
-  pv[0] = HTONS(0x0304);
-  pv[1] = HTONS(0x0305);
+  _vs->supported(ex1->extension_data());
 
   auto ex2 = (Extension<NamedGroupList> *)ex1->next();
   ex2->extension_type = ExtensionType::supported_groups;
-  auto ngl = ex2->extension_data();
-  ngl->len(6);
-  ngl->data()[0] = NamedGroup::ffdhe2048;
-  ngl->data()[1] = NamedGroup::ffdhe3072;
-  ngl->data()[2] = NamedGroup::secp256r1;
+  _cryptocenter->support(ex2->extension_data());
+  // auto ngl = ex2->extension_data();
+  // ngl->len(6);
+  // ngl->data()[0] = NamedGroup::ffdhe2048;
+  // ngl->data()[1] = NamedGroup::ffdhe3072;
+  // ngl->data()[2] = NamedGroup::secp256r1;
 
   auto ex3 = (Extension<KeyShareClientHello> *)ex2->next();
   ex3->extension_type = ExtensionType::key_share;
