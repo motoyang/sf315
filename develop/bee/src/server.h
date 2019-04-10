@@ -31,18 +31,22 @@ class Server {
 
   std::vector<uint8_t> _key;
 
+  std::unordered_map<ExtensionType, uint8_t *> extensionsCheck(Extensions *e);
+
 public:
   Server();
   virtual ~Server() = default;
 
-  void run();
+  void sayHello(const Handshake *hs);
 
-  void received(ContentType ct, const uint8_t* p, size_t len);
+  void run();
+  void received(ContentType ct, const uint8_t *p, size_t len);
   void received(const Handshake *hs, size_t len);
   void received(const Alert *alert, size_t len);
   void received(const uint8_t *appdata, size_t len);
 
   void received(const ClientHello *hello);
 
-  Handshake* hello(std::vector<uint8_t>& buf, const ClientHello* hello);
+  Handshake *hello(std::vector<uint8_t> &buf, const ClientHello *hello);
+  void helloRetryRequest(ServerHello *sh) const;
 };

@@ -32,12 +32,19 @@ std::string hex2section(const std::string &hex, size_t bytesOfSection = 4,
 #pragma pack(1)
 
 using ProtocolVersion = uint16_t;
+using CipherSuite = uint16_t;
 
 constexpr ProtocolVersion PV_SSL_3_0 = CONST_HTONS(0x0300),
                           PV_TLS_1_0 = CONST_HTONS(0x0301),
                           PV_TLS_1_1 = CONST_HTONS(0x0302),
                           PV_TLS_1_2 = CONST_HTONS(0x0303),
                           PV_TLS_1_3 = CONST_HTONS(0x0304);
+
+constexpr CipherSuite TLS_AES_128_GCM_SHA256 = CONST_HTONS(0x1301),
+                      TLS_AES_256_GCM_SHA384 = CONST_HTONS(0x1302),
+                      TLS_CHACHA20_POLY1305_SHA256 = CONST_HTONS(0x1303),
+                      TLS_AES_128_CCM_SHA256 = CONST_HTONS(0x1304),
+                      TLS_AES_128_CCM_8_SHA256 = CONST_HTONS(0x1305);
 
 enum class ContentType : uint8_t {
   invalid = 0,
@@ -206,9 +213,9 @@ public:
     if constexpr (sizeof(L) == 1)
       _len = l;
     else if constexpr (sizeof(L) == 2)
-      _len = NTOHS(l);
+      _len = HTONS(l);
     else if constexpr (sizeof(L) == 4)
-      _len = NTOHL(l);
+      _len = HTONL(l);
   }
   constexpr T *data() const { return (T *)(this + 1); }
   L size() const { return len() + sizeof(*this); }
@@ -341,6 +348,8 @@ template <typename T> struct Extension {
   }
   uint8_t *next() const { return (uint8_t *)this + size(); }
 };
+using Extensions = Container<uint16_t, Extension<uint8_t>>;
+
 /*
 template <> struct Extension<ProtocolVersion> {
   ExtensionType extension_type;
@@ -364,9 +373,6 @@ template <> struct Extension<ProtocolVersion> {
 //   opaque legacy_compression_methods<1..2 ^ 8 - 1>;
 //   Extension extensions<8..2 ^ 16 - 1>;
 // } ClientHello;
-
-using CipherSuite = uint16_t;
-
 struct ClientHello {
   ProtocolVersion legacy_version = 0x0303; /* TLS v1.2 */
   uint8_t random[32];
@@ -380,9 +386,7 @@ struct ClientHello {
     return (Container<uint8_t, uint8_t> *)cipher_suites()->next();
   }
   auto extensions() const {
-    return (Container<uint16_t, Extension<uint8_t>> *)
-        legacy_compression_methods()
-            ->next();
+    return (Extensions *)legacy_compression_methods()->next();
   }
   uint32_t size() const {
     return sizeof(*this) + legacy_session_id()->size() +
@@ -412,9 +416,8 @@ struct ServerHello {
     return legacy_session_id_echo()->next() + sizeof(CipherSuite);
   }
   auto extensions() const {
-    return (Container<uint16_t, Extension<uint8_t>>
-                *)(legacy_session_id_echo()->next() + sizeof(CipherSuite) +
-                   sizeof(uint8_t));
+    return (Extensions *)(legacy_session_id_echo()->next() +
+                          sizeof(CipherSuite) + sizeof(uint8_t));
   }
   uint32_t size() const {
     return sizeof(*this) + legacy_session_id_echo()->size() +

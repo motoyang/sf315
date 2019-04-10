@@ -14,6 +14,10 @@ std::shared_ptr<MemoryInterface> MemoryInterface::get() { return s_mi; }
 
 // --
 
+MemoryManager::MemoryManager() {}
+
+MemoryManager::~MemoryManager() {}
+
 uint8_t *MemoryManager::alloc(size_t len) const noexcept {
   uint8_t *r = (uint8_t *)std::malloc(len);
   if (!r) {

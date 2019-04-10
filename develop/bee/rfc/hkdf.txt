@@ -88,23 +88,11 @@ Full handshake
 
     SIGN(tbs)
 
-    1
-    2
-    3
-    4
-    5
-    6
-    7
-    8
-    9
-    10
-    11
 
 而TLS 1.2的计算是这样的：
 
     SIGN(HASH(ALL_HANDSHKE, ALL_SIZE));
 
-    1
 
 7：server回复Finished（加密的）
 这个报文的目的和之前协议一样，检验握手报文的完整性。但是计算方法有变化。
@@ -114,9 +102,6 @@ TLS 1.3 的计算方法，先计算md，然后计算hamc，其中finishkey详细
     buffer 前添加握手报文类型+长度
     加密_send(buffer)
 
-    1
-    2
-    3
 
 TLS 1.2是这样计算的
 

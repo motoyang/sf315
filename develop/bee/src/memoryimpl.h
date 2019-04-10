@@ -4,8 +4,8 @@
 
 class MemoryManager : public MemoryInterface {
 public:
-  MemoryManager() = default;
-  ~MemoryManager() override = default;
+  MemoryManager();
+  ~MemoryManager() override;
 
   uint8_t *alloc(size_t len)const noexcept override;
   void free(uint8_t *p) const noexcept override;

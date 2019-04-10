@@ -17,6 +17,6 @@ public:
   // VersionSupported& operator=(const VersionSupported&) = delete;
   // VersionSupported& operator=(VersionSupported&&) = delete;
 
-  void supported(ClientSupportedVersions* csv) const;
-  ProtocolVersion selected() const;
+  void supported(ClientSupportedVersions *csv) const;
+  bool selected(ProtocolVersion *pv, ClientSupportedVersions *csv) const;
 };

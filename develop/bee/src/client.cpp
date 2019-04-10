@@ -25,8 +25,9 @@ Client::Client()
 }
 
 void Client::start() {
-  std::vector<uint8_t> buf(10024, 0);
+  std::vector<uint8_t> buf(12024, 0);
   sayHello(hello(buf));
+  _clientHello = buf;
 }
 
 const Handshake *Client::hello(std::vector<uint8_t> &buf) const {
@@ -52,39 +53,11 @@ const Handshake *Client::hello(std::vector<uint8_t> &buf) const {
   auto ex2 = (Extension<NamedGroupList> *)ex1->next();
   ex2->extension_type = ExtensionType::supported_groups;
   _cryptocenter->support(ex2->extension_data());
-  // auto ngl = ex2->extension_data();
-  // ngl->len(6);
-  // ngl->data()[0] = NamedGroup::ffdhe2048;
-  // ngl->data()[1] = NamedGroup::ffdhe3072;
-  // ngl->data()[2] = NamedGroup::secp256r1;
 
   auto ex3 = (Extension<KeyShareClientHello> *)ex2->next();
   ex3->extension_type = ExtensionType::key_share;
   auto ksch = ex3->extension_data();
-  // ksch->len(8);
-  auto kse1 = ksch->data();
-  kse1->group = NamedGroup::ffdhe2048;
-  auto pk = _cryptocenter->privateKey(kse1->group)->public_value();
-  kse1->key_exchange()->len(pk.size());
-  auto key = kse1->key_exchange()->data();
-  MemoryInterface::get()->copy(key, pk.data(), pk.size());
-
-  auto kse2 = kse1->next();
-  kse2->group = NamedGroup::ffdhe3072;
-  kse2->key_exchange()->len(16);
-  key = kse2->key_exchange()->data();
-  int ii = 0;
-  std::for_each(key, key + kse2->key_exchange()->len(),
-                [&ii](auto &c) { c = ii++; });
-
-  auto kse3 = kse2->next();
-  kse3->group = NamedGroup::secp256r1;
-  kse3->key_exchange()->len(3200);
-  key = kse3->key_exchange()->data();
-  for (int i = 0; i < kse3->key_exchange()->len(); ++i) {
-    key[i] = i;
-  }
-  ksch->len(kse1->size() + kse2->size() + kse3->size());
+  _cryptocenter->support(ksch);
 
   ch->extensions()->len(ex1->size() + ex2->size() + ex3->size());
   hs_frame->length(ch->size());
@@ -113,4 +86,114 @@ void Client::sayAppdata(const uint8_t *p, size_t len) {
     auto cv = _cryptocenter->crypto(v, _key);
     _channel->send(cv.data(), cv.size());
   }
+}
+
+void Client::run() {
+  for (auto v = _channel->recv(); v.size() > 0; v = _channel->recv()) {
+    // v可能是TSLPlaintext或者TSLCiphertext，头都是相同的。
+    auto plaintext = (const TLSPlaintext *)v.data();
+    auto fragment = plaintext->fragment();
+    auto len = plaintext->length();
+    auto ct = plaintext->type;
+    if (plaintext->cryptoFlag()) {
+      // v是TSLCiphertext，要解密后处理
+      v = _cryptocenter->decrypto(fragment, len, _key);
+      auto ct_addr =
+          std::find_if(v.crbegin(), v.crend(), [](uint8_t c) { return c > 0; });
+      if (ct_addr == v.crbegin()) {
+        assert(false);
+        continue;
+      }
+      ct = ContentType(*ct_addr);
+      auto distance = std::distance(ct_addr, v.crbegin());
+      v.resize(distance - 1); // -1是为了排除TLSInnerText.type
+      fragment = v.data();
+      len = v.size();
+    }
+    auto l = _rl->feed(fragment, len);
+    assert(l.size() <= 1);
+    for (const auto &m : l) {
+      std::cout << hex2section(secure::hex_encode(m.data(), m.size()), 4, 8)
+                << std::endl;
+      received(ct, m.data(), m.size());
+    }
+  }
+}
+
+void Client::received(ContentType ct, const uint8_t *p, size_t len) {
+  switch (ct) {
+  case ContentType::handshake: {
+    while (len > 0) {
+      auto hs = (Handshake *)p;
+      len -= hs->size();
+      p += len;
+
+      switch (hs->msg_type()) {
+      case HandshakeType::server_hello : {
+        auto sh = (ServerHello *)hs->message();
+        received(sh);
+      } break;
+
+      default:
+        break;
+      }
+    }
+  }
+  // hearHandshake();
+  break;
+  case ContentType::application_data:
+    break;
+  case ContentType::alert:
+    break;
+  case ContentType::change_cipher_spec:
+  case ContentType::invalid:
+  default:
+    assert(false);
+    break;
+  }
+}
+
+void Client::received(const ServerHello* sh) {
+
+  auto exMap = extensionsCheck(sh->extensions());
+  _cryptocenter->cipherSuitInit(*sh->cipher_suite());
+
+  _cryptocenter->hashUpdate(_clientHello.data(), _clientHello.size());
+  _cryptocenter->hashUpdate((uint8_t*)sh, sh->size());
+
+  auto kse = (KeyShareEntry*)exMap.at(ExtensionType::key_share);
+  auto len = kse->key_exchange()->len();
+  auto data = kse->key_exchange()->data();
+  std::vector<uint8_t> publicKey(data, data + len);
+  auto b = _cryptocenter->driveKey(kse->group, publicKey);
+
+  _cryptocenter->driveKey(nullptr, nullptr);
+}
+
+std::unordered_map<ExtensionType, uint8_t *>
+Client::extensionsCheck(Extensions *e) {
+  std::unordered_map<ExtensionType, uint8_t *> exMap;
+  auto len = e->len();
+  auto ex = e->data();
+  while (len > 0) {
+    switch (ex->extension_type) {
+    case ExtensionType::supported_versions: {
+      exMap.insert({ex->extension_type, ex->extension_data()});
+      auto ee = (Extension<ServerSupportedVersion> *)ex;
+      ex = (decltype(ex))ee->next();
+      len -= ee->size();
+    } break;
+    case ExtensionType::key_share: {
+      exMap.insert({ex->extension_type, ex->extension_data()});
+      auto ee = (Extension<KeyShareEntry> *)ex;
+      ex = (decltype(ex))ee->next();
+      len -= ee->size();
+    } break;
+    default:
+      assert(false);
+      break;
+    }
+  }
+
+  return exMap;
 }

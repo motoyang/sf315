@@ -20,6 +20,8 @@ int main(int argc, char* argv[]) {
   c.start();
   Server s;
   s.run();
+  c.run();
+
 
   return EXIT_SUCCESS;
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vector>
 #include <unordered_map>
 
 #include "tls.h"
@@ -16,205 +17,31 @@ using ECDH_KeyFactory =
 // --
 
 class Cryptocenter {
-  const std::unordered_map<NamedGroup, secure::BigInt> _dhSupported{
-      {NamedGroup::ffdhe2048,
-       secure::BigInt("0xFFFFFFFFFFFFFFFFADF85458A2BB4A9AAFDC5620273D3CF1D8B9C5"
-                      "83CE2D3695A9E"
-                      "13641146433FBCC939DCE249B3EF97D2FE363630C75D8F681B202AEC"
-                      "4617AD3DF1ED5"
-                      "D5FD65612433F51F5F066ED0856365553DED1AF3B557135E7F57C935"
-                      "984F0C70E0E68"
-                      "B77E2A689DAF3EFE8721DF158A136ADE73530ACCA4F483A797ABC0AB"
-                      "182B324FB61D1"
-                      "08A94BB2C8E3FBB96ADAB760D7F4681D4F42A3DE394DF4AE56EDE763"
-                      "72BB190B07A7C"
-                      "8EE0A6D709E02FCE1CDF7E2ECC03404CD28342F619172FE9CE98583F"
-                      "F8E4F1232EEF2"
-                      "8183C3FE3B1B4C6FAD733BB5FCBC2EC22005C58EF1837D1683B2C6F3"
-                      "4A26C1B2EFFA8"
-                      "86B423861285C97FFFFFFFFFFFFFFFF")},
-      {NamedGroup::ffdhe3072,
-       secure::BigInt("0xFFFFFFFFFFFFFFFFADF85458A2BB4A9AAFDC5620273D3CF1D8B9C5"
-                      "83CE2D3695A9E"
-                      "13"
-                      "641146433FBCC939DCE249B3EF97D2FE363630C75D8F681B202AEC46"
-                      "17AD3DF1ED5D5"
-                      "FD65612433F51F5F066ED0856365553DED1AF3B557135E7F57C93598"
-                      "4F0C70E0E68B7"
-                      "7E2A689DAF3EFE8721DF158A136ADE73530ACCA4F483A797ABC0AB18"
-                      "2B324FB61D108"
-                      "A94BB2C8E3FBB96ADAB760D7F4681D4F42A3DE394DF4AE56EDE76372"
-                      "BB190B07A7C8E"
-                      "E0A6D709E02FCE1CDF7E2ECC03404CD28342F619172FE9CE98583FF8"
-                      "E4F1232EEF281"
-                      "83C3FE3B1B4C6FAD733BB5FCBC2EC22005C58EF1837D1683B2C6F34A"
-                      "26C1B2EFFA886"
-                      "B4238611FCFDCDE355B3B6519035BBC34F4DEF99C023861B46FC9D6E"
-                      "6C9077AD91D26"
-                      "91F7F7EE598CB0FAC186D91CAEFE130985139270B4130C93BC437944"
-                      "F4FD4452E2D74"
-                      "DD364F2E21E71F54BFF5CAE82AB9C9DF69EE86D2BC522363A0DABC52"
-                      "1979B0DEADA1D"
-                      "BF9A42D5C4484E0ABCD06BFA53DDEF3C1B20EE3FD59D7C25E41D2B66"
-                      "C62E37FFFFFFF"
-                      "FFFFFFFFF")},
-      {NamedGroup::ffdhe4096,
-       secure::BigInt(
-           "0xFFFFFFFFFFFFFFFFADF85458A2BB4A9AAFDC5620273D3CF1D8B9C583CE2D3695A"
-           "9E"
-           "13"
-           "641146433FBCC939DCE249B3EF97D2FE363630C75D8F681B202AEC4617AD3DF1ED5"
-           "D5"
-           "FD65612433F51F5F066ED0856365553DED1AF3B557135E7F57C935984F0C70E0E68"
-           "B7"
-           "7E2A689DAF3EFE8721DF158A136ADE73530ACCA4F483A797ABC0AB182B324FB61D1"
-           "08"
-           "A94BB2C8E3FBB96ADAB760D7F4681D4F42A3DE394DF4AE56EDE76372BB190B07A7C"
-           "8E"
-           "E0A6D709E02FCE1CDF7E2ECC03404CD28342F619172FE9CE98583FF8E4F1232EEF2"
-           "81"
-           "83C3FE3B1B4C6FAD733BB5FCBC2EC22005C58EF1837D1683B2C6F34A26C1B2EFFA8"
-           "86"
-           "B4238611FCFDCDE355B3B6519035BBC34F4DEF99C023861B46FC9D6E6C9077AD91D"
-           "26"
-           "91F7F7EE598CB0FAC186D91CAEFE130985139270B4130C93BC437944F4FD4452E2D"
-           "74"
-           "DD364F2E21E71F54BFF5CAE82AB9C9DF69EE86D2BC522363A0DABC521979B0DEADA"
-           "1D"
-           "BF9A42D5C4484E0ABCD06BFA53DDEF3C1B20EE3FD59D7C25E41D2B669E1EF16E6F5"
-           "2C"
-           "3164DF4FB7930E9E4E58857B6AC7D5F42D69F6D187763CF1D5503400487F55BA57E"
-           "31"
-           "CC7A7135C886EFB4318AED6A1E012D9E6832A907600A918130C46DC778F971AD003"
-           "80"
-           "92999A333CB8B7A1A1DB93D7140003C2A4ECEA9F98D0ACC0A8291CDCEC97DCF8EC9"
-           "B5"
-           "5A7F88A46B4DB5A851F44182E1C68A007E5E655F6AFFFFFFFFFFFFFFFF")},
-      {NamedGroup::ffdhe6144,
-       secure::BigInt("0xFFFFFFFFFFFFFFFFADF85458A2BB4A9AAFDC5620273D3CF1D8B9C5"
-                      "83CE2D3695A9E"
-                      "13"
-                      "641146433FBCC939DCE249B3EF97D2FE363630C75D8F681B202AEC46"
-                      "17AD3DF1ED5D5"
-                      "FD65612433F51F5F066ED0856365553DED1AF3B557135E7F57C93598"
-                      "4F0C70E0E68B7"
-                      "7E2A689DAF3EFE8721DF158A136ADE73530ACCA4F483A797ABC0AB18"
-                      "2B324FB61D108"
-                      "A94BB2C8E3FBB96ADAB760D7F4681D4F42A3DE394DF4AE56EDE76372"
-                      "BB190B07A7C8E"
-                      "E0A6D709E02FCE1CDF7E2ECC03404CD28342F619172FE9CE98583FF8"
-                      "E4F1232EEF281"
-                      "83C3FE3B1B4C6FAD733BB5FCBC2EC22005C58EF1837D1683B2C6F34A"
-                      "26C1B2EFFA886"
-                      "B4238611FCFDCDE355B3B6519035BBC34F4DEF99C023861B46FC9D6E"
-                      "6C9077AD91D26"
-                      "91F7F7EE598CB0FAC186D91CAEFE130985139270B4130C93BC437944"
-                      "F4FD4452E2D74"
-                      "DD364F2E21E71F54BFF5CAE82AB9C9DF69EE86D2BC522363A0DABC52"
-                      "1979B0DEADA1D"
-                      "BF9A42D5C4484E0ABCD06BFA53DDEF3C1B20EE3FD59D7C25E41D2B66"
-                      "9E1EF16E6F52C"
-                      "3164DF4FB7930E9E4E58857B6AC7D5F42D69F6D187763CF1D5503400"
-                      "487F55BA57E31"
-                      "CC7A7135C886EFB4318AED6A1E012D9E6832A907600A918130C46DC7"
-                      "78F971AD00380"
-                      "92999A333CB8B7A1A1DB93D7140003C2A4ECEA9F98D0ACC0A8291CDC"
-                      "EC97DCF8EC9B5"
-                      "5A7F88A46B4DB5A851F44182E1C68A007E5E0DD9020BFD64B645036C"
-                      "7A4E677D2C385"
-                      "32A3A23BA4442CAF53EA63BB454329B7624C8917BDD64B1C0FD4CB38"
-                      "E8C334C701C3A"
-                      "CDAD0657FCCFEC719B1F5C3E4E46041F388147FB4CFDB477A52471F7"
-                      "A9A96910B8553"
-                      "22EDB6340D8A00EF092350511E30ABEC1FFF9E3A26E7FB29F8C18302"
-                      "3C3587E38DA00"
-                      "77D9B4763E4E4B94B2BBC194C6651E77CAF992EEAAC0232A281BF6B3"
-                      "A739C12261168"
-                      "20AE8DB5847A67CBEF9C9091B462D538CD72B03746AE77F5E62292C3"
-                      "11562A846505D"
-                      "C82DB854338AE49F5235C95B91178CCF2DD5CACEF403EC9D1810C627"
-                      "2B045B3B71F9D"
-                      "C6B80D63FDD4A8E9ADB1E6962A69526D43161C1A41D570D7938DAD4A"
-                      "40E329CD0E40E"
-                      "65FFFFFFFFFFFFFFFF")},
-      {NamedGroup::ffdhe8192,
-       secure::BigInt("0xFFFFFFFFFFFFFFFFADF85458A2BB4A9AAFDC5620273D3CF1D8B9C5"
-                      "83CE2D3695A9E"
-                      "13"
-                      "641146433FBCC939DCE249B3EF97D2FE363630C75D8F681B202AEC46"
-                      "17AD3DF1ED5D5"
-                      "FD65612433F51F5F066ED0856365553DED1AF3B557135E7F57C93598"
-                      "4F0C70E0E68B7"
-                      "7E2A689DAF3EFE8721DF158A136ADE73530ACCA4F483A797ABC0AB18"
-                      "2B324FB61D108"
-                      "A94BB2C8E3FBB96ADAB760D7F4681D4F42A3DE394DF4AE56EDE76372"
-                      "BB190B07A7C8E"
-                      "E0A6D709E02FCE1CDF7E2ECC03404CD28342F619172FE9CE98583FF8"
-                      "E4F1232EEF281"
-                      "83C3FE3B1B4C6FAD733BB5FCBC2EC22005C58EF1837D1683B2C6F34A"
-                      "26C1B2EFFA886"
-                      "B4238611FCFDCDE355B3B6519035BBC34F4DEF99C023861B46FC9D6E"
-                      "6C9077AD91D26"
-                      "91F7F7EE598CB0FAC186D91CAEFE130985139270B4130C93BC437944"
-                      "F4FD4452E2D74"
-                      "DD364F2E21E71F54BFF5CAE82AB9C9DF69EE86D2BC522363A0DABC52"
-                      "1979B0DEADA1D"
-                      "BF9A42D5C4484E0ABCD06BFA53DDEF3C1B20EE3FD59D7C25E41D2B66"
-                      "9E1EF16E6F52C"
-                      "3164DF4FB7930E9E4E58857B6AC7D5F42D69F6D187763CF1D5503400"
-                      "487F55BA57E31"
-                      "CC7A7135C886EFB4318AED6A1E012D9E6832A907600A918130C46DC7"
-                      "78F971AD00380"
-                      "92999A333CB8B7A1A1DB93D7140003C2A4ECEA9F98D0ACC0A8291CDC"
-                      "EC97DCF8EC9B5"
-                      "5A7F88A46B4DB5A851F44182E1C68A007E5E0DD9020BFD64B645036C"
-                      "7A4E677D2C385"
-                      "32A3A23BA4442CAF53EA63BB454329B7624C8917BDD64B1C0FD4CB38"
-                      "E8C334C701C3A"
-                      "CDAD0657FCCFEC719B1F5C3E4E46041F388147FB4CFDB477A52471F7"
-                      "A9A96910B8553"
-                      "22EDB6340D8A00EF092350511E30ABEC1FFF9E3A26E7FB29F8C18302"
-                      "3C3587E38DA00"
-                      "77D9B4763E4E4B94B2BBC194C6651E77CAF992EEAAC0232A281BF6B3"
-                      "A739C12261168"
-                      "20AE8DB5847A67CBEF9C9091B462D538CD72B03746AE77F5E62292C3"
-                      "11562A846505D"
-                      "C82DB854338AE49F5235C95B91178CCF2DD5CACEF403EC9D1810C627"
-                      "2B045B3B71F9D"
-                      "C6B80D63FDD4A8E9ADB1E6962A69526D43161C1A41D570D7938DAD4A"
-                      "40E329CCFF46A"
-                      "AA36AD004CF600C8381E425A31D951AE64FDB23FCEC9509D43687FEB"
-                      "69EDD1CC5E0B8"
-                      "CC3BDF64B10EF86B63142A3AB8829555B2F747C932665CB2C0F1CC01"
-                      "BD70229388839"
-                      "D2AF05E454504AC78B7582822846C0BA35C35F5C59160CC046FD8251"
-                      "541FC68C9C86B"
-                      "022BB7099876A460E7451A8A93109703FEE1C217E6C3826E52C51AA6"
-                      "91E0E423CFC99"
-                      "E9E31650C1217B624816CDAD9A95F9D5B8019488D9C0A0A1FE3075A5"
-                      "77E23183F81D4"
-                      "A3F2FA4571EFC8CE0BA8A4FE8B6855DFE72B0A66EDED2FBABFBE58A3"
-                      "0FAFABE1C5D71"
-                      "A87E2F741EF8C1FE86FEA6BBFDE530677F0D97D11D49F7A8443D0822"
-                      "E506A9F4614E0"
-                      "11E2A94838FF88CD68C8BB7C5C6424CFFFFFFFFFFFFFFFF")}};
 
-  const std::unordered_map<NamedGroup, std::string> _ecdhSupported{
-      {NamedGroup::secp256r1, "secp256r1"},
-      {NamedGroup::secp384r1, "secp384r1"},
-      {NamedGroup::secp521r1, "secp521r1"}/*,
-      {NamedGroup::x25519, "x25519"},
-      {NamedGroup::x448, "x448"}*/};
-
+  std::vector<NamedGroup> _supported_ng;
   std::unordered_map<NamedGroup, std::unique_ptr<secure::PK_Key_Agreement_Key>>
       _privateKeys;
 
+  std::vector<uint8_t> _psk;
+  secure::SymmetricKey _ecdheKey;
+  secure::SecureVector<uint8_t> _keys[12];
+
+  std::unique_ptr<secure::RandomNumberGenerator> _rng;
+  std::unique_ptr<secure::HashFunction> _hashFun;
+  std::unique_ptr<secure::Cipher_Mode> _cipherFun;
+  std::unique_ptr<secure::KDF> _hkdfExtract;
+  std::unique_ptr<secure::KDF> _hkdfExpand;
+
   bool factoryInit();
+  bool hkdfInit(const std::string& sha_name);
 
 public:
   Cryptocenter();
+  secure::RandomNumberGenerator* rng() const;
+  bool driveKey(NamedGroup ng, const std::vector<uint8_t> publicKey);
+  bool cipherSuitInit(CipherSuite cs);
 
-  secure::PK_Key_Agreement_Key *privateKey(NamedGroup ng);
+  secure::PK_Key_Agreement_Key *privateKey(NamedGroup ng) const;
   std::vector<uint8_t> crypto(const uint8_t *p, size_t len,
                               const std::vector<uint8_t> &key) const;
   std::vector<uint8_t> crypto(const std::vector<uint8_t> &buf,
@@ -224,10 +51,16 @@ public:
   std::vector<uint8_t> decrypto(const std::vector<uint8_t> &buf,
                                 const std::vector<uint8_t> &key) const;
 
-  bool select(CipherSuite &selected,
-              const Container<uint16_t, CipherSuite> *css) const;
-  bool support(Container<uint16_t, CipherSuite>* supported) const;
+  bool select(CipherSuite *selected,
+              const Container<uint16_t, CipherSuite> *css);
+  bool support(Container<uint16_t, CipherSuite> *supported) const;
 
-  bool support(NamedGroupList* ngl) const;
-  bool select(NamedGroup& selected, const NamedGroupList* ngl) const;
+  bool select(NamedGroup *selected, const NamedGroupList *ngl) const;
+  bool support(NamedGroupList *ngl) const;
+
+  bool select(KeyShareEntry *selected, const KeyShareClientHello *ksch);
+  bool support(KeyShareClientHello *ksch) const;
+
+  void hashUpdate(const uint8_t* p, size_t len);
+  bool driveKey(const ClientHello* ch, const ServerHello* sh);
 };
