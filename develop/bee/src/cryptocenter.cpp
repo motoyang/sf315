@@ -1,5 +1,8 @@
+#include <cassert>
 #include <iostream>
+
 #include "memoryimpl.h"
+#include "cryptography.h"
 #include "cryptocenter.h"
 
 // --
@@ -113,32 +116,66 @@ const std::unordered_map<NamedGroup, std::string> s_ecdhSupported{
 
 // --
 
-Cryptocenter::Cryptocenter() : _rng(new secure::AutoSeeded_RNG) {
-  factoryInit();
+static std::vector<uint8_t> hkdfLabel(uint16_t len, const char *label,
+                                      secure::secure_vector<uint8_t> context) {
+  struct HKDF {
+    uint16_t length;
+    auto label() const { return (Container<uint8_t, uint8_t> *)(this + 1); }
+    auto context() const {
+      return (Container<uint8_t, uint8_t> *)(((uint8_t *)label()) +
+                                             label()->size());
+    }
+    size_t size() const {
+      return sizeof(length) + label()->size() + context()->size();
+    }
+  };
 
-  for (const auto &it : s_dhSupported) {
-    _supported_ng.push_back(it.first);
-    _privateKeys.insert({it.first, DH_KeyFactory::create(it.first, it.second)});
-  }
-  for (const auto &it : s_ecdhSupported) {
-    _supported_ng.push_back(it.first);
-    _privateKeys.insert(
-        {it.first, ECDH_KeyFactory::create(it.first, it.second)});
-  }
+  std::vector<uint8_t> buf(1024, 0);
+  auto hkdf = (HKDF *)buf.data();
+
+  hkdf->length = len;
+  std::string s("tls13 ");
+  s += label;
+  hkdf->label()->len(s.size() + 1);
+  MemoryInterface::get()->copy(hkdf->label()->data(), (uint8_t *)s.data(),
+                               s.size());
+
+  hkdf->context()->len(context.size());
+  MemoryInterface::get()->copy(hkdf->context()->data(), context.data(),
+                               context.size());
+
+  assert(buf.size() > hkdf->size());
+  buf.resize(hkdf->size());
+  return buf;
 }
 
-secure::RandomNumberGenerator *Cryptocenter::rng() const { return _rng.get(); }
+// --
 
-secure::PK_Key_Agreement_Key *Cryptocenter::privateKey(NamedGroup ng) const {
-  return _privateKeys.at(ng).get();
-}
+struct Cryptocenter::Impl {
+  Impl() : _rng(new secure::AutoSeeded_RNG) {}
 
-bool Cryptocenter::factoryInit() {
+  std::vector<NamedGroup> _supported_ng;
+  std::unordered_map<NamedGroup, std::unique_ptr<secure::PK_Key_Agreement_Key>>
+      _privateKeys;
+
+  std::vector<uint8_t> _psk;
+  secure::SymmetricKey _ecdheKey;
+  secure::SecureVector<uint8_t> _keys[12];
+
+  std::unique_ptr<secure::RandomNumberGenerator> _rng;
+  std::unique_ptr<secure::HashFunction> _hashFun;
+  std::unique_ptr<secure::Cipher_Mode> _cipherFun;
+  std::unique_ptr<secure::KDF> _hkdfExtract;
+  std::unique_ptr<secure::KDF> _hkdfExpand;
+};
+
+// --
+
+Cryptocenter::Cryptocenter() : _impl(std::make_unique<Cryptocenter::Impl>()) {
   auto create_dh = [](const secure::BigInt &p)
       -> std::unique_ptr<secure::PK_Key_Agreement_Key> {
     Botan::AutoSeeded_RNG rng;
     Botan::DL_Group domain(p, 2);
-    std::string kdf = "Raw";
     // generate ECDH keys
     return std::make_unique<secure::DH_PrivateKey>(rng, domain);
   };
@@ -147,52 +184,57 @@ bool Cryptocenter::factoryInit() {
       -> std::unique_ptr<secure::PK_Key_Agreement_Key> {
     Botan::AutoSeeded_RNG rng;
     secure::EC_Group domain(n);
-    std::string kdf = "KDF1(SHA-256)";
     // generate ECDH keys
     return std::make_unique<secure::ECDH_PrivateKey>(rng, domain);
   };
 
   for (const auto &it : s_dhSupported) {
-    DH_KeyFactory::registerId(it.first, create_dh);
-  }
-  for (const auto &it : s_ecdhSupported) {
-    ECDH_KeyFactory::registerId(it.first, create_ecdh);
+    _impl->_supported_ng.push_back(it.first);
+    _impl->_privateKeys.insert({it.first, create_dh(it.second)});
   }
 
-  return true;
+  for (const auto &it : s_ecdhSupported) {
+    _impl->_supported_ng.push_back(it.first);
+    _impl->_privateKeys.insert({it.first, create_ecdh(it.second)});
+  }
+}
+
+Cryptocenter::~Cryptocenter() {}
+
+secure::RandomNumberGenerator *Cryptocenter::rng() const {
+  return _impl->_rng.get();
 }
 
 bool Cryptocenter::cipherSuitInit(CipherSuite cs) {
-  static const std::unordered_map<CipherSuite, std::string> cipher_names = {
-      {TLS_AES_128_GCM_SHA256, "AES-128/GCM"},
-      {TLS_AES_256_GCM_SHA384, "AES-256/GCM"},
-      {TLS_CHACHA20_POLY1305_SHA256, "ChaCha20Poly1305"},
-      {TLS_AES_128_CCM_SHA256, "AES-128/CCM"},
-      {TLS_AES_128_CCM_8_SHA256, "AES-128/CCM8"}};
-  static const std::unordered_map<CipherSuite, std::string> hash_names = {
-      {TLS_AES_128_GCM_SHA256, "SHA-256"},
-      {TLS_AES_256_GCM_SHA384, "SHA-384"},
-      {TLS_CHACHA20_POLY1305_SHA256, "SHA-256"},
-      {TLS_AES_128_CCM_SHA256, "SHA-256"},
-      {TLS_AES_128_CCM_8_SHA256, "SHA-256"}};
+  static const std::unordered_map<CipherSuite,
+                                  std::pair<std::string, std::string>>
+      cipher_names = {
+          {TLS_AES_128_GCM_SHA256, {"AES-128/GCM", "SHA-256"}},
+          {TLS_AES_256_GCM_SHA384, {"AES-256/GCM", "SHA-384"}},
+          {TLS_CHACHA20_POLY1305_SHA256, {"ChaCha20Poly1305", "SHA-256"}},
+          {TLS_AES_128_CCM_SHA256, {"AES-128/CCM", "SHA-256"}},
+          {TLS_AES_128_CCM_8_SHA256, {"AES-128/CCM8", "SHA-256"}}};
 
-  _cipherFun =
-      secure::Cipher_Mode::create(cipher_names.at(cs), Botan::ENCRYPTION);
-  _hashFun = secure::HashFunction::create(hash_names.at(cs));
-  auto len = _hashFun->output_length();
-  _psk.assign(len, 0);
+  _impl->_cipherFun =
+      secure::Cipher_Mode::create(cipher_names.at(cs).first, Botan::ENCRYPTION);
+  _impl->_hashFun = secure::HashFunction::create(cipher_names.at(cs).second);
 
-  hkdfInit(hash_names.at(cs));
+  auto len = _impl->_hashFun->output_length();
+  _impl->_psk.assign(len, 0);
+
+  hkdfInit(cipher_names.at(cs).second);
 
   return true;
 }
 
-bool Cryptocenter::hkdfInit(const std::string &sha_name) {
+bool Cryptocenter::hkdfInit(const std::string &hash_name) {
   constexpr const char *extract_name = "HKDF-Extract(";
   constexpr const char *expand_name = "HKDF-Expand(";
 
-  _hkdfExtract = secure::HKDF_Extract::create(extract_name + sha_name + ")");
-  _hkdfExpand = secure::HKDF_Expand::create(expand_name + sha_name + ")");
+  _impl->_hkdfExtract =
+      secure::HKDF_Extract::create(extract_name + hash_name + ")");
+  _impl->_hkdfExpand =
+      secure::HKDF_Expand::create(expand_name + hash_name + ")");
 }
 
 std::vector<uint8_t>
@@ -204,10 +246,10 @@ Cryptocenter::crypto(const std::vector<uint8_t> &buf,
 bool Cryptocenter::driveKey(NamedGroup ng,
                             const std::vector<uint8_t> publicKey) {
   constexpr const char *kdf = "Raw";
-  secure::PK_Key_Agreement ecdh(*_privateKeys.at(ng), *_rng, kdf);
-  auto len = _hashFun->output_length();
-  _ecdheKey = ecdh.derive_key(len, publicKey);
-  std::cout << "ecdhekey: " << _ecdheKey.as_string() << std::endl;
+  secure::PK_Key_Agreement ecdh(*_impl->_privateKeys.at(ng), *_impl->_rng, kdf);
+  auto len = _impl->_hashFun->output_length();
+  _impl->_ecdheKey = ecdh.derive_key(len, publicKey);
+  std::cout << "ecdhekey: " << _impl->_ecdheKey.as_string() << std::endl;
 }
 
 std::vector<uint8_t>
@@ -240,7 +282,7 @@ bool Cryptocenter::select(CipherSuite *selected,
     }
   }
 
-  // 如果没有找到，填充Server的首先CipherSuit。
+  // 如果没有找到，填充Server的首选CipherSuit。
   *selected = s_supported_ciphersuits[0];
   return false;
 }
@@ -275,7 +317,7 @@ bool Cryptocenter::select(NamedGroup *selected,
                           const NamedGroupList *ngl) const {
   auto ng = ngl->data();
   auto ng_count = ngl->len() / sizeof(NamedGroup);
-  for (const auto &sng : _supported_ng) {
+  for (const auto &sng : _impl->_supported_ng) {
     auto found = std::find(ng, ng + ng_count, sng);
     if (found != ng + ng_count) {
       *selected = sng;
@@ -283,7 +325,7 @@ bool Cryptocenter::select(NamedGroup *selected,
     }
   }
 
-  *selected = _supported_ng.front();
+  *selected = _impl->_supported_ng.front();
   return false;
 }
 
@@ -295,12 +337,12 @@ bool Cryptocenter::select(KeyShareEntry *selected,
                           const KeyShareClientHello *ksch) {
   auto kse = ksch->data();
   for (auto len = 0; len < ksch->len(); len += kse->size()) {
-    auto found =
-        std::find(_supported_ng.cbegin(), _supported_ng.cend(), kse->group);
-    if (found != _supported_ng.cend()) {
+    auto found = std::find(_impl->_supported_ng.cbegin(),
+                           _impl->_supported_ng.cend(), kse->group);
+    if (found != _impl->_supported_ng.cend()) {
       // 根据选择的NamedGroup，向Client返回KeySharedEntry。
       selected->group = kse->group;
-      auto pk = _privateKeys.at(selected->group)->public_value();
+      auto pk = _impl->_privateKeys.at(selected->group)->public_value();
       selected->key_exchange()->len(pk.size());
       MemoryInterface::get()->copy(selected->key_exchange()->data(), pk.data(),
                                    pk.size());
@@ -317,7 +359,7 @@ bool Cryptocenter::select(KeyShareEntry *selected,
   }
 
   // 如果没有找到匹配的KeyShareEntry，就在HelloRegryRequest中返回Server首先的NamedGroup
-  selected->group = _supported_ng.front();
+  selected->group = _impl->_supported_ng.front();
   return false;
 }
 
@@ -325,10 +367,10 @@ bool Cryptocenter::support(KeyShareClientHello *ksch) const {
   auto len = 0;
   auto kse = ksch->data();
 
-  for (const auto &ng : _supported_ng) {
+  for (const auto &ng : _impl->_supported_ng) {
     kse->group = ng;
 
-    auto pk = _privateKeys.at(ng)->public_value();
+    auto pk = _impl->_privateKeys.at(ng)->public_value();
     auto key_exch = kse->key_exchange();
     key_exch->len(pk.size());
     MemoryInterface::get()->copy((uint8_t *)key_exch->data(), pk.data(),
@@ -343,63 +385,78 @@ bool Cryptocenter::support(KeyShareClientHello *ksch) const {
 }
 
 void Cryptocenter::hashUpdate(const uint8_t *p, size_t len) {
-  _hashFun->update(p, len);
+  _impl->_hashFun->update(p, len);
 }
 
-constexpr int IndexOfEarlySecret = 0, IndexOfBinderKey = 1,
-              IndexOfClientEarlyTrafficSecret = 2,
-              IndexOfEarlyExporterMasterSecret = 3, IndexOfHandshakeSecret = 4,
-              IndexOfClientHandshakeTrafficSecret = 5,
-              IndexOfServerHandshakeTrafficSecret = 6, IndexOfMasterSecret = 7,
-              IndexOfClientApplicationTrafficSecret = 8,
-              IndexOfServerApplicationTrafficSecret = 9,
-              IndexOfExporterMasterSecret = 10,
-              IndexOfResumptionMasterSecret = 11;
+constexpr int EarlySecret = 0, BinderKey = 1, ClientEarlyTrafficSecret = 2,
+              EarlyExporterMasterSecret = 3, HandshakeSecret = 4,
+              ClientHandshakeTrafficSecret = 5,
+              ServerHandshakeTrafficSecret = 6, MasterSecret = 7,
+              ClientApplicationTrafficSecret = 8,
+              ServerApplicationTrafficSecret = 9, ExporterMasterSecret = 10,
+              ResumptionMasterSecret = 11;
 
-bool Cryptocenter::driveKey(const ClientHello *ch, const ServerHello *sh) {
-  // _hashFun->update((uint8_t *)ch, ch->size());
-  // _hashFun->update((uint8_t *)sh, sh->size());
-  std::unique_ptr<secure::HashFunction> tmpHash(_hashFun->clone());
+bool Cryptocenter::driveHkdf() {
+  std::unique_ptr<secure::HashFunction> tmpHash(_impl->_hashFun->clone());
   auto hashValue = tmpHash->final();
+  auto hashString = secure::hex_encode(hashValue);
 
-  auto len = _hashFun->output_length();
+  auto len = _impl->_hashFun->output_length();
+  // auto iv_len = _impl->_cipherFun->valid_nonce_length();
+
   std::vector<uint8_t> zero(len, 0);
   std::vector<uint8_t> label;
 
-  _keys[IndexOfEarlySecret] = _hkdfExtract->derive_key(len, _psk, zero, label);
-  auto tmpKey =
-      _hkdfExpand->derive_key(len, _keys[IndexOfEarlySecret], "derived", "");
-  _keys[IndexOfHandshakeSecret] =
-      _hkdfExtract->derive_key(len, _ecdheKey.bits_of(), tmpKey, label);
-  std::string s("c hs traffic");
-  std::vector<uint8_t> salt(s.cbegin(), s.cend());
-  _keys[IndexOfClientHandshakeTrafficSecret] = _hkdfExpand->derive_key(
-      len, _keys[IndexOfHandshakeSecret], salt, hashValue);
-  s = "s hs traffic";
-  salt.assign(s.cbegin(), s.cend());
-  _keys[IndexOfServerHandshakeTrafficSecret] = _hkdfExpand->derive_key(
-      len, _keys[IndexOfHandshakeSecret], salt, hashValue);
+  _impl->_keys[EarlySecret] =
+      _impl->_hkdfExtract->derive_key(len, _impl->_psk, zero, label);
 
-  std::cout << "ServerHandshakeTrafficSecret key: "
-            << secure::hex_encode(_keys[IndexOfServerHandshakeTrafficSecret])
+  auto hl = hkdfLabel(len, "derived", tmpHash->process(""));
+  std::cout << hex2section(secure::hex_encode(hl)) << std::endl;
+  auto tmpKey =
+      _impl->_hkdfExpand->derive_key(len, _impl->_keys[EarlySecret], hl, label);
+  _impl->_keys[HandshakeSecret] = _impl->_hkdfExtract->derive_key(
+      len, _impl->_ecdheKey.bits_of(), tmpKey, label);
+
+  hl = hkdfLabel(len, "c hs traffic", hashValue);
+  _impl->_keys[ClientHandshakeTrafficSecret] = _impl->_hkdfExpand->derive_key(
+      len, _impl->_keys[HandshakeSecret], hl, label);
+  hl = hkdfLabel(len, "s hs traffic", hashValue);
+  _impl->_keys[ServerHandshakeTrafficSecret] = _impl->_hkdfExpand->derive_key(
+      len, _impl->_keys[HandshakeSecret], hl, label);
+
+  hl = hkdfLabel(len, "key", tmpHash->process(""));
+  auto serverWriteKey = _impl->_hkdfExpand->derive_key(
+      len, _impl->_keys[ServerHandshakeTrafficSecret], hl, label);
+  hl = hkdfLabel(len, "iv", tmpHash->process(""));
+  auto serverWriteIvKey = _impl->_hkdfExpand->derive_key(
+      len, _impl->_keys[ServerHandshakeTrafficSecret], hl, label);
+  std::cout << "serverWriteKey: "
+            << secure::hex_encode(serverWriteKey)
             << std::endl;
+  std::cout << "serverWriteIvKey: "
+            << secure::hex_encode(serverWriteIvKey)
+            << std::endl;
+
+  // std::cout << "ServerHandshakeTrafficSecret key: "
+  //           << secure::hex_encode(_impl->_keys[ServerHandshakeTrafficSecret])
+  //           << std::endl;
   /*
     // TBF!!!
-    tmpKey = _hkdfExpand->derive_key(len, _keys[IndexOfHandshakeSecret],
+    tmpKey = _hkdfExpand->derive_key(len, _keys[HandshakeSecret],
                                      "derived", "");
-    _keys[IndexOfMasterSecret] =
+    _keys[MasterSecret] =
         _hkdfExtract->derive_key(len, zero, tmpKey, label);
-    _keys[IndexOfClientApplicationTrafficSecret] =
-        _hkdfExpand->derive_key(len, _keys[IndexOfMasterSecret],
+    _keys[ClientApplicationTrafficSecret] =
+        _hkdfExpand->derive_key(len, _keys[MasterSecret],
                                 secure::hex_decode("c ap traffic"), hashValue);
-    _keys[IndexOfServerApplicationTrafficSecret] =
-        _hkdfExpand->derive_key(len, _keys[IndexOfMasterSecret],
+    _keys[ServerApplicationTrafficSecret] =
+        _hkdfExpand->derive_key(len, _keys[MasterSecret],
                                 secure::hex_decode("s ap traffic"), hashValue);
-    _keys[IndexOfExporterMasterSecret] =
-        _hkdfExpand->derive_key(len, _keys[IndexOfMasterSecret],
+    _keys[ExporterMasterSecret] =
+        _hkdfExpand->derive_key(len, _keys[MasterSecret],
                                 secure::hex_decode("exp master"), hashValue);
-    _keys[IndexOfResumptionMasterSecret] =
-        _hkdfExpand->derive_key(len, _keys[IndexOfMasterSecret],
+    _keys[ResumptionMasterSecret] =
+        _hkdfExpand->derive_key(len, _keys[MasterSecret],
                                 secure::hex_decode("res master"), hashValue);
   */
 }

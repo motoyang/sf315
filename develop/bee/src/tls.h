@@ -423,6 +423,8 @@ struct ServerHello {
     return sizeof(*this) + legacy_session_id_echo()->size() +
            sizeof(CipherSuite) + sizeof(uint8_t) + extensions()->size();
   }
+  void helloRetryRequest();
+  bool isHelloRetryRequest() const;
 };
 
 // --

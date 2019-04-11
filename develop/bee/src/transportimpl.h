@@ -18,6 +18,13 @@ BufT copyToBuf(const uint8_t *p, size_t len);
 BufT moveToBuf(uint8_t *p, size_t len);
 void freeBuf(BufT buf);
 
+inline  auto freeBuf2 = [](BufT *buf) {
+    assert(buf->base);
+    free(buf->base);
+  };
+
+using BufPtr = std::unique_ptr<BufT, decltype(freeBuf2)>;
+
 // --
 
 struct Packet {
@@ -87,12 +94,14 @@ struct GangwayInConnector {
 
 // --
 
-class QueueTransport : public TransportInterface {
-  mutable moodycamel::BlockingConcurrentQueue<BufT> _queue;
+class TransportInQueue : public TransportInterface {
+  mutable moodycamel::ConcurrentQueue<BufT> _sink;
+  mutable moodycamel::ConcurrentQueue<BufT> *_source;
 
 public:
   bool send(uint8_t *data, uint16_t len) const override;
   std::vector<uint8_t> recv() const override;
+  void source(moodycamel::ConcurrentQueue<BufT> *s);
 };
 
 class TransportOnStack : public TransportInterface {

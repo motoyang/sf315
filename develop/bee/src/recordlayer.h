@@ -9,16 +9,12 @@
 // --
 
 class RecordLayer {
-  constexpr static uint16_t PlaintextMaxLength = 0xFF; //0x3FFF;
-  constexpr static ProtocolVersion PV = 0x0303;
-  constexpr static bool ApplicationDataPadding = false;
-
-  std::unique_ptr<secure::RandomNumberGenerator> _rng;
-  std::unique_ptr<PackInterface> _packInterface;
+  struct Impl;
+  std::unique_ptr<Impl> _impl;
 
 public:
   RecordLayer();
-  virtual ~RecordLayer() = default;
+  virtual ~RecordLayer();
 
   std::list<TLSPlaintext *> fragment(ContentType ct, const uint8_t *data,
                                      uint32_t len) const;

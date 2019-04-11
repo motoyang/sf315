@@ -69,3 +69,19 @@ TLSCiphertext *TLSCiphertext::alloc(const uint8_t *data, uint16_t len) {
 
   return r;
 }
+
+// --
+
+constexpr uint8_t s_retryRandom[] = {
+    0xCF, 0x21, 0xAD, 0x74, 0xE5, 0x9A, 0x61, 0x11, 0xBE, 0x1D, 0x8C,
+    0x02, 0x1E, 0x65, 0xB8, 0x91, 0xC2, 0xA2, 0x11, 0x16, 0x7A, 0xBB,
+    0x8C, 0x5E, 0x07, 0x9E, 0x09, 0xE2, 0xC8, 0xA8, 0x33, 0x9C};
+
+void ServerHello::helloRetryRequest() {
+  MemoryInterface::get()->copy(random, s_retryRandom, sizeof(s_retryRandom));
+}
+
+bool ServerHello::isHelloRetryRequest() const {
+  0 == MemoryInterface::get()->compare(random, s_retryRandom,
+                                       sizeof(s_retryRandom));
+}

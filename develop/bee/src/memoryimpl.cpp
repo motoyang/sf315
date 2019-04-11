@@ -31,10 +31,15 @@ void MemoryManager::free(uint8_t *p) const noexcept { std::free(p); }
 
 uint8_t *MemoryManager::copy(uint8_t *dest, const uint8_t *src,
                              size_t count) const noexcept {
-  return (uint8_t*)std::memcpy(dest, src, count);
+  return (uint8_t *)std::memcpy(dest, src, count);
 }
 
 uint8_t *MemoryManager::set(uint8_t *dest, int ch, size_t count) const
     noexcept {
-  return (uint8_t*)std::memset(dest, ch, count);
+  return (uint8_t *)std::memset(dest, ch, count);
+}
+
+int MemoryManager::compare(const uint8_t *lhs, const uint8_t* rhs,
+                            size_t count) const {
+  return std::memcmp(lhs, rhs, count);
 }

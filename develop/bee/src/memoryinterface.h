@@ -13,6 +13,7 @@ struct MemoryInterface {
   virtual uint8_t *copy(uint8_t *dest, const uint8_t *src, size_t count) const
       noexcept = 0;
   virtual uint8_t *set(uint8_t *dest, int ch, size_t count) const noexcept = 0;
+  virtual int compare(const uint8_t* lhs, const uint8_t* rhs, size_t count) const = 0;
 
   virtual ~MemoryInterface() = default;
 };

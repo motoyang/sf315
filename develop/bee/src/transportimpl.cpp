@@ -27,6 +27,14 @@ BufT moveToBuf(uint8_t *p, uint16_t len) {
   return b;
 }
 
+BufT moveToBuf(uint8_t *p, size_t len) {
+  BufT b;
+  b.base = p;
+  b.len = len;
+
+  return b;
+}
+
 void freeBuf(BufT buf) {
   assert(buf.base);
   free(buf.base);
@@ -34,14 +42,18 @@ void freeBuf(BufT buf) {
 
 // --
 
-bool QueueTransport::send(uint8_t *data, uint16_t len) const {
-  _queue.enqueue(moveToBuf(data, len));
+bool TransportInQueue::send(uint8_t *data, uint16_t len) const {
+  _sink.enqueue(moveToBuf(data, len));
 }
 
-std::vector<uint8_t> QueueTransport::recv() const {
+std::vector<uint8_t> TransportInQueue::recv() const {
   BufInStack bis;
-  _queue.wait_dequeue(bis._buf);
+  _source->try_dequeue(bis._buf);
   return std::vector<uint8_t>(bis._buf.base, bis._buf.base + bis._buf.len);
+}
+
+void TransportInQueue::source(moodycamel::ConcurrentQueue<BufT> *s) {
+  _source = s;
 }
 
 // --

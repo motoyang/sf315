@@ -17,95 +17,23 @@
 
 // --
 
-Server::Server()
-    : _vs(std::make_unique<VersionSupported>()),
-      _rl(std::make_unique<RecordLayer>()),
-      _channel(std::make_unique<Channel>()),
-      _cryptocenter(std::make_unique<Cryptocenter>()) {
-  _status.push(Server::Status::START);
-}
+struct Server::Impl {
+  Impl()
+      : _vs(std::make_unique<VersionSupported>()),
+        _rl(std::make_unique<RecordLayer>()),
+        _channel(std::make_unique<Channel>()),
+        _cryptocenter(std::make_unique<Cryptocenter>()) {}
 
-void Server::run() {
-  for (auto v = _channel->recv(); v.size() > 0; v = _channel->recv()) {
-    auto bRun = true;
+  std::stack<Status> _status;
+  std::unique_ptr<VersionSupported> _vs;
+  std::unique_ptr<RecordLayer> _rl;
+  std::unique_ptr<Cryptocenter> _cryptocenter;
+  std::unique_ptr<Channel> _channel;
 
-    // v可能是TSLPlaintext或者TSLCiphertext，头都是相同的。
-    auto plaintext = (const TLSPlaintext *)v.data();
-    auto fragment = plaintext->fragment();
-    auto len = plaintext->length();
-    auto ct = plaintext->type;
-    if (plaintext->cryptoFlag()) {
-      // v是TSLCiphertext，要解密后处理
-      v = _cryptocenter->decrypto(fragment, len, _key);
-      auto ct_addr =
-          std::find_if(v.crbegin(), v.crend(), [](uint8_t c) { return c > 0; });
-      if (ct_addr == v.crbegin()) {
-        assert(false);
-        continue;
-      }
-      ct = ContentType(*ct_addr);
-      auto distance = std::distance(ct_addr, v.crbegin());
-      v.resize(distance - 1); // -1是为了排除TLSInnerText.type
-      fragment = v.data();
-      len = v.size();
-    }
-    auto l = _rl->feed(fragment, len);
-    assert(l.size() <= 1);
-    for (const auto &m : l) {
-      std::cout << hex2section(secure::hex_encode(m.data(), m.size()), 4, 8)
-                << std::endl;
-      received(ct, m.data(), m.size());
-      bRun = false;
-    }
-    // TBF!!!
-    if (!bRun) break;
-  }
-}
+  std::vector<uint8_t> _key;
+};
 
-void Server::received(const ClientHello *hello) {
-  _status.pop();
-  _status.push(Server::Status::RECVD_CH);
-}
-
-void Server::received(ContentType ct, const uint8_t *p, size_t len) {
-  switch (ct) {
-  case ContentType::handshake: {
-    while (len > 0) {
-      auto hs = (Handshake *)p;
-      len -= hs->size();
-      p += len;
-
-      switch (hs->msg_type()) {
-      case HandshakeType::client_hello: {
-        auto ch = (ClientHello *)hs->message();
-        std::vector<uint8_t> buf(4096);
-        auto sh = hello(buf, ch);
-        sayHello(sh);
-        _cryptocenter->hashUpdate((uint8_t*) ch, ch->size());
-          _cryptocenter->hashUpdate((uint8_t*) sh, sh->size());
-
-        _cryptocenter->driveKey(ch, (ServerHello*)sh->message());
-        std::cout << "end of sayHello from server" << std::endl;
-      } break;
-
-      default:
-        break;
-      }
-    }
-  }
-  // hearHandshake();
-  break;
-  case ContentType::application_data:
-    break;
-  case ContentType::alert:
-    break;
-  case ContentType::change_cipher_spec:
-  case ContentType::invalid:
-  default:
-    assert(false);
-    break;
-  }
-}
+// --
 
 Handshake *Server::hello(std::vector<uint8_t> &buf, const ClientHello *ch) {
   // 解析Extensions到map，以便后续使用
@@ -130,7 +58,7 @@ Handshake *Server::hello(std::vector<uint8_t> &buf, const ClientHello *ch) {
   // 开始ServerHello
   auto sh = (ServerHello *)hs->message();
   sh->legacy_version = PV_TLS_1_2;
-  _cryptocenter->rng()->randomize(sh->random, sizeof(sh->random));
+  _impl->_cryptocenter->rng()->randomize(sh->random, sizeof(sh->random));
 
   // 原样返回ClientHello.legacy_session
   // from RFC8446: The contents of the client’s legacy_session_id field.
@@ -140,7 +68,7 @@ Handshake *Server::hello(std::vector<uint8_t> &buf, const ClientHello *ch) {
     lsie->data()[i] = ch->legacy_session_id()->data()[i];
   }
 
-  if (!_cryptocenter->select(sh->cipher_suite(), ch->cipher_suites())) {
+  if (!_impl->_cryptocenter->select(sh->cipher_suite(), ch->cipher_suites())) {
     // 没有匹配到CipherSuit，填充Server希望的CipherSuit。Client在收到后，发现Server的
     // CipherSuit不在自己发送的CipherSuitsList中，会中断握手过程。
     // from RFC8446: A client which receives a cipher suite that was not offered
@@ -154,9 +82,9 @@ Handshake *Server::hello(std::vector<uint8_t> &buf, const ClientHello *ch) {
   auto ex1 = (Extension<ServerSupportedVersion> *)sh->extensions()->data();
   ex1->extension_type = ExtensionType::supported_versions;
 
-  if (!_vs->selected(ex1->extension_data(),
-                     (ClientSupportedVersions *)exMap.at(
-                         ExtensionType::supported_versions))) {
+  if (!_impl->_vs->selected(ex1->extension_data(),
+                            (ClientSupportedVersions *)exMap.at(
+                                ExtensionType::supported_versions))) {
     // If the "supported_versions" extension in the ServerHello contains a
     // version not offered by the client or contains a version prior to
     // TLS 1.3, the client MUST abort the handshake with an "illegal_parameter"
@@ -169,21 +97,68 @@ Handshake *Server::hello(std::vector<uint8_t> &buf, const ClientHello *ch) {
   auto ex2 = (Extension<KeyShareServerHello> *)ex1->next();
   ex2->extension_type = ExtensionType::key_share;
   auto kse = ex2->extension_data();
-  if (!_cryptocenter->select(
+  if (!_impl->_cryptocenter->select(
           kse, (KeyShareClientHello *)exMap.at(ExtensionType::key_share))) {
     NLOG_WARN << "Server can't found matched KeyShareEntry in ClientHello, so "
                  "HelloRetryRequest will been sent.";
-    helloRetryRequest(sh);
-
-    NLOG_WARN << "Server can't found matched KeyShareEntry.";
+    sh->helloRetryRequest();
   }
 
   sh->extensions()->len(ex1->size() + ex2->size());
   hs->length(sh->size());
 
-  assert(buf.size() > hs->size());
+  assert(buf.size() >= hs->size());
   buf.resize(hs->size());
   return (Handshake *)buf.data();
+}
+
+void Server::sayHello(const Handshake *hs) {
+  auto pl =
+      _impl->_rl->fragment(ContentType::handshake, (uint8_t *)hs, hs->size());
+  for (const auto &p : pl) {
+    _impl->_channel->send((uint8_t *)p, p->size());
+  }
+
+  _impl->_status.pop();
+  _impl->_status.push(Server::Status::NEGOTIATED);
+}
+
+// 根据收到的包，做顶层的分发
+void Server::received(ContentType ct, const uint8_t *p, size_t len) {
+  switch (ct) {
+  case ContentType::handshake: {
+    while (len > 0) {
+      auto hs = (Handshake *)p;
+      len -= hs->size();
+      p += len;
+
+      switch (hs->msg_type()) {
+      case HandshakeType::client_hello: {
+        auto ch = (ClientHello *)hs->message();
+        std::vector<uint8_t> buf(4096);
+        auto sh = hello(buf, ch);
+        sayHello(sh);
+
+        _impl->_cryptocenter->hashUpdate((uint8_t *)ch, ch->size());
+        _impl->_cryptocenter->hashUpdate((uint8_t *)sh, sh->size());
+        _impl->_cryptocenter->driveHkdf();
+      } break;
+
+      default:
+        break;
+      }
+    }
+  } break;
+  case ContentType::application_data:
+    break;
+  case ContentType::alert:
+    break;
+  case ContentType::change_cipher_spec:
+  case ContentType::invalid:
+  default:
+    assert(false);
+    break;
+  }
 }
 
 std::unordered_map<ExtensionType, uint8_t *>
@@ -219,23 +194,45 @@ Server::extensionsCheck(Extensions *e) {
   return exMap;
 }
 
-void Server::sayHello(const Handshake *hs) {
-  std::cout << hex2section(secure::hex_encode((uint8_t *)hs, hs->size()), 4, 8)
-            << std::endl;
+// --
 
-  auto pl = _rl->fragment(ContentType::handshake, (uint8_t *)hs, hs->size());
-  for (const auto &p : pl) {
-    _channel->send((uint8_t *)p, p->size());
-  }
-
-  _status.pop();
-  _status.push(Server::Status::NEGOTIATED);
+Server::Server() : _impl(std::make_unique<Server::Impl>()) {
+  _impl->_status.push(Server::Status::START);
 }
 
-void Server::helloRetryRequest(ServerHello *sh) const {
-  constexpr uint8_t retryRandom[] = {
-      0xCF, 0x21, 0xAD, 0x74, 0xE5, 0x9A, 0x61, 0x11, 0xBE, 0x1D, 0x8C,
-      0x02, 0x1E, 0x65, 0xB8, 0x91, 0xC2, 0xA2, 0x11, 0x16, 0x7A, 0xBB,
-      0x8C, 0x5E, 0x07, 0x9E, 0x09, 0xE2, 0xC8, 0xA8, 0x33, 0x9C};
-  MemoryInterface::get()->copy(sh->random, retryRandom, sizeof(retryRandom));
+Server::~Server() {}
+
+Channel *Server::channel() const { return _impl->_channel.get(); }
+
+void Server::run() {
+  for (auto v = _impl->_channel->recv(); v.size() > 0;
+       v = _impl->_channel->recv()) {
+    // v可能是TSLPlaintext或者TSLCiphertext，头都是相同的。
+    auto plaintext = (const TLSPlaintext *)v.data();
+    auto fragment = plaintext->fragment();
+    auto len = plaintext->length();
+    auto ct = plaintext->type;
+    if (plaintext->cryptoFlag()) {
+      // v是TSLCiphertext，要解密后处理
+      v = _impl->_cryptocenter->decrypto(fragment, len, _impl->_key);
+
+      // 剔除padding的zero
+      auto ct_addr =
+          std::find_if(v.crbegin(), v.crend(), [](uint8_t c) { return c > 0; });
+      if (ct_addr == v.crbegin()) {
+        assert(false);
+        continue;
+      }
+      ct = ContentType(*ct_addr);
+      auto distance = std::distance(ct_addr, v.crbegin());
+      v.resize(distance - 1); // -1是为了排除TLSInnerPlaintext.type
+      fragment = v.data();
+      len = v.size();
+    }
+    auto l = _impl->_rl->feed(fragment, len);
+    assert(l.size() <= 1);
+    for (const auto &m : l) {
+      received(ct, m.data(), m.size());
+    }
+  }
 }

@@ -2,9 +2,9 @@ HKDF-Expand-Label(Secret, Label, Context, Length) = HKDF-Expand(Secret, HkdfLabe
 
 Where HkdfLabel is specified as:
 struct {
-uint16 length = Length;
-opaque label<7..255> = "tls13 " + Label;
-opaque context<0..255> = Context;
+    uint16 length = Length;
+    opaque label<7..255> = "tls13 " + Label;
+    opaque context<0..255> = Context;
 } HkdfLabel;
 
 Derive-Secret(Secret, Label, Messages) = HKDF-Expand-Label(Secret, Label, Transcript-Hash(Messages), Hash.length)

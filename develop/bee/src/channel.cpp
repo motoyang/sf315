@@ -8,18 +8,31 @@
 
 // --
 
-Channel::Channel() : _ti(std::make_unique<TransportOnStack>()) {}
+struct Channel::Impl {
+  moodycamel::ConcurrentQueue<BufT> _sink;
+  moodycamel::ConcurrentQueue<BufT> *_source;
+};
+
+// --
+
+Channel::Channel() : _impl(std::make_unique<Channel::Impl>()) {}
+
+Channel::~Channel() = default;
 
 bool Channel::send(uint8_t *p, size_t len) const {
-  // std::cout << hex2section(secure::hex_encode(p, len), 4, 8) << std::endl;
-  _ti->send(p, len);
-
-  auto mi = MemoryInterface::get();
-  mi->free(p);
+  _impl->_sink.enqueue(moveToBuf(p, len));
 
   return true;
 }
 
 std::vector<uint8_t> Channel::recv() const {
-  return _ti->recv();
+  BufT b;
+  if (_impl->_source->try_dequeue(b)) {
+    BufPtr p(&b, freeBuf2);
+    return std::vector<uint8_t>(b.base, b.base + b.len);
+  } else {
+    return std::vector<uint8_t>();
+  }
 }
+
+void Channel::bind(Channel *peer) { _impl->_source = &peer->_impl->_sink; }

@@ -1,12 +1,10 @@
 #pragma once
 
+#include <memory>
 #include <stack>
-// --
+#include <unordered_map>
 
-class VersionSupported;
-class Cryptocenter;
-class Channel;
-class RecordLayer;
+// --
 
 class Client {
   enum class Status : uint8_t {
@@ -20,21 +18,9 @@ class Client {
     CONNECTED
   };
 
-  std::vector<uint8_t> _clientHello;
-  std::stack<Status> _status;
-  std::unique_ptr<VersionSupported> _vs;
-  std::unique_ptr<RecordLayer> _rl;
-  std::unique_ptr<Cryptocenter> _cryptocenter;
-  std::unique_ptr<Channel> _channel;
+  struct Impl;
+  std::unique_ptr<Impl> _impl;
 
-  std::vector<uint8_t> _key;
-
-  std::unordered_map<ExtensionType, uint8_t *> extensionsCheck(Extensions *e);
-
-public:
-  Client();
-  void start();
-  void run();
   void received(ContentType ct, const uint8_t *p, size_t len);
   void received(const ServerHello *sh);
 
@@ -44,7 +30,18 @@ public:
 
   void sayHello(const Handshake *hs);
   void sayAppdata(const uint8_t *p, size_t len);
-  // void hear(const EncryptedExtensions& ee);
 
   void say(ContentType ct, const std::vector<uint8_t> &v);
+
+  std::unordered_map<ExtensionType, uint8_t *> extensionsCheck(Extensions *e);
+
+public:
+  Client();
+  virtual ~Client();
+
+  // 测试用的方法，libuv加入后，删除此方法。
+  Channel* channel() const;
+
+  void start();
+  void run();
 };
