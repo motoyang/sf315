@@ -4,7 +4,7 @@
 
 // --
 
-struct TransportInterface;
+// struct TransportInterface;
 
 class Channel {
   // std::shared_ptr<TransportInterface> _ti;
@@ -17,7 +17,7 @@ public:
   virtual ~Channel();
 
   bool send(uint8_t *p, size_t len) const;
-  std::vector<uint8_t> recv() const;
+  secure::secure_vector<uint8_t> recv() const;
   void bind(Channel *peer);
 //   bool sendHandshake(const Handshake* hs);
 //   bool sendAlert();

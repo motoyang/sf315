@@ -12,25 +12,19 @@ class Cryptocenter {
   struct Impl;
   std::unique_ptr<Impl> _impl;
 
-  bool hkdfInit(const std::string& sha_name);
+  bool hkdfInit(const std::string &sha_name);
 
 public:
   Cryptocenter();
   virtual ~Cryptocenter();
 
-  secure::RandomNumberGenerator* rng() const;
-  bool driveKey(NamedGroup ng, const std::vector<uint8_t> publicKey);
+  secure::RandomNumberGenerator *rng() const;
   bool cipherSuitInit(CipherSuite cs);
+  void hashUpdate(const uint8_t *p, size_t len);
+  bool driveKey(NamedGroup ng, const std::vector<uint8_t> publicKey);
+  bool driveHkdf();
+  void crypto(secure::secure_vector<uint8_t> &buf) const;
 
-  // secure::PK_Key_Agreement_Key *privateKey(NamedGroup ng) const;
-  std::vector<uint8_t> crypto(const uint8_t *p, size_t len,
-                              const std::vector<uint8_t> &key) const;
-  std::vector<uint8_t> crypto(const std::vector<uint8_t> &buf,
-                              const std::vector<uint8_t> &key) const;
-  std::vector<uint8_t> decrypto(const uint8_t *p, size_t len,
-                                const std::vector<uint8_t> &key) const;
-  std::vector<uint8_t> decrypto(const std::vector<uint8_t> &buf,
-                                const std::vector<uint8_t> &key) const;
 
   bool select(CipherSuite *selected,
               const Container<uint16_t, CipherSuite> *css);
@@ -42,6 +36,4 @@ public:
   bool select(KeyShareEntry *selected, const KeyShareClientHello *ksch);
   bool support(KeyShareClientHello *ksch) const;
 
-  void hashUpdate(const uint8_t* p, size_t len);
-  bool driveHkdf();
 };

@@ -30,6 +30,7 @@ class Client {
 
   void sayHello(const Handshake *hs);
   void sayAppdata(const uint8_t *p, size_t len);
+  void sayAlert(AlertDescription desc, AlertLevel level = AlertLevel::fatal);
 
   void say(ContentType ct, const std::vector<uint8_t> &v);
 

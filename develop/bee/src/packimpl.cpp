@@ -1,5 +1,6 @@
 #include <cstdlib>
 
+#include "tls.h"
 #include "transportimpl.h"
 #include "packimpl.h"
 

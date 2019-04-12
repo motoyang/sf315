@@ -18,7 +18,7 @@ public:
 
   std::list<TLSPlaintext *> fragment(ContentType ct, const uint8_t *data,
                                      uint32_t len) const;
-  std::list<std::vector<uint8_t>>
+  std::list<secure::secure_vector<uint8_t>>
   fragmentWithPadding(ContentType ct, const uint8_t *data, uint32_t len) const;
 
   std::list<std::vector<uint8_t>> feed(const uint8_t *data, size_t len) const;

@@ -4,6 +4,7 @@
 #include <utility>
 #include <algorithm>
 
+#include "nanolog.hpp"
 #include "memoryimpl.h"
 #include "packimpl.h"
 #include "cryptography.h"
@@ -28,8 +29,6 @@ struct Client::Impl {
   std::unique_ptr<RecordLayer> _rl;
   std::unique_ptr<Cryptocenter> _cryptocenter;
   std::unique_ptr<Channel> _channel;
-
-  std::vector<uint8_t> _key;
 };
 
 // --
@@ -61,8 +60,14 @@ void Client::received(ContentType ct, const uint8_t *p, size_t len) {
   } break;
   case ContentType::application_data:
     break;
-  case ContentType::alert:
-    break;
+  case ContentType::alert: {
+    assert(sizeof(Alert) == len);
+    auto alert = (Alert *)p;
+    NLOG_CRIT << "Client received alert: " << alert->description;
+
+    // TBD!!! notify to application level
+
+  } break;
   case ContentType::change_cipher_spec:
   case ContentType::invalid:
   default:
@@ -147,10 +152,21 @@ void Client::sayAppdata(const uint8_t *p, size_t len) {
   // TBF!!!
   auto pv =
       _impl->_rl->fragmentWithPadding(ContentType::application_data, p, len);
-  for (const auto &v : pv) {
-    auto cv = _impl->_cryptocenter->crypto(v, _impl->_key);
-    _impl->_channel->send(cv.data(), cv.size());
+  for (auto &v : pv) {
+    _impl->_cryptocenter->crypto(v);
+    _impl->_channel->send(v.data(), v.size());
   }
+}
+
+void Client::sayAlert(AlertDescription desc, AlertLevel level) {
+  Alert alert{level, desc};
+  auto pv = _impl->_rl->fragmentWithPadding(ContentType::alert,
+                                            (uint8_t *)&alert, sizeof(alert));
+  for (auto &v : pv) {
+    _impl->_cryptocenter->crypto(v);
+    _impl->_channel->send(v.data(), v.size());
+  }
+  NLOG_CRIT << "client send alter: " << desc;
 }
 
 std::unordered_map<ExtensionType, uint8_t *>
@@ -206,7 +222,8 @@ void Client::run() {
     auto ct = plaintext->type;
     if (plaintext->cryptoFlag()) {
       // v是TSLCiphertext，要解密后处理
-      v = _impl->_cryptocenter->decrypto(fragment, len, _impl->_key);
+      // 因为是对称加密，再次加密就是解密
+      _impl->_cryptocenter->crypto(v);
 
       // 剔除padding的zero
       auto ct_addr =

@@ -32,7 +32,7 @@ struct {
 } HkdfLabel;
 
 其中：
-HkdfLabel = Hash.length(2 字节) + label_length(1字节) + "tls13 " + Label + Hash.length(1字节) + HASH(Messages)
+HkdfLabel = { Hash.length(2 字节) + label_length(1字节) + "tls13 " + Label + Hash.length(1字节) + HASH(Messages) }
 也就是说Derive-Secret就是HKDF的expand操作。
 
 -----------------------
@@ -109,10 +109,6 @@ TLS 1.2是这样计算的
     buffer 前添加握手报文类型+长度
     加密_send(buffer)
 
-    1
-    2
-    3
-
 8：client发送Change Cipher Spec。（允许不发送）
 
 9：client发送 Finished（加密的）
@@ -172,22 +168,6 @@ RFC中的描述
             {Finished}              -------->
             [Application Data]      <------->        [Application Data]
 
-    1
-    2
-    3
-    4
-    5
-    6
-    7
-    8
-    9
-    10
-    11
-    12
-    13
-    14
-    15
-    16
 
 完整的TLS 1.3 0-RTT 描述
 
@@ -245,11 +225,6 @@ TLS 1.2 中的New Session Ticket
           opaque ticket<0..2^16-1>;
       } NewSessionTicket;
 
-    1
-    2
-    3
-    4
-
 很简单的格式，一个是ticket_lifetime_hint，告知客户端这个ticket的生命周期（老化时间），ticket就是主要包含了主秘钥等其他信息（客户端认证的话可能还包含客户端的证书）。
 
 只有在Client Hello和Server Hello中都携带了session ticket拓展，server才能在Change Cipher Spec之前发送New Session Ticket。
@@ -263,22 +238,11 @@ TLS 1.3 中的New Session Ticket
           Extension extensions<0..2^16-2>;
       } NewSessionTicket;
 
-    1
-    2
-    3
-    4
-    5
-    6
-    7
-
 ticket_lifetime和TLS 1.2中的ticket_lifetime_hint含义一样，用以告知客户端ticket的老化时间；ticket_age_add作用讲PSK还会再说，这里我们需要知道的是，该值主要是用来混淆PSK中携带的session ticket老化时间。ticket_nonce目前都是是一个counter，，初始值是0，发送一次后，counter++。ticket和TLS 1.2 中的含义类似，只是这里是PSK，而不是master_secret。Extension extensions目前只定义了一种拓展：max_early_data_size，该值的作用在上文多次提到过，就是表明server愿意接收多少early data，超过这个值，server会断开连接。
 这个PSK，需要着重说一下，RFC中其计算流程如下：
 
 HKDF-Expand-Label(resumption_master_secret,
                 "resumption", ticket_nonce, Hash.length) = PSK
-
-    1
-    2
 
 入参的核心是，resumption_master_secret，它是由Master Secret进行derive后获得的（详见key derive）。
 TLS 1.3 中的 pre_share_key
@@ -303,26 +267,6 @@ TLS 1.3 中的 pre_share_key
               case server_hello: uint16 selected_identity;
           };
       } PreSharedKeyExtension;
-
-    1
-    2
-    3
-    4
-    5
-    6
-    7
-    8
-    9
-    10
-    11
-    12
-    13
-    14
-    15
-    16
-    17
-    18
-    19
 
 上面的意思是说，对于Client Hello而言，发送的是OfferedPsks，也是这节我们关注的。（Server Hello中携带的PSK拓展，上文已经提到过了，也描述了其作用）。我们要关注3个值。
 1：Obfuscated Ticket Age
@@ -359,17 +303,6 @@ PSK binders
                  |                     "")
                  |                     = binder_key
 
-    1
-    2
-    3
-    4
-    5
-    6
-    7
-    8
-    9
-    10
-
 （1）第一步就是获取PSK
 PSK哪里的？其实就是从New Session Ticket中的ticket恢复得到。
 
@@ -388,8 +321,3 @@ The PskBinderEntry is computed in the same way as the Finished message (Section 
 注意这个不包括PSK Binders和PSK Binders length，否则就出现鸡生蛋蛋生鸡的问题了。
 
 4、将md进行hmac计算，hmac的key是Finished key
----------------------
-作者：Mrpre
-来源：CSDN
-原文：https://blog.csdn.net/mrpre/article/details/81532469
-版权声明：本文为博主原创文章，转载请附上博文链接！

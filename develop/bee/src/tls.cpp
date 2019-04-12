@@ -1,4 +1,5 @@
 #include "memoryinterface.h"
+#include "cryptography.h"
 #include "tls.h"
 
 // --
@@ -29,35 +30,6 @@ std::string hex2section(const std::string &hex, size_t bytesOfSection,
 }
 
 // --
-
-std::vector<uint8_t> TLSPlaintext::alloc(ContentType ct, ProtocolVersion pv,
-                                         const uint8_t *data, uint16_t len,
-                                         uint16_t length_of_padding) {
-  auto mi = MemoryInterface::get();
-  auto buf_len = sizeof(TLSPlaintext) + len + sizeof(ct) + length_of_padding;
-  std::vector<uint8_t> buf(buf_len);
-  auto r = (TLSPlaintext *)buf.data();
-  r->type = ct;
-  r->legacy_record_version = pv;
-  r->length(len);
-  mi->copy(r->fragment(), data, len);
-  r->innerType(ct);
-  mi->set(r->innerZeros(), 0, length_of_padding);
-
-  return buf;
-}
-
-TLSPlaintext *TLSPlaintext::alloc(ContentType ct, ProtocolVersion pv,
-                                  const uint8_t *data, uint16_t len) {
-  auto mi = MemoryInterface::get();
-  auto r = (TLSPlaintext *)mi->alloc(sizeof(TLSPlaintext) + len);
-  r->type = ct;
-  r->legacy_record_version = pv;
-  r->length(len);
-  mi->copy(r->fragment(), data, len);
-
-  return r;
-}
 
 TLSCiphertext *TLSCiphertext::alloc(const uint8_t *data, uint16_t len) {
   auto mi = MemoryInterface::get();

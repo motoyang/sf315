@@ -255,12 +255,6 @@ public:
   }
   uint16_t size() const { return sizeof(*this) + length(); }
   bool cryptoFlag() const { return type == ContentType::application_data; }
-
-  static TLSPlaintext *alloc(ContentType ct, ProtocolVersion pv,
-                             const uint8_t *data, uint16_t len);
-  static std::vector<uint8_t> alloc(ContentType ct, ProtocolVersion pv,
-                                    const uint8_t *data, uint16_t len,
-                                    uint16_t length_of_padding);
 };
 
 // struct {

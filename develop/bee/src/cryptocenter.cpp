@@ -160,8 +160,13 @@ struct Cryptocenter::Impl {
 
   std::vector<uint8_t> _psk;
   secure::SymmetricKey _ecdheKey;
+  struct {
+    secure::secure_vector<uint8_t> _key;
+    secure::secure_vector<uint8_t> _iv;
+  } _serverWriteSecret, _clientWriteSecret;
   secure::SecureVector<uint8_t> _keys[12];
 
+  size_t _granularity;
   std::unique_ptr<secure::RandomNumberGenerator> _rng;
   std::unique_ptr<secure::HashFunction> _hashFun;
   std::unique_ptr<secure::Cipher_Mode> _cipherFun;
@@ -217,6 +222,7 @@ bool Cryptocenter::cipherSuitInit(CipherSuite cs) {
 
   _impl->_cipherFun =
       secure::Cipher_Mode::create(cipher_names.at(cs).first, Botan::ENCRYPTION);
+  _impl->_granularity = _impl->_cipherFun->update_granularity();
   _impl->_hashFun = secure::HashFunction::create(cipher_names.at(cs).second);
 
   auto len = _impl->_hashFun->output_length();
@@ -225,6 +231,19 @@ bool Cryptocenter::cipherSuitInit(CipherSuite cs) {
   hkdfInit(cipher_names.at(cs).second);
 
   return true;
+}
+
+void Cryptocenter::hashUpdate(const uint8_t *p, size_t len) {
+  _impl->_hashFun->update(p, len);
+}
+
+bool Cryptocenter::driveKey(NamedGroup ng,
+                            const std::vector<uint8_t> publicKey) {
+  constexpr const char *kdf = "Raw";
+  secure::PK_Key_Agreement ecdh(*_impl->_privateKeys.at(ng), *_impl->_rng, kdf);
+  auto len = _impl->_hashFun->output_length();
+  _impl->_ecdheKey = ecdh.derive_key(len, publicKey);
+  std::cout << "ecdhekey: " << _impl->_ecdheKey.as_string() << std::endl;
 }
 
 bool Cryptocenter::hkdfInit(const std::string &hash_name) {
@@ -237,31 +256,12 @@ bool Cryptocenter::hkdfInit(const std::string &hash_name) {
       secure::HKDF_Expand::create(expand_name + hash_name + ")");
 }
 
-std::vector<uint8_t>
-Cryptocenter::crypto(const std::vector<uint8_t> &buf,
-                     const std::vector<uint8_t> &key) const {
-  return std::vector<uint8_t>();
-}
-
-bool Cryptocenter::driveKey(NamedGroup ng,
-                            const std::vector<uint8_t> publicKey) {
-  constexpr const char *kdf = "Raw";
-  secure::PK_Key_Agreement ecdh(*_impl->_privateKeys.at(ng), *_impl->_rng, kdf);
-  auto len = _impl->_hashFun->output_length();
-  _impl->_ecdheKey = ecdh.derive_key(len, publicKey);
-  std::cout << "ecdhekey: " << _impl->_ecdheKey.as_string() << std::endl;
-}
-
-std::vector<uint8_t>
-Cryptocenter::decrypto(const std::vector<uint8_t> &buf,
-                       const std::vector<uint8_t> &key) const {
-  return std::vector<uint8_t>();
-}
-
-std::vector<uint8_t>
-Cryptocenter::decrypto(const uint8_t *p, size_t len,
-                       const std::vector<uint8_t> &key) const {
-  return std::vector<uint8_t>();
+void Cryptocenter::crypto(secure::secure_vector<uint8_t> &buf) const {
+  if (auto needed = buf.size() % _impl->_granularity; needed > 0) {
+    buf.resize(buf.size() + _impl->_granularity - needed);
+  }
+  auto offset = sizeof(TLSPlaintext);
+  _impl->_cipherFun->update(buf, offset);
 }
 
 constexpr static CipherSuite s_supported_ciphersuits[] = {
@@ -335,6 +335,13 @@ bool Cryptocenter::select(NamedGroup *selected,
 // 现返回值为false时，需要向Client发送HelloRetryRequest。
 bool Cryptocenter::select(KeyShareEntry *selected,
                           const KeyShareClientHello *ksch) {
+  if (!ksch) {
+    // ClientHello中没有KeyShareClientHello扩展，在HelloRegryRequest中返回Server
+    // 首选的NamedGroup
+    selected->group = _impl->_supported_ng.front();
+    return false;
+  }
+
   auto kse = ksch->data();
   for (auto len = 0; len < ksch->len(); len += kse->size()) {
     auto found = std::find(_impl->_supported_ng.cbegin(),
@@ -358,7 +365,7 @@ bool Cryptocenter::select(KeyShareEntry *selected,
     kse = kse->next();
   }
 
-  // 如果没有找到匹配的KeyShareEntry，就在HelloRegryRequest中返回Server首先的NamedGroup
+  // 如果没有找到匹配的KeyShareEntry，就在HelloRegryRequest中返回Server首选的NamedGroup
   selected->group = _impl->_supported_ng.front();
   return false;
 }
@@ -384,10 +391,6 @@ bool Cryptocenter::support(KeyShareClientHello *ksch) const {
   return true;
 }
 
-void Cryptocenter::hashUpdate(const uint8_t *p, size_t len) {
-  _impl->_hashFun->update(p, len);
-}
-
 constexpr int EarlySecret = 0, BinderKey = 1, ClientEarlyTrafficSecret = 2,
               EarlyExporterMasterSecret = 3, HandshakeSecret = 4,
               ClientHandshakeTrafficSecret = 5,
@@ -401,41 +404,45 @@ bool Cryptocenter::driveHkdf() {
   auto hashValue = tmpHash->final();
   auto hashString = secure::hex_encode(hashValue);
 
-  auto len = _impl->_hashFun->output_length();
-  // auto iv_len = _impl->_cipherFun->valid_nonce_length();
+  auto hashLen = _impl->_hashFun->output_length();
+  auto keyLen = _impl->_cipherFun->maximum_keylength();
+  assert(keyLen = _impl->_cipherFun->minimum_keylength());
+  auto ivLen = _impl->_cipherFun->default_nonce_length();
 
-  std::vector<uint8_t> zero(len, 0);
+  std::vector<uint8_t> zero(hashLen, 0);
   std::vector<uint8_t> label;
 
   _impl->_keys[EarlySecret] =
-      _impl->_hkdfExtract->derive_key(len, _impl->_psk, zero, label);
+      _impl->_hkdfExtract->derive_key(hashLen, _impl->_psk, zero, label);
 
-  auto hl = hkdfLabel(len, "derived", tmpHash->process(""));
-  std::cout << hex2section(secure::hex_encode(hl)) << std::endl;
-  auto tmpKey =
-      _impl->_hkdfExpand->derive_key(len, _impl->_keys[EarlySecret], hl, label);
+  auto hl = hkdfLabel(hashLen, "derived", secure::secure_vector<uint8_t>(1, 0));
+  auto tmpKey = _impl->_hkdfExpand->derive_key(
+      hashLen, _impl->_keys[EarlySecret], hl, label);
   _impl->_keys[HandshakeSecret] = _impl->_hkdfExtract->derive_key(
-      len, _impl->_ecdheKey.bits_of(), tmpKey, label);
+      hashLen, _impl->_ecdheKey.bits_of(), tmpKey, label);
 
-  hl = hkdfLabel(len, "c hs traffic", hashValue);
+  hl = hkdfLabel(hashLen, "c hs traffic", hashValue);
   _impl->_keys[ClientHandshakeTrafficSecret] = _impl->_hkdfExpand->derive_key(
-      len, _impl->_keys[HandshakeSecret], hl, label);
-  hl = hkdfLabel(len, "s hs traffic", hashValue);
+      hashLen, _impl->_keys[HandshakeSecret], hl, label);
+  hl = hkdfLabel(hashLen, "s hs traffic", hashValue);
   _impl->_keys[ServerHandshakeTrafficSecret] = _impl->_hkdfExpand->derive_key(
-      len, _impl->_keys[HandshakeSecret], hl, label);
+      hashLen, _impl->_keys[HandshakeSecret], hl, label);
 
-  hl = hkdfLabel(len, "key", tmpHash->process(""));
-  auto serverWriteKey = _impl->_hkdfExpand->derive_key(
-      len, _impl->_keys[ServerHandshakeTrafficSecret], hl, label);
-  hl = hkdfLabel(len, "iv", tmpHash->process(""));
-  auto serverWriteIvKey = _impl->_hkdfExpand->derive_key(
-      len, _impl->_keys[ServerHandshakeTrafficSecret], hl, label);
+  hl = hkdfLabel(keyLen, "key", secure::secure_vector<uint8_t>(1, 0));
+  _impl->_serverWriteSecret._key = _impl->_hkdfExpand->derive_key(
+      keyLen, _impl->_keys[ServerHandshakeTrafficSecret], hl, label);
+  _impl->_clientWriteSecret._key = _impl->_hkdfExpand->derive_key(
+      keyLen, _impl->_keys[ClientHandshakeTrafficSecret], hl, label);
+  hl = hkdfLabel(ivLen, "iv", secure::secure_vector<uint8_t>(1, 0));
+  _impl->_serverWriteSecret._iv = _impl->_hkdfExpand->derive_key(
+      ivLen, _impl->_keys[ServerHandshakeTrafficSecret], hl, label);
+  _impl->_clientWriteSecret._iv = _impl->_hkdfExpand->derive_key(
+      keyLen, _impl->_keys[ClientHandshakeTrafficSecret], hl, label);
+
   std::cout << "serverWriteKey: "
-            << secure::hex_encode(serverWriteKey)
-            << std::endl;
-  std::cout << "serverWriteIvKey: "
-            << secure::hex_encode(serverWriteIvKey)
-            << std::endl;
+            << secure::hex_encode(_impl->_serverWriteSecret._key) << std::endl;
+  std::cout << "serverWriteIv: "
+            << secure::hex_encode(_impl->_serverWriteSecret._iv) << std::endl;
 
   // std::cout << "ServerHandshakeTrafficSecret key: "
   //           << secure::hex_encode(_impl->_keys[ServerHandshakeTrafficSecret])

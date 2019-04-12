@@ -29,8 +29,6 @@ struct Server::Impl {
   std::unique_ptr<RecordLayer> _rl;
   std::unique_ptr<Cryptocenter> _cryptocenter;
   std::unique_ptr<Channel> _channel;
-
-  std::vector<uint8_t> _key;
 };
 
 // --
@@ -39,15 +37,30 @@ Handshake *Server::hello(std::vector<uint8_t> &buf, const ClientHello *ch) {
   // 解析Extensions到map，以便后续使用
   auto exMap = extensionsCheck(ch->extensions());
 
-  // 如果legacy_version不是PV_TLS_1_2(0x0303)，或者没有supported_versions扩展。
+  // 没有supported_versions扩展，就认为不是TLS1.3版本，不支持并发送alert。
+  // from rfc8446: TLS 1.3 ClientHello messages always
+  // contain extensions (minimally "supported_versions", otherwise, they
+  // will be interpreted as TLS 1.2 ClientHello messages).
   if (ch->legacy_version != PV_TLS_1_2 ||
-      !exMap.find(ExtensionType::supported_versions)->second) {
+      exMap.find(ExtensionType::supported_versions) == exMap.end()) {
     // 中断握手过程。TLS1.3规定，legacy_version必须是PV_TLS_1_2(0x0303)，版本协商通过
     // SupportedVersions扩张完成。
     // from rfc8446: Servers MAY abort the handshake upon receiving a
     // ClientHello with legacy_version 0x0304 or later.
 
-    // 发送protocol_version Alert？
+    // 发送protocol_version Alert
+    sayAlert(AlertDescription::protocol_version);
+    return nullptr;
+  }
+
+  // from rfc8446: For every TLS 1.3 ClientHello, this vector
+  // MUST contain exactly one byte, set to zero, which corresponds to
+  // the "null" compression method in prior versions of TLS.
+  if (ch->legacy_compression_methods()->len() > 1) {
+    // If a TLS 1.3 ClientHello is received with any other value in this
+    // field, the server MUST abort the handshake with an
+    // "illegal_parameter" alert.
+    sayAlert(AlertDescription::illegal_parameter);
     return nullptr;
   }
 
@@ -97,8 +110,11 @@ Handshake *Server::hello(std::vector<uint8_t> &buf, const ClientHello *ch) {
   auto ex2 = (Extension<KeyShareServerHello> *)ex1->next();
   ex2->extension_type = ExtensionType::key_share;
   auto kse = ex2->extension_data();
-  if (!_impl->_cryptocenter->select(
-          kse, (KeyShareClientHello *)exMap.at(ExtensionType::key_share))) {
+  const KeyShareClientHello *ksch = nullptr;
+  if (exMap.find(ExtensionType::key_share) != exMap.end()) {
+    ksch = (KeyShareClientHello *)exMap.at(ExtensionType::key_share);
+  }
+  if (!_impl->_cryptocenter->select(kse, ksch)) {
     NLOG_WARN << "Server can't found matched KeyShareEntry in ClientHello, so "
                  "HelloRetryRequest will been sent.";
     sh->helloRetryRequest();
@@ -121,6 +137,17 @@ void Server::sayHello(const Handshake *hs) {
 
   _impl->_status.pop();
   _impl->_status.push(Server::Status::NEGOTIATED);
+}
+
+void Server::sayAlert(AlertDescription desc, AlertLevel level) {
+  Alert alert{level, desc};
+  auto pv = _impl->_rl->fragmentWithPadding(ContentType::alert,
+                                            (uint8_t *)&alert, sizeof(alert));
+  for (auto &v : pv) {
+    _impl->_cryptocenter->crypto(v);
+    _impl->_channel->send(v.data(), v.size());
+  }
+  NLOG_CRIT << "server send alter: " << desc;
 }
 
 // 根据收到的包，做顶层的分发
@@ -151,8 +178,14 @@ void Server::received(ContentType ct, const uint8_t *p, size_t len) {
   } break;
   case ContentType::application_data:
     break;
-  case ContentType::alert:
-    break;
+  case ContentType::alert: {
+    assert(sizeof(Alert) == len);
+    auto alert = (Alert *)p;
+    NLOG_CRIT << "Server received alert: " << alert->description;
+
+    // TBD!!! notify to application level
+
+  } break;
   case ContentType::change_cipher_spec:
   case ContentType::invalid:
   default:
@@ -214,7 +247,8 @@ void Server::run() {
     auto ct = plaintext->type;
     if (plaintext->cryptoFlag()) {
       // v是TSLCiphertext，要解密后处理
-      v = _impl->_cryptocenter->decrypto(fragment, len, _impl->_key);
+      // 因为是对称加密，再次加密就是解密
+      _impl->_cryptocenter->crypto(v);
 
       // 剔除padding的zero
       auto ct_addr =

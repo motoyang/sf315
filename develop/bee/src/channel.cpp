@@ -25,13 +25,13 @@ bool Channel::send(uint8_t *p, size_t len) const {
   return true;
 }
 
-std::vector<uint8_t> Channel::recv() const {
+secure::secure_vector<uint8_t> Channel::recv() const {
   BufT b;
   if (_impl->_source->try_dequeue(b)) {
     BufPtr p(&b, freeBuf2);
-    return std::vector<uint8_t>(b.base, b.base + b.len);
+    return secure::secure_vector<uint8_t>(b.base, b.base + b.len);
   } else {
-    return std::vector<uint8_t>();
+    return secure::secure_vector<uint8_t>();
   }
 }
 
