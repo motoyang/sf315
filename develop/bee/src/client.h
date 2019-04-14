@@ -31,8 +31,9 @@ class Client {
   void sayHello(const Handshake *hs);
   void sayAppdata(const uint8_t *p, size_t len);
   void sayAlert(AlertDescription desc, AlertLevel level = AlertLevel::fatal);
+  void sayData(ContentType ct, const uint8_t *p, size_t len) const;
 
-  void say(ContentType ct, const std::vector<uint8_t> &v);
+  // void say(ContentType ct, const std::vector<uint8_t> &v);
 
   std::unordered_map<ExtensionType, uint8_t *> extensionsCheck(Extensions *e);
 

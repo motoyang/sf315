@@ -7,7 +7,7 @@
 
 // --
 
-const std::unordered_map<NamedGroup, secure::BigInt> s_dhSupported{
+const static std::unordered_map<NamedGroup, secure::BigInt> s_dhSupported{
     {NamedGroup::ffdhe2048,
      secure::BigInt(
          "0xFFFFFFFFFFFFFFFFADF85458A2BB4A9AAFDC5620273D3CF1D8B9C583CE2D3695A9E"
@@ -107,12 +107,22 @@ const std::unordered_map<NamedGroup, secure::BigInt> s_dhSupported{
          "71A87E2F741EF8C1FE86FEA6BBFDE530677F0D97D11D49F7A8443D0822E506A9F4614"
          "E011E2A94838FF88CD68C8BB7C5C6424CFFFFFFFFFFFFFFFF")}};
 
-const std::unordered_map<NamedGroup, std::string> s_ecdhSupported{
+const static std::unordered_map<NamedGroup, std::string> s_ecdhSupported{
       {NamedGroup::secp256r1, "secp256r1"},
       {NamedGroup::secp384r1, "secp384r1"},
       {NamedGroup::secp521r1, "secp521r1"}/*,
       {NamedGroup::x25519, "x25519"},
       {NamedGroup::x448, "x448"}*/};
+
+constexpr static NamedGroup s_supportNamedGroup[] = {
+    NamedGroup::secp256r1, NamedGroup::secp384r1, NamedGroup::secp521r1,
+    NamedGroup::ffdhe2048, NamedGroup::ffdhe3072, NamedGroup::ffdhe4096,
+    NamedGroup::ffdhe6144, NamedGroup::ffdhe8192};
+
+constexpr static CipherSuite s_supported_ciphersuits[] = {
+    TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384,
+    TLS_CHACHA20_POLY1305_SHA256, TLS_AES_128_CCM_SHA256,
+    TLS_AES_128_CCM_8_SHA256};
 
 // --
 
@@ -154,7 +164,7 @@ static std::vector<uint8_t> hkdfLabel(uint16_t len, const char *label,
 struct Cryptocenter::Impl {
   Impl() : _rng(new secure::AutoSeeded_RNG) {}
 
-  std::vector<NamedGroup> _supported_ng;
+  // std::vector<NamedGroup> _supported_ng;
   std::unordered_map<NamedGroup, std::unique_ptr<secure::PK_Key_Agreement_Key>>
       _privateKeys;
 
@@ -194,12 +204,10 @@ Cryptocenter::Cryptocenter() : _impl(std::make_unique<Cryptocenter::Impl>()) {
   };
 
   for (const auto &it : s_dhSupported) {
-    _impl->_supported_ng.push_back(it.first);
     _impl->_privateKeys.insert({it.first, create_dh(it.second)});
   }
 
   for (const auto &it : s_ecdhSupported) {
-    _impl->_supported_ng.push_back(it.first);
     _impl->_privateKeys.insert({it.first, create_ecdh(it.second)});
   }
 }
@@ -264,11 +272,6 @@ void Cryptocenter::crypto(secure::secure_vector<uint8_t> &buf) const {
   _impl->_cipherFun->update(buf, offset);
 }
 
-constexpr static CipherSuite s_supported_ciphersuits[] = {
-    TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384,
-    TLS_CHACHA20_POLY1305_SHA256, TLS_AES_128_CCM_SHA256,
-    TLS_AES_128_CCM_8_SHA256};
-
 bool Cryptocenter::select(CipherSuite *selected,
                           const Container<uint16_t, CipherSuite> *css) {
   auto cs = css->data();
@@ -317,7 +320,7 @@ bool Cryptocenter::select(NamedGroup *selected,
                           const NamedGroupList *ngl) const {
   auto ng = ngl->data();
   auto ng_count = ngl->len() / sizeof(NamedGroup);
-  for (const auto &sng : _impl->_supported_ng) {
+  for (const auto &sng : s_supportNamedGroup) {
     auto found = std::find(ng, ng + ng_count, sng);
     if (found != ng + ng_count) {
       *selected = sng;
@@ -325,7 +328,7 @@ bool Cryptocenter::select(NamedGroup *selected,
     }
   }
 
-  *selected = _impl->_supported_ng.front();
+  *selected = s_supportNamedGroup[0];
   return false;
 }
 
@@ -338,15 +341,15 @@ bool Cryptocenter::select(KeyShareEntry *selected,
   if (!ksch) {
     // ClientHello中没有KeyShareClientHello扩展，在HelloRegryRequest中返回Server
     // 首选的NamedGroup
-    selected->group = _impl->_supported_ng.front();
+    selected->group = s_supportNamedGroup[0];
     return false;
   }
 
   auto kse = ksch->data();
   for (auto len = 0; len < ksch->len(); len += kse->size()) {
-    auto found = std::find(_impl->_supported_ng.cbegin(),
-                           _impl->_supported_ng.cend(), kse->group);
-    if (found != _impl->_supported_ng.cend()) {
+    auto found = std::find(std::cbegin(s_supportNamedGroup),
+                           std::cend(s_supportNamedGroup), kse->group);
+    if (found != std::cend(s_supportNamedGroup)) {
       // 根据选择的NamedGroup，向Client返回KeySharedEntry。
       selected->group = kse->group;
       auto pk = _impl->_privateKeys.at(selected->group)->public_value();
@@ -366,7 +369,7 @@ bool Cryptocenter::select(KeyShareEntry *selected,
   }
 
   // 如果没有找到匹配的KeyShareEntry，就在HelloRegryRequest中返回Server首选的NamedGroup
-  selected->group = _impl->_supported_ng.front();
+  selected->group = s_supportNamedGroup[0];
   return false;
 }
 
@@ -374,7 +377,7 @@ bool Cryptocenter::support(KeyShareClientHello *ksch) const {
   auto len = 0;
   auto kse = ksch->data();
 
-  for (const auto &ng : _impl->_supported_ng) {
+  for (const auto &ng : s_supportNamedGroup) {
     kse->group = ng;
 
     auto pk = _impl->_privateKeys.at(ng)->public_value();

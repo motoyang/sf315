@@ -129,11 +129,12 @@ Handshake *Server::hello(std::vector<uint8_t> &buf, const ClientHello *ch) {
 }
 
 void Server::sayHello(const Handshake *hs) {
-  auto pl =
-      _impl->_rl->fragment(ContentType::handshake, (uint8_t *)hs, hs->size());
-  for (const auto &p : pl) {
-    _impl->_channel->send((uint8_t *)p, p->size());
-  }
+  sayData(ContentType::handshake, (const uint8_t*)hs, hs->size());
+  // auto pl =
+  //     _impl->_rl->fragment(ContentType::handshake, (uint8_t *)hs, hs->size());
+  // for (const auto &p : pl) {
+  //   _impl->_channel->send((uint8_t *)p, p->size());
+  // }
 
   _impl->_status.pop();
   _impl->_status.push(Server::Status::NEGOTIATED);
@@ -141,13 +142,30 @@ void Server::sayHello(const Handshake *hs) {
 
 void Server::sayAlert(AlertDescription desc, AlertLevel level) {
   Alert alert{level, desc};
-  auto pv = _impl->_rl->fragmentWithPadding(ContentType::alert,
-                                            (uint8_t *)&alert, sizeof(alert));
-  for (auto &v : pv) {
-    _impl->_cryptocenter->crypto(v);
-    _impl->_channel->send(v.data(), v.size());
-  }
+  sayData(ContentType::alert, (const uint8_t*)&alert, sizeof(alert));
   NLOG_CRIT << "server send alter: " << desc;
+}
+
+void Server::sayData(ContentType ct, const uint8_t *p, size_t len) const {
+  Server::Status status = _impl->_status.top();
+
+  switch (status) {
+  case Server::Status::START: {
+    auto lp = _impl->_rl->fragment(ct, p, len);
+    for (const auto &p : lp) {
+      _impl->_channel->send((uint8_t *)p, p->size());
+    }
+  } break;
+  case Server::Status::CONNECTED: {
+    auto lv = _impl->_rl->fragmentWithPadding(ct, p, len);
+    for (auto &v : lv) {
+      _impl->_cryptocenter->crypto(v);
+      _impl->_channel->send(v.data(), v.size());
+    }
+  } break;
+  default:
+    break;
+  }
 }
 
 // 根据收到的包，做顶层的分发

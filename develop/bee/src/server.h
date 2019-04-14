@@ -25,6 +25,7 @@ class Server {
   Handshake *hello(std::vector<uint8_t> &buf, const ClientHello *hello);
   void sayHello(const Handshake *hs);
   void sayAlert(AlertDescription desc, AlertLevel level = AlertLevel::fatal);
+  void sayData(ContentType ct, const uint8_t* p, size_t len) const;
 
   void received(ContentType ct, const uint8_t *p, size_t len);
   void received(const Handshake *hs, size_t len);

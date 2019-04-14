@@ -138,11 +138,12 @@ const Handshake *Client::hello(std::vector<uint8_t> &buf,
 }
 
 void Client::sayHello(const Handshake *hs) {
-  auto pl =
-      _impl->_rl->fragment(ContentType::handshake, (uint8_t *)hs, hs->size());
-  for (const auto &p : pl) {
-    _impl->_channel->send((uint8_t *)p, p->size());
-  }
+  sayData(ContentType::handshake, (const uint8_t*)hs, hs->size());
+  // auto pl =
+  //     _impl->_rl->fragment(ContentType::handshake, (uint8_t *)hs, hs->size());
+  // for (const auto &p : pl) {
+  //   _impl->_channel->send((uint8_t *)p, p->size());
+  // }
 
   _impl->_status.pop();
   _impl->_status.push(Client::Status::WAIT_SH);
@@ -160,13 +161,36 @@ void Client::sayAppdata(const uint8_t *p, size_t len) {
 
 void Client::sayAlert(AlertDescription desc, AlertLevel level) {
   Alert alert{level, desc};
-  auto pv = _impl->_rl->fragmentWithPadding(ContentType::alert,
-                                            (uint8_t *)&alert, sizeof(alert));
-  for (auto &v : pv) {
-    _impl->_cryptocenter->crypto(v);
-    _impl->_channel->send(v.data(), v.size());
-  }
+  sayData(ContentType::alert, (const uint8_t*)&alert, sizeof(alert));
+  // auto pv = _impl->_rl->fragmentWithPadding(ContentType::alert,
+  //                                           (uint8_t *)&alert, sizeof(alert));
+  // for (auto &v : pv) {
+  //   _impl->_cryptocenter->crypto(v);
+  //   _impl->_channel->send(v.data(), v.size());
+  // }
   NLOG_CRIT << "client send alter: " << desc;
+}
+
+void Client::sayData(ContentType ct, const uint8_t *p, size_t len) const {
+  Client::Status status = _impl->_status.top();
+
+  switch (status) {
+  case Client::Status::START: {
+    auto lp = _impl->_rl->fragment(ct, p, len);
+    for (const auto &p : lp) {
+      _impl->_channel->send((uint8_t *)p, p->size());
+    }
+  } break;
+  case Client::Status::CONNECTED: {
+    auto lv = _impl->_rl->fragmentWithPadding(ct, p, len);
+    for (auto &v : lv) {
+      _impl->_cryptocenter->crypto(v);
+      _impl->_channel->send(v.data(), v.size());
+    }
+  } break;
+  default:
+    break;
+  }
 }
 
 std::unordered_map<ExtensionType, uint8_t *>
