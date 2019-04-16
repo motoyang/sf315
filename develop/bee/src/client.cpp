@@ -21,7 +21,7 @@ struct Client::Impl {
       : _vs(std::make_unique<VersionSupported>()),
         _rl(std::make_unique<RecordLayer>()),
         _channel(std::make_unique<Channel>()),
-        _cryptocenter(std::make_unique<Cryptocenter>()) {}
+        _cryptocenter(std::make_unique<Cryptocenter>(true)) {}
 
   std::vector<uint8_t> _clientHello;
   std::stack<Status> _status;
@@ -49,8 +49,15 @@ void Client::received(ContentType ct, const uint8_t *p, size_t len) {
           auto ch = hello(_impl->_clientHello, sh);
           sayHello(ch);
         } else {
-          received(sh);
+          received(hs, sh);
         }
+      } break;
+      case HandshakeType::encrypted_extensions: {
+        auto ee = (EncryptedExtensions *)hs->message();
+        std::cout << hex2section(
+                         secure::hex_encode((const uint8_t *)ee, ee->size()))
+                  << std::endl;
+
       } break;
 
       default:
@@ -76,11 +83,11 @@ void Client::received(ContentType ct, const uint8_t *p, size_t len) {
   }
 }
 
-void Client::received(const ServerHello *sh) {
+void Client::received(const Handshake* hs, const ServerHello *sh) {
   _impl->_cryptocenter->cipherSuitInit(*sh->cipher_suite());
-  _impl->_cryptocenter->hashUpdate(_impl->_clientHello.data(),
+  _impl->_cryptocenter->hashFun()->update(_impl->_clientHello.data(),
                                    _impl->_clientHello.size());
-  _impl->_cryptocenter->hashUpdate((uint8_t *)sh, sh->size());
+  _impl->_cryptocenter->hashFun()->update((const uint8_t *)hs, hs->size());
 
   auto exMap = extensionsCheck(sh->extensions());
 
@@ -92,6 +99,9 @@ void Client::received(const ServerHello *sh) {
   auto b = _impl->_cryptocenter->driveKey(kse->group, publicKey);
 
   _impl->_cryptocenter->driveHkdf();
+
+  _impl->_status.pop();
+  _impl->_status.push(Client::Status::WAIT_EE);
 }
 
 const Handshake *Client::hello(std::vector<uint8_t> &buf) const {
@@ -138,9 +148,10 @@ const Handshake *Client::hello(std::vector<uint8_t> &buf,
 }
 
 void Client::sayHello(const Handshake *hs) {
-  sayData(ContentType::handshake, (const uint8_t*)hs, hs->size());
+  sayData(ContentType::handshake, (const uint8_t *)hs, hs->size());
   // auto pl =
-  //     _impl->_rl->fragment(ContentType::handshake, (uint8_t *)hs, hs->size());
+  //     _impl->_rl->fragment(ContentType::handshake, (uint8_t *)hs,
+  //     hs->size());
   // for (const auto &p : pl) {
   //   _impl->_channel->send((uint8_t *)p, p->size());
   // }
@@ -154,16 +165,17 @@ void Client::sayAppdata(const uint8_t *p, size_t len) {
   auto pv =
       _impl->_rl->fragmentWithPadding(ContentType::application_data, p, len);
   for (auto &v : pv) {
-    _impl->_cryptocenter->crypto(v);
+    _impl->_cryptocenter->clientCrypto(v);
     _impl->_channel->send(v.data(), v.size());
   }
 }
 
 void Client::sayAlert(AlertDescription desc, AlertLevel level) {
   Alert alert{level, desc};
-  sayData(ContentType::alert, (const uint8_t*)&alert, sizeof(alert));
+  sayData(ContentType::alert, (const uint8_t *)&alert, sizeof(alert));
   // auto pv = _impl->_rl->fragmentWithPadding(ContentType::alert,
-  //                                           (uint8_t *)&alert, sizeof(alert));
+  //                                           (uint8_t *)&alert,
+  //                                           sizeof(alert));
   // for (auto &v : pv) {
   //   _impl->_cryptocenter->crypto(v);
   //   _impl->_channel->send(v.data(), v.size());
@@ -184,7 +196,7 @@ void Client::sayData(ContentType ct, const uint8_t *p, size_t len) const {
   case Client::Status::CONNECTED: {
     auto lv = _impl->_rl->fragmentWithPadding(ct, p, len);
     for (auto &v : lv) {
-      _impl->_cryptocenter->crypto(v);
+      _impl->_cryptocenter->clientCrypto(v);
       _impl->_channel->send(v.data(), v.size());
     }
   } break;
@@ -240,27 +252,29 @@ void Client::run() {
   for (auto v = _impl->_channel->recv(); v.size() > 0;
        v = _impl->_channel->recv()) {
     // v可能是TSLPlaintext或者TSLCiphertext，头都是相同的。
-    auto plaintext = (const TLSPlaintext *)v.data();
+    auto plaintext = (TLSPlaintext *)v.data();
     auto fragment = plaintext->fragment();
     auto len = plaintext->length();
     auto ct = plaintext->type;
-    if (plaintext->cryptoFlag()) {
+    if (_impl->_status.top() != Client::Status::WAIT_SH) {
       // v是TSLCiphertext，要解密后处理
       // 因为是对称加密，再次加密就是解密
-      _impl->_cryptocenter->crypto(v);
+      _impl->_cryptocenter->serverCrypto(v, false);
 
       // 剔除padding的zero
       auto ct_addr =
           std::find_if(v.crbegin(), v.crend(), [](uint8_t c) { return c > 0; });
-      if (ct_addr == v.crbegin()) {
+      if (ct_addr == v.crend()) {
         assert(false);
         continue;
       }
       ct = ContentType(*ct_addr);
-      auto distance = std::distance(ct_addr, v.crbegin());
+      auto distance = std::distance(ct_addr, v.crend());
       v.resize(distance - 1); // -1是为了排除TLSInnerPlaintext.type
-      fragment = v.data();
-      len = v.size();
+      plaintext = (TLSPlaintext *)v.data();
+      plaintext->length((v.size() - sizeof(*plaintext)));
+      fragment = plaintext->fragment();
+      len = plaintext->length();
     }
     auto l = _impl->_rl->feed(fragment, len);
     assert(l.size() <= 1);

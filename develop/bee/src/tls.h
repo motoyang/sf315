@@ -266,9 +266,14 @@ public:
 struct TLSCiphertext {
   ContentType opaque_type = ContentType::application_data;     // 23
   ProtocolVersion legacy_record_version = CONST_HTONS(0x0303); // TLS v1.2
-  uint16_t length;
+private:
+  uint16_t _length;
+
+public:
+  uint16_t length() const { return NTOHS(_length); }
+  void length(uint16_t len) { _length = HTONS(len); }
   constexpr uint8_t *encrypted_record() const { return (uint8_t *)(this + 1); }
-  uint16_t size() const { return sizeof(*this) + NTOHS(length); }
+  uint16_t size() const { return sizeof(*this) + length(); }
 
   static TLSCiphertext *alloc(const uint8_t *data, uint16_t len);
 };
@@ -421,6 +426,12 @@ struct ServerHello {
   bool isHelloRetryRequest() const;
 };
 
+struct ClientHello1Hash {
+  HandshakeType ht;
+  uint8_t zeros[2];
+  uint8_t hashLen;
+};
+
 // --
 
 // struct {
@@ -505,6 +516,11 @@ using KeyShareClientHello = Container<uint16_t, KeyShareEntry>;
 struct KeyShareHelloRetryRequest {
   NamedGroup selected_group;
 };
+
+// struct {
+//   Extension extensions<0..2 ^ 16 - 1>;
+// } EncryptedExtensions;
+using EncryptedExtensions = Extensions;
 
 // struct {
 //   KeyShareEntry server_share;

@@ -179,14 +179,16 @@ struct Cryptocenter::Impl {
   size_t _granularity;
   std::unique_ptr<secure::RandomNumberGenerator> _rng;
   std::unique_ptr<secure::HashFunction> _hashFun;
-  std::unique_ptr<secure::Cipher_Mode> _cipherFun;
+  std::unique_ptr<secure::Cipher_Mode> _serverCipherFun;
+  std::unique_ptr<secure::Cipher_Mode> _clientCipherFun;
   std::unique_ptr<secure::KDF> _hkdfExtract;
   std::unique_ptr<secure::KDF> _hkdfExpand;
 };
 
 // --
 
-Cryptocenter::Cryptocenter() : _impl(std::make_unique<Cryptocenter::Impl>()) {
+Cryptocenter::Cryptocenter(bool client)
+    : _clientSide(client), _impl(std::make_unique<Cryptocenter::Impl>()) {
   auto create_dh = [](const secure::BigInt &p)
       -> std::unique_ptr<secure::PK_Key_Agreement_Key> {
     Botan::AutoSeeded_RNG rng;
@@ -228,9 +230,18 @@ bool Cryptocenter::cipherSuitInit(CipherSuite cs) {
           {TLS_AES_128_CCM_SHA256, {"AES-128/CCM", "SHA-256"}},
           {TLS_AES_128_CCM_8_SHA256, {"AES-128/CCM8", "SHA-256"}}};
 
-  _impl->_cipherFun =
-      secure::Cipher_Mode::create(cipher_names.at(cs).first, Botan::ENCRYPTION);
-  _impl->_granularity = _impl->_cipherFun->update_granularity();
+  if (_clientSide) {
+    _impl->_serverCipherFun = secure::Cipher_Mode::create(
+        cipher_names.at(cs).first, secure::DECRYPTION);
+    _impl->_clientCipherFun = secure::Cipher_Mode::create(
+        cipher_names.at(cs).first, secure::ENCRYPTION);
+  } else {
+    _impl->_serverCipherFun = secure::Cipher_Mode::create(
+        cipher_names.at(cs).first, secure::ENCRYPTION);
+    _impl->_clientCipherFun = secure::Cipher_Mode::create(
+        cipher_names.at(cs).first, secure::DECRYPTION);
+  }
+  _impl->_granularity = _impl->_serverCipherFun->update_granularity();
   _impl->_hashFun = secure::HashFunction::create(cipher_names.at(cs).second);
 
   auto len = _impl->_hashFun->output_length();
@@ -241,8 +252,8 @@ bool Cryptocenter::cipherSuitInit(CipherSuite cs) {
   return true;
 }
 
-void Cryptocenter::hashUpdate(const uint8_t *p, size_t len) {
-  _impl->_hashFun->update(p, len);
+secure::HashFunction *Cryptocenter::hashFun() const {
+  return _impl->_hashFun.get();
 }
 
 bool Cryptocenter::driveKey(NamedGroup ng,
@@ -264,12 +275,30 @@ bool Cryptocenter::hkdfInit(const std::string &hash_name) {
       secure::HKDF_Expand::create(expand_name + hash_name + ")");
 }
 
-void Cryptocenter::crypto(secure::secure_vector<uint8_t> &buf) const {
-  if (auto needed = buf.size() % _impl->_granularity; needed > 0) {
-    buf.resize(buf.size() + _impl->_granularity - needed);
-  }
+void Cryptocenter::serverCrypto(secure::secure_vector<uint8_t> &buf,
+                                bool en) const {
   auto offset = sizeof(TLSPlaintext);
-  _impl->_cipherFun->update(buf, offset);
+  if (en) {
+    auto len = buf.size();
+    if (auto needed = len % _impl->_granularity; needed > 0) {
+      len = len + _impl->_granularity - needed;
+    }
+    buf.resize(len + offset);
+  }
+  _impl->_serverCipherFun->update(buf, offset);
+
+  auto ciphertext = (TLSCiphertext *)buf.data();
+  ciphertext->length(buf.size() - offset);
+}
+
+void Cryptocenter::clientCrypto(secure::secure_vector<uint8_t> &buf) const {
+  auto offset = sizeof(TLSPlaintext);
+  auto len = buf.size();
+  if (auto needed = len % _impl->_granularity; needed > 0) {
+    len = len + _impl->_granularity - needed;
+  }
+  buf.resize(len + offset);
+  _impl->_clientCipherFun->update(buf, offset);
 }
 
 bool Cryptocenter::select(CipherSuite *selected,
@@ -403,14 +432,14 @@ constexpr int EarlySecret = 0, BinderKey = 1, ClientEarlyTrafficSecret = 2,
               ResumptionMasterSecret = 11;
 
 bool Cryptocenter::driveHkdf() {
-  std::unique_ptr<secure::HashFunction> tmpHash(_impl->_hashFun->clone());
-  auto hashValue = tmpHash->final();
+  auto hashValue = _impl->_hashFun->copy_state()->final();
   auto hashString = secure::hex_encode(hashValue);
+  std::cout << "hashString: " << hashString << std::endl;
 
   auto hashLen = _impl->_hashFun->output_length();
-  auto keyLen = _impl->_cipherFun->maximum_keylength();
-  assert(keyLen = _impl->_cipherFun->minimum_keylength());
-  auto ivLen = _impl->_cipherFun->default_nonce_length();
+  auto keyLen = _impl->_serverCipherFun->maximum_keylength();
+  assert(keyLen = _impl->_serverCipherFun->minimum_keylength());
+  auto ivLen = _impl->_serverCipherFun->default_nonce_length();
 
   std::vector<uint8_t> zero(hashLen, 0);
   std::vector<uint8_t> label;
@@ -430,6 +459,9 @@ bool Cryptocenter::driveHkdf() {
   hl = hkdfLabel(hashLen, "s hs traffic", hashValue);
   _impl->_keys[ServerHandshakeTrafficSecret] = _impl->_hkdfExpand->derive_key(
       hashLen, _impl->_keys[HandshakeSecret], hl, label);
+  std::cout << "ServerHandshakeTrafficSecret: "
+            << secure::hex_encode(_impl->_keys[ServerHandshakeTrafficSecret])
+            << std::endl;
 
   hl = hkdfLabel(keyLen, "key", secure::secure_vector<uint8_t>(1, 0));
   _impl->_serverWriteSecret._key = _impl->_hkdfExpand->derive_key(
@@ -442,6 +474,10 @@ bool Cryptocenter::driveHkdf() {
   _impl->_clientWriteSecret._iv = _impl->_hkdfExpand->derive_key(
       keyLen, _impl->_keys[ClientHandshakeTrafficSecret], hl, label);
 
+  _impl->_serverCipherFun->set_key(_impl->_serverWriteSecret._key);
+  _impl->_serverCipherFun->start(_impl->_serverWriteSecret._iv);
+  _impl->_clientCipherFun->set_key(_impl->_clientWriteSecret._key);
+  _impl->_clientCipherFun->start(_impl->_clientWriteSecret._iv);
   std::cout << "serverWriteKey: "
             << secure::hex_encode(_impl->_serverWriteSecret._key) << std::endl;
   std::cout << "serverWriteIv: "

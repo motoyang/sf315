@@ -11,19 +11,22 @@
 class Cryptocenter {
   struct Impl;
   std::unique_ptr<Impl> _impl;
+  bool _clientSide;
 
   bool hkdfInit(const std::string &sha_name);
 
+
 public:
-  Cryptocenter();
+  Cryptocenter(bool client);
   virtual ~Cryptocenter();
 
   secure::RandomNumberGenerator *rng() const;
   bool cipherSuitInit(CipherSuite cs);
-  void hashUpdate(const uint8_t *p, size_t len);
+  secure::HashFunction* hashFun() const;
   bool driveKey(NamedGroup ng, const std::vector<uint8_t> publicKey);
   bool driveHkdf();
-  void crypto(secure::secure_vector<uint8_t> &buf) const;
+  void serverCrypto(secure::secure_vector<uint8_t> &buf, bool en) const;
+  void clientCrypto(secure::secure_vector<uint8_t> &buf) const;
 
 
   bool select(CipherSuite *selected,

@@ -22,7 +22,7 @@ struct Server::Impl {
       : _vs(std::make_unique<VersionSupported>()),
         _rl(std::make_unique<RecordLayer>()),
         _channel(std::make_unique<Channel>()),
-        _cryptocenter(std::make_unique<Cryptocenter>()) {}
+        _cryptocenter(std::make_unique<Cryptocenter>(false)) {}
 
   std::stack<Status> _status;
   std::unique_ptr<VersionSupported> _vs;
@@ -119,7 +119,22 @@ Handshake *Server::hello(std::vector<uint8_t> &buf, const ClientHello *ch) {
                  "HelloRetryRequest will been sent.";
     sh->helloRetryRequest();
   }
+  /*
+    if (sh->isHelloRetryRequest()) {
+      auto ex3 = (Extension<Cookie> *)ex2->next();
+      ex3->extension_type = ExtensionType::cookie;
+      auto cookie = ex3->extension_data();
+      auto hashValue =
+          _impl->_cryptocenter->hashFun()->final((const uint8_t *)ch,
+    ch->size()); cookie->len(hashValue.size());
+      MemoryInterface::get()->copy(cookie->data(), hashValue.data(),
+                                   hashValue.size());
 
+      sh->extensions()->len(ex1->size() + ex2->size() + ex3->size());
+    } else {
+      sh->extensions()->len(ex1->size() + ex2->size());
+    }
+  */
   sh->extensions()->len(ex1->size() + ex2->size());
   hs->length(sh->size());
 
@@ -129,20 +144,39 @@ Handshake *Server::hello(std::vector<uint8_t> &buf, const ClientHello *ch) {
 }
 
 void Server::sayHello(const Handshake *hs) {
-  sayData(ContentType::handshake, (const uint8_t*)hs, hs->size());
-  // auto pl =
-  //     _impl->_rl->fragment(ContentType::handshake, (uint8_t *)hs, hs->size());
-  // for (const auto &p : pl) {
-  //   _impl->_channel->send((uint8_t *)p, p->size());
-  // }
+  sayData(ContentType::handshake, (const uint8_t *)hs, hs->size());
+  auto sh = (ServerHello *)hs->message();
+  if (sh->isHelloRetryRequest()) {
+    auto hashFun = _impl->_cryptocenter->hashFun();
+    ClientHello1Hash ch1Hash{
+        HandshakeType::message_hash, {0, 0}, (uint8_t)hashFun->output_length()};
+    auto hashValue = hashFun->final();
 
-  _impl->_status.pop();
-  _impl->_status.push(Server::Status::NEGOTIATED);
+    hashFun->update((const uint8_t *)&ch1Hash, sizeof(ch1Hash));
+    hashFun->update(hashValue);
+  } else {
+    _impl->_status.pop();
+    _impl->_status.push(Server::Status::NEGOTIATED);
+  }
+}
+
+void Server::sayEncryptedExtensions() {
+  std::vector<uint8_t> buf(64, 0);
+  auto hs = (Handshake*)buf.data();
+  hs->msg_type(HandshakeType::encrypted_extensions);
+
+  auto ee = (EncryptedExtensions*)hs->message();
+  ee->len(0);
+
+  hs->length(ee->size());
+  assert(buf.size() >= hs->size());
+  buf.resize(hs->size());
+  sayData(ContentType::handshake, buf.data(), buf.size());
 }
 
 void Server::sayAlert(AlertDescription desc, AlertLevel level) {
   Alert alert{level, desc};
-  sayData(ContentType::alert, (const uint8_t*)&alert, sizeof(alert));
+  sayData(ContentType::alert, (const uint8_t *)&alert, sizeof(alert));
   NLOG_CRIT << "server send alter: " << desc;
 }
 
@@ -156,14 +190,15 @@ void Server::sayData(ContentType ct, const uint8_t *p, size_t len) const {
       _impl->_channel->send((uint8_t *)p, p->size());
     }
   } break;
-  case Server::Status::CONNECTED: {
+  case Server::Status::NEGOTIATED: {
     auto lv = _impl->_rl->fragmentWithPadding(ct, p, len);
     for (auto &v : lv) {
-      _impl->_cryptocenter->crypto(v);
+      _impl->_cryptocenter->serverCrypto(v, true);
       _impl->_channel->send(v.data(), v.size());
     }
   } break;
   default:
+    assert(false);
     break;
   }
 }
@@ -180,13 +215,16 @@ void Server::received(ContentType ct, const uint8_t *p, size_t len) {
       switch (hs->msg_type()) {
       case HandshakeType::client_hello: {
         auto ch = (ClientHello *)hs->message();
-        std::vector<uint8_t> buf(4096);
-        auto sh = hello(buf, ch);
-        sayHello(sh);
 
-        _impl->_cryptocenter->hashUpdate((uint8_t *)ch, ch->size());
-        _impl->_cryptocenter->hashUpdate((uint8_t *)sh, sh->size());
-        _impl->_cryptocenter->driveHkdf();
+        std::vector<uint8_t> buf(4096);
+        if (auto sh = hello(buf, ch); sh) {
+          _impl->_cryptocenter->hashFun()->update((uint8_t *)hs, hs->size());
+          sayHello(sh);
+          _impl->_cryptocenter->hashFun()->update((const uint8_t *)sh,
+                                                  sh->size());
+          _impl->_cryptocenter->driveHkdf();
+          sayEncryptedExtensions();
+        }
       } break;
 
       default:
@@ -266,7 +304,7 @@ void Server::run() {
     if (plaintext->cryptoFlag()) {
       // v是TSLCiphertext，要解密后处理
       // 因为是对称加密，再次加密就是解密
-      _impl->_cryptocenter->crypto(v);
+      _impl->_cryptocenter->clientCrypto(v);
 
       // 剔除padding的zero
       auto ct_addr =

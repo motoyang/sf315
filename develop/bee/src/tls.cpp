@@ -36,7 +36,7 @@ TLSCiphertext *TLSCiphertext::alloc(const uint8_t *data, uint16_t len) {
   auto r = (TLSCiphertext *)mi->alloc(sizeof(TLSCiphertext) + len);
   r->opaque_type = ContentType::application_data;
   r->legacy_record_version = 0x0303;
-  r->length = HTONS(len);
+  r->length(len);
   mi->copy(r->encrypted_record(), data, len);
 
   return r;

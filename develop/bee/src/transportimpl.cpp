@@ -19,6 +19,13 @@ BufT copyToBuf(const uint8_t *p, uint16_t len) {
   return b;
 }
 
+BufT copyToBuf(const uint8_t *p, size_t len) {
+  auto mi = MemoryInterface::get();
+  BufT b = allocBuf(len);
+  mi->copy(b.base, p, len);
+  return b;
+}
+
 BufT moveToBuf(uint8_t *p, uint16_t len) {
   BufT b;
   b.base = p;

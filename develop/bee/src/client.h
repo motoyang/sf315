@@ -22,7 +22,7 @@ class Client {
   std::unique_ptr<Impl> _impl;
 
   void received(ContentType ct, const uint8_t *p, size_t len);
-  void received(const ServerHello *sh);
+  void received(const Handshake* hs, const ServerHello *sh);
 
   const Handshake *hello(std::vector<uint8_t> &buf) const;
   const Handshake *hello(std::vector<uint8_t> &buf,
