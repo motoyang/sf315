@@ -23,15 +23,17 @@ class Server {
   std::unique_ptr<Impl> _impl;
 
   Handshake *hello(std::vector<uint8_t> &buf, const ClientHello *hello);
+
   void sayHello(const Handshake *hs);
   void sayEncryptedExtensions();
   void sayAlert(AlertDescription desc, AlertLevel level = AlertLevel::fatal);
-  void sayData(ContentType ct, const uint8_t* p, size_t len) const;
+  void sendFragment(ContentType ct, const uint8_t* p, size_t len) const;
 
+  bool recvFragment(ContentType& ct, secure::secure_vector<uint8_t>& buf) const;
   void received(ContentType ct, const uint8_t *p, size_t len);
-  void received(const Handshake *hs, size_t len);
-  void received(const Alert *alert, size_t len);
-  void received(const uint8_t *appdata, size_t len);
+  // void received(const Handshake *hs, size_t len);
+  // void received(const Alert *alert, size_t len);
+  // void received(const uint8_t *appdata, size_t len);
 
   std::unordered_map<ExtensionType, uint8_t *> extensionsCheck(Extensions *e);
 

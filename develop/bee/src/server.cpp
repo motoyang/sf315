@@ -144,7 +144,7 @@ Handshake *Server::hello(std::vector<uint8_t> &buf, const ClientHello *ch) {
 }
 
 void Server::sayHello(const Handshake *hs) {
-  sayData(ContentType::handshake, (const uint8_t *)hs, hs->size());
+  sendFragment(ContentType::handshake, (const uint8_t *)hs, hs->size());
   auto sh = (ServerHello *)hs->message();
   if (sh->isHelloRetryRequest()) {
     auto hashFun = _impl->_cryptocenter->hashFun();
@@ -155,6 +155,9 @@ void Server::sayHello(const Handshake *hs) {
     hashFun->update((const uint8_t *)&ch1Hash, sizeof(ch1Hash));
     hashFun->update(hashValue);
   } else {
+    _impl->_cryptocenter->hashFun()->update((const uint8_t *)hs, hs->size());
+    _impl->_cryptocenter->driveHkdf();
+
     _impl->_status.pop();
     _impl->_status.push(Server::Status::NEGOTIATED);
   }
@@ -162,45 +165,91 @@ void Server::sayHello(const Handshake *hs) {
 
 void Server::sayEncryptedExtensions() {
   std::vector<uint8_t> buf(64, 0);
-  auto hs = (Handshake*)buf.data();
+  auto hs = (Handshake *)buf.data();
   hs->msg_type(HandshakeType::encrypted_extensions);
 
-  auto ee = (EncryptedExtensions*)hs->message();
+  auto ee = (EncryptedExtensions *)hs->message();
   ee->len(0);
 
   hs->length(ee->size());
   assert(buf.size() >= hs->size());
   buf.resize(hs->size());
-  sayData(ContentType::handshake, buf.data(), buf.size());
+  sendFragment(ContentType::handshake, buf.data(), buf.size());
+
+  // TBF!!!
+  _impl->_status.pop();
+//  _impl->_status.push(Server::Status::WAIT_EOED);
 }
 
 void Server::sayAlert(AlertDescription desc, AlertLevel level) {
   Alert alert{level, desc};
-  sayData(ContentType::alert, (const uint8_t *)&alert, sizeof(alert));
+  sendFragment(ContentType::alert, (const uint8_t *)&alert, sizeof(alert));
   NLOG_CRIT << "server send alter: " << desc;
 }
 
-void Server::sayData(ContentType ct, const uint8_t *p, size_t len) const {
+void Server::sendFragment(ContentType ct, const uint8_t *p, size_t len) const {
   Server::Status status = _impl->_status.top();
 
   switch (status) {
-  case Server::Status::START: {
-    auto lp = _impl->_rl->fragment(ct, p, len);
-    for (const auto &p : lp) {
-      _impl->_channel->send((uint8_t *)p, p->size());
+  case Server::Status::START:
+  case Server::Status::RECVD_CH: {
+    auto lv = _impl->_rl->fragment(ct, p, len);
+    for (const auto &v : lv) {
+      _impl->_channel->send((const uint8_t *)v.data(), v.size());
     }
   } break;
-  case Server::Status::NEGOTIATED: {
+
+  case Server::Status::NEGOTIATED:
+  case Server::Status::WAIT_EOED:
+  case Server::Status::WAIT_FLIGHT2:
+  case Server::Status::WAIT_CERT:
+  case Server::Status::WAIT_CV:
+  case Server::Status::WAIT_FINISHED:
+  case Server::Status::CONNECTED: {
     auto lv = _impl->_rl->fragmentWithPadding(ct, p, len);
     for (auto &v : lv) {
-      _impl->_cryptocenter->serverCrypto(v, true);
+      _impl->_cryptocenter->serverCrypto(v);
       _impl->_channel->send(v.data(), v.size());
     }
   } break;
+
   default:
     assert(false);
     break;
   }
+}
+
+bool Server::recvFragment(ContentType &ct,
+                          secure::secure_vector<uint8_t> &buf) const {
+  // v可能是TSLPlaintext或者TSLCiphertext，头都是相同的。
+  auto plaintext = (TLSPlaintext *)buf.data();
+  ct = plaintext->type;
+
+  auto status = _impl->_status.top();
+  if ((status == Server::Status::START) ||
+      (status == Server::Status::RECVD_CH)) {
+    // 不需要解密
+  } else {
+    // v是TSLCiphertext，要解密后处理
+    _impl->_cryptocenter->clientDecrypto(buf);
+
+    // 剔除padding的zero
+    auto ct_addr = std::find_if(buf.crbegin(), buf.crend(),
+                                [](uint8_t c) { return c > 0; });
+    if (ct_addr == buf.crend()) {
+      assert(false);
+      return false;
+    }
+    ct = ContentType(*ct_addr);
+    auto distance = std::distance(ct_addr, buf.crend());
+    buf.resize(distance - 1); // -1是为了排除TLSInnerPlaintext.type
+
+    // 根据解密后的buf.size()，更新TLSPlaintext的长度
+    plaintext = (TLSPlaintext *)buf.data();
+    plaintext->length((buf.size() - sizeof(*plaintext)));
+  }
+
+  return true;
 }
 
 // 根据收到的包，做顶层的分发
@@ -208,21 +257,19 @@ void Server::received(ContentType ct, const uint8_t *p, size_t len) {
   switch (ct) {
   case ContentType::handshake: {
     while (len > 0) {
-      auto hs = (Handshake *)p;
-      len -= hs->size();
+      auto hsClientHello = (Handshake *)p;
+      len -= hsClientHello->size();
       p += len;
 
-      switch (hs->msg_type()) {
+      switch (hsClientHello->msg_type()) {
       case HandshakeType::client_hello: {
-        auto ch = (ClientHello *)hs->message();
+        auto ch = (ClientHello *)hsClientHello->message();
 
         std::vector<uint8_t> buf(4096);
-        if (auto sh = hello(buf, ch); sh) {
-          _impl->_cryptocenter->hashFun()->update((uint8_t *)hs, hs->size());
-          sayHello(sh);
-          _impl->_cryptocenter->hashFun()->update((const uint8_t *)sh,
-                                                  sh->size());
-          _impl->_cryptocenter->driveHkdf();
+        if (auto hsServerHello = hello(buf, ch); hsServerHello) {
+          _impl->_cryptocenter->hashFun()->update((uint8_t *)hsClientHello,
+                                                  hsClientHello->size());
+          sayHello(hsServerHello);
           sayEncryptedExtensions();
         }
       } break;
@@ -296,31 +343,22 @@ Channel *Server::channel() const { return _impl->_channel.get(); }
 void Server::run() {
   for (auto v = _impl->_channel->recv(); v.size() > 0;
        v = _impl->_channel->recv()) {
-    // v可能是TSLPlaintext或者TSLCiphertext，头都是相同的。
+
+    // 首先对接收到的fragment进行解密（也可能不需要解密），删除padding，
+    // 取出真正的ContentType。
+    ContentType ct = ContentType::invalid;
+    if (!recvFragment(ct, v)) {
+      continue;
+    }
+
+    // 从fragment拼接为完整的帧
     auto plaintext = (const TLSPlaintext *)v.data();
     auto fragment = plaintext->fragment();
     auto len = plaintext->length();
-    auto ct = plaintext->type;
-    if (plaintext->cryptoFlag()) {
-      // v是TSLCiphertext，要解密后处理
-      // 因为是对称加密，再次加密就是解密
-      _impl->_cryptocenter->clientCrypto(v);
-
-      // 剔除padding的zero
-      auto ct_addr =
-          std::find_if(v.crbegin(), v.crend(), [](uint8_t c) { return c > 0; });
-      if (ct_addr == v.crbegin()) {
-        assert(false);
-        continue;
-      }
-      ct = ContentType(*ct_addr);
-      auto distance = std::distance(ct_addr, v.crbegin());
-      v.resize(distance - 1); // -1是为了排除TLSInnerPlaintext.type
-      fragment = v.data();
-      len = v.size();
-    }
     auto l = _impl->_rl->feed(fragment, len);
     assert(l.size() <= 1);
+
+    // 处理每个帧
     for (const auto &m : l) {
       received(ct, m.data(), m.size());
     }

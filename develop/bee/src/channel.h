@@ -16,7 +16,7 @@ public:
   Channel();
   virtual ~Channel();
 
-  bool send(uint8_t *p, size_t len) const;
+  bool send(const uint8_t *p, size_t len) const;
   secure::secure_vector<uint8_t> recv() const;
   void bind(Channel *peer);
 //   bool sendHandshake(const Handshake* hs);

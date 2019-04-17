@@ -8,16 +8,17 @@
 
 // --
 
-static TLSPlaintext *allocPlaintext(ContentType ct, ProtocolVersion pv,
+static secure::secure_vector<uint8_t> allocPlaintext(ContentType ct, ProtocolVersion pv,
                                   const uint8_t *data, uint16_t len) {
   auto mi = MemoryInterface::get();
-  auto r = (TLSPlaintext *)mi->alloc(sizeof(TLSPlaintext) + len);
+  secure::secure_vector<uint8_t> buf(sizeof(TLSPlaintext) + len, 0);
+  auto r = (TLSPlaintext *)buf.data();
   r->type = ct;
   r->legacy_record_version = pv;
   r->length(len);
   mi->copy(r->fragment(), data, len);
 
-  return r;
+  return buf;
 }
 
 static secure::secure_vector<uint8_t> allocPlaintext(ContentType ct, ProtocolVersion pv,
@@ -58,14 +59,14 @@ RecordLayer::RecordLayer() : _impl(std::make_unique<RecordLayer::Impl>()) {}
 
 RecordLayer::~RecordLayer() {}
 
-std::list<TLSPlaintext *>
+std::list<secure::secure_vector<uint8_t>>
 RecordLayer::fragment(ContentType ct, const uint8_t *data, uint32_t len) const {
-  std::list<TLSPlaintext *> l;
+  std::list<secure::secure_vector<uint8_t>> l;
   while (len > 0) {
     auto buf_len = len > PlaintextMaxLength ? PlaintextMaxLength : len;
     len -= buf_len;
-    auto p = allocPlaintext(ct, PV, data, buf_len);
-    l.push_back(p);
+    auto v = allocPlaintext(ct, PV, data, buf_len);
+    l.push_back(v);
     data += buf_len;
   }
   return l;

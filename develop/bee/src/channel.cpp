@@ -19,7 +19,7 @@ Channel::Channel() : _impl(std::make_unique<Channel::Impl>()) {}
 
 Channel::~Channel() = default;
 
-bool Channel::send(uint8_t *p, size_t len) const {
+bool Channel::send(const uint8_t *p, size_t len) const {
   _impl->_sink.enqueue(copyToBuf(p, len));
 
   return true;

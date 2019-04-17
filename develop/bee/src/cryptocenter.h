@@ -11,7 +11,6 @@
 class Cryptocenter {
   struct Impl;
   std::unique_ptr<Impl> _impl;
-  bool _clientSide;
 
   bool hkdfInit(const std::string &sha_name);
 
@@ -25,8 +24,10 @@ public:
   secure::HashFunction* hashFun() const;
   bool driveKey(NamedGroup ng, const std::vector<uint8_t> publicKey);
   bool driveHkdf();
-  void serverCrypto(secure::secure_vector<uint8_t> &buf, bool en) const;
+  void serverCrypto(secure::secure_vector<uint8_t> &buf) const;
+  void serverDecrypto(secure::secure_vector<uint8_t> &buf) const;
   void clientCrypto(secure::secure_vector<uint8_t> &buf) const;
+  void clientDecrypto(secure::secure_vector<uint8_t> &buf) const;
 
 
   bool select(CipherSuite *selected,

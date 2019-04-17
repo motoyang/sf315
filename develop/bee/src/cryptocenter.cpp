@@ -162,12 +162,12 @@ static std::vector<uint8_t> hkdfLabel(uint16_t len, const char *label,
 // --
 
 struct Cryptocenter::Impl {
-  Impl() : _rng(new secure::AutoSeeded_RNG) {}
+  Impl(bool client) : _client(client), _rng(new secure::AutoSeeded_RNG) {}
 
-  // std::vector<NamedGroup> _supported_ng;
   std::unordered_map<NamedGroup, std::unique_ptr<secure::PK_Key_Agreement_Key>>
       _privateKeys;
 
+  bool _client;
   std::vector<uint8_t> _psk;
   secure::SymmetricKey _ecdheKey;
   struct {
@@ -188,7 +188,7 @@ struct Cryptocenter::Impl {
 // --
 
 Cryptocenter::Cryptocenter(bool client)
-    : _clientSide(client), _impl(std::make_unique<Cryptocenter::Impl>()) {
+    : _impl(std::make_unique<Cryptocenter::Impl>(client)) {
   auto create_dh = [](const secure::BigInt &p)
       -> std::unique_ptr<secure::PK_Key_Agreement_Key> {
     Botan::AutoSeeded_RNG rng;
@@ -230,7 +230,7 @@ bool Cryptocenter::cipherSuitInit(CipherSuite cs) {
           {TLS_AES_128_CCM_SHA256, {"AES-128/CCM", "SHA-256"}},
           {TLS_AES_128_CCM_8_SHA256, {"AES-128/CCM8", "SHA-256"}}};
 
-  if (_clientSide) {
+  if (_impl->_client) {
     _impl->_serverCipherFun = secure::Cipher_Mode::create(
         cipher_names.at(cs).first, secure::DECRYPTION);
     _impl->_clientCipherFun = secure::Cipher_Mode::create(
@@ -275,16 +275,21 @@ bool Cryptocenter::hkdfInit(const std::string &hash_name) {
       secure::HKDF_Expand::create(expand_name + hash_name + ")");
 }
 
-void Cryptocenter::serverCrypto(secure::secure_vector<uint8_t> &buf,
-                                bool en) const {
+void Cryptocenter::serverCrypto(secure::secure_vector<uint8_t> &buf) const {
   auto offset = sizeof(TLSPlaintext);
-  if (en) {
-    auto len = buf.size();
-    if (auto needed = len % _impl->_granularity; needed > 0) {
-      len = len + _impl->_granularity - needed;
-    }
-    buf.resize(len + offset);
+  auto len = buf.size();
+  if (auto needed = len % _impl->_granularity; needed > 0) {
+    len = len + _impl->_granularity - needed;
   }
+  buf.resize(len + offset);
+  _impl->_serverCipherFun->update(buf, offset);
+
+  auto ciphertext = (TLSCiphertext *)buf.data();
+  ciphertext->length(buf.size() - offset);
+}
+
+void Cryptocenter::serverDecrypto(secure::secure_vector<uint8_t> &buf) const {
+  auto offset = sizeof(TLSPlaintext);
   _impl->_serverCipherFun->update(buf, offset);
 
   auto ciphertext = (TLSCiphertext *)buf.data();
@@ -299,6 +304,17 @@ void Cryptocenter::clientCrypto(secure::secure_vector<uint8_t> &buf) const {
   }
   buf.resize(len + offset);
   _impl->_clientCipherFun->update(buf, offset);
+
+  auto ciphertext = (TLSCiphertext *)buf.data();
+  ciphertext->length(buf.size() - offset);
+}
+
+void Cryptocenter::clientDecrypto(secure::secure_vector<uint8_t> &buf) const {
+  auto offset = sizeof(TLSPlaintext);
+  _impl->_clientCipherFun->update(buf, offset);
+
+  auto ciphertext = (TLSCiphertext *)buf.data();
+  ciphertext->length(buf.size() - offset);
 }
 
 bool Cryptocenter::select(CipherSuite *selected,
