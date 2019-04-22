@@ -1,0 +1,214 @@
+#include <iterator>
+#include <uvplus.hpp>
+
+#include "cryptography.h"
+#include "securelayer.h"
+
+using ssvector = secure::secure_vector<uint8_t>;
+
+constexpr static const char *HashName = "SHA-256";
+constexpr static const char *AeadName = "ChaCha20Poly1305";
+
+// --
+
+struct SecureLayer::Impl {
+  u8vector _psk;
+  size_t _granularity;
+  std::unique_ptr<secure::RandomNumberGenerator> _rng;
+  std::unique_ptr<secure::HashFunction> _hashFun;
+  std::unique_ptr<secure::Cipher_Mode> _writeCipherFun;
+  std::unique_ptr<secure::Cipher_Mode> _readCipherFun;
+
+  Impl()
+      : _rng(new secure::AutoSeeded_RNG),
+        _hashFun(secure::HashFunction::create(HashName)),
+        _writeCipherFun(
+            secure::Cipher_Mode::create(AeadName, secure::ENCRYPTION)),
+        _readCipherFun(
+            secure::Cipher_Mode::create(AeadName, secure::DECRYPTION)) {
+    _psk = secure::hex_decode("000102030405060708090a0b0c0d0e0f");
+    _granularity = _writeCipherFun->update_granularity();
+  }
+  void encrypt(secure::secure_vector<uint8_t> &v) const {
+    v.push_back(0xff);
+    auto len = v.size();
+    if (auto needed = len % _granularity; needed > 0) {
+      auto mark = len;
+      len = len + _granularity - needed;
+      v.resize(len);
+    }
+    _writeCipherFun->update(v);
+  }
+  void decrypt(secure::secure_vector<uint8_t> &v) const {
+    _readCipherFun->update(v);
+    auto len = v.size();
+    auto data = v.data();
+
+    // 剔除padding的zero
+    auto ct_addr =
+        std::find_if(v.crbegin(), v.crend(), [](uint8_t c) { return c > 0; });
+    assert(ct_addr != v.crend());
+    auto distance = std::distance(ct_addr, v.crend());
+    v.resize(distance - 1); // -1是为了排除TLSInnerPlaintext.type
+  }
+
+  void setKey(const u8vector &v) {
+    auto len = _readCipherFun->default_nonce_length();
+    auto first = v.begin();
+    std::advance(first, len);
+    ssvector rkey(first, v.end());
+    decrypt(rkey);
+
+    _readCipherFun->set_key(rkey);
+    _readCipherFun->start(v.data(), len);
+  }
+};
+
+SecureLayer::SecureLayer() : _impl(std::make_unique<SecureLayer::Impl>()) {}
+
+SecureLayer::~SecureLayer() {}
+
+SecureLayer::Impl *SecureLayer::impl() const { return _impl.get(); }
+
+// --
+
+template <typename T> class SecureNotify : public uvplus::TcpNotifyInterface {
+  T *_secure;
+
+public:
+  void set(T *secure) { _secure = secure; }
+  void connected(const std::string &peer) override { _secure->connected(peer); }
+  void disconnected(const std::string &peer) override {
+    _secure->disconnected(peer);
+  }
+};
+
+// --
+
+struct SecureConnector::Impl {
+  SecureNotify<SecureConnector> _notify;
+  uvplus::TcpConnector _connector;
+  SecureLayer _sl;
+  bool _connected = false;
+
+  Impl(uvp::Loop *loop, const struct sockaddr *dest) : _connector(loop, dest) {
+    _connector.tcpNotifyInterface(&_notify);
+  }
+};
+
+SecureConnector::SecureConnector(uvp::Loop *loop, const struct sockaddr *dest)
+    : _impl(std::make_unique<SecureConnector::Impl>(loop, dest)) {
+  _impl->_notify.set(this);
+}
+
+SecureConnector::~SecureConnector() {}
+
+void SecureConnector::connected(const std::string &peer) {
+  std::cout << "connected to " << peer << std::endl;
+
+  auto impl = _impl->_sl.impl();
+  auto len = impl->_writeCipherFun->default_nonce_length();
+  u8vector nonce(len, 0);
+  impl->_rng->randomize(nonce.data(), nonce.size());
+  len = impl->_writeCipherFun->minimum_keylength();
+  ssvector wkey(len, 0);
+  impl->_rng->randomize(wkey.data(), wkey.size());
+
+  impl->_psk.resize(len);
+  impl->_writeCipherFun->set_key(impl->_psk);
+  impl->_writeCipherFun->start(nonce);
+
+  impl->_readCipherFun->set_key(impl->_psk);
+  impl->_readCipherFun->start(nonce);
+  /*
+    auto len = wkey.size();
+    if (auto needed = len % impl->_granularity; needed > 0) {
+      len = len + impl->_granularity - needed;
+    }
+    wkey.resize(len);
+    impl->_writeCipherFun->finish(wkey);
+
+    nonce += wkey;
+    write(nonce.data(), nonce.size());
+
+    impl->_writeCipherFun->set_key()
+  */
+}
+
+void SecureConnector::disconnected(const std::string &peer) {
+  std::cout << "disconnected from " << peer << std::endl;
+}
+
+void SecureConnector::notify(int tag) { _impl->_connector.notify(tag); }
+
+size_t SecureConnector::read(u8vlist &bufs) {
+  bufs.resize(10);
+  auto count = _impl->_connector.read(bufs.begin(), bufs.size());
+
+  bufs.resize(count);
+  for (auto &v : bufs) {
+    ssvector v2(v.data(), v.data() + v.size());
+    _impl->_sl.impl()->decrypt(v2);
+    v.assign(v2.data(), v2.data() + v2.size());
+  }
+  /*
+    for (auto i = lv.begin(); i != lv.end(); ++i) {
+      ssvector v(i->data(), i->data() + i->size());
+      _impl->_sl.impl()->decrypt(v);
+      i->assign(v.data(), v.data() + v.size());
+    }
+
+    if (!_impl->_connected && count > 0) {
+      _impl->_sl.impl()->setKey(bufs.front());
+      bufs.pop_front();
+      --count;
+      _impl->_connected = true;
+    }
+  */
+
+  return count;
+}
+
+int SecureConnector::write(const uint8_t *p, size_t len) {
+  ssvector v(p, p + len);
+  _impl->_sl.impl()->encrypt(v);
+  return _impl->_connector.write(v.data(), v.size());
+}
+
+// --
+
+struct SecureAcceptor::Impl {
+  SecureNotify<SecureAcceptor> _notify;
+  uvplus::TcpConnector _acceptor;
+  SecureLayer _sl;
+  bool _connected = false;
+
+  Impl(uvp::Loop *loop, const struct sockaddr *addr) : _acceptor(loop, addr) {}
+};
+
+SecureAcceptor::SecureAcceptor(uvp::Loop *loop, const struct sockaddr *addr)
+    : _impl(std::make_unique<SecureAcceptor::Impl>(loop, addr)) {
+  _impl->_notify.set(this);
+}
+
+SecureAcceptor::~SecureAcceptor() {}
+
+void SecureAcceptor::connected(const std::string &peer) {}
+
+void SecureAcceptor::disconnected(const std::string &peer) {}
+/*
+size_t SecureAcceptor::read(u8vlist &bufs) {
+  bufs.resize(10);
+  auto count = _impl->_acceptor.read(bufs);
+  if (!_impl->_connected && count > 0) {
+    _impl->_sl.impl()->setKey(bufs.front());
+    bufs.pop_front();
+    --count;
+    _impl->_connected = true;
+  }
+}
+
+int SecureAcceptor::write(const uint8_t *p, size_t len) {
+  return _impl->_acceptor.write(p, len);
+}
+*/
