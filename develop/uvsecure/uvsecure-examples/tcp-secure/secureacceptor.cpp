@@ -4,6 +4,7 @@
 // --
 
 struct SecureAcceptor::Impl {
+private:
   class TcpPeer {
     uvp::TcpObject _socket;
     std::string _peer;
@@ -59,7 +60,8 @@ struct SecureAcceptor::Impl {
     }
 
   public:
-    TcpPeer(uvp::Loop *loop, Impl &server) : _socket(loop), _acceptor(server) {
+    TcpPeer(uvp::Loop *loop, Impl &server, bool secure)
+        : _sr(secure), _socket(loop), _acceptor(server) {
       _socket.writeCallback(std::bind(
           &TcpPeer::onWrite, this, std::placeholders::_1, std::placeholders::_2,
           std::placeholders::_3, std::placeholders::_4));
@@ -87,7 +89,7 @@ struct SecureAcceptor::Impl {
         auto l = _sr.update();
         write(l);
       }
-      auto l = _sr.slice(p, len);
+      auto l = _sr.pack(p, len);
       write(l);
     }
 
@@ -96,15 +98,15 @@ struct SecureAcceptor::Impl {
       write(l);
     }
 
-    void write(const std::list<uvp::uv::BufT>& l) {
-    for (auto b : l) {
-      int r = _socket.write(&b, 1);
-      if (r) {
-        uvp::freeBuf(b);
-        UVP_LOG_ERROR(r);
+    void write(const std::list<uvp::uv::BufT> &l) {
+      for (auto b : l) {
+        int r = _socket.write(&b, 1);
+        if (r) {
+          uvp::freeBuf(b);
+          UVP_LOG_ERROR(r);
+        }
       }
     }
-  }
   };
 
   uvp::TcpObject _socket;
@@ -113,6 +115,7 @@ struct SecureAcceptor::Impl {
 
   uvp::Loop *_loop;
   std::unordered_map<std::string, std::unique_ptr<TcpPeer>> _clients;
+  bool _secure;
 
   moodycamel::BlockingConcurrentQueue<uvplus::Packet> _upward;
   moodycamel::ConcurrentQueue<uvplus::Packet> _downward;
@@ -161,7 +164,7 @@ struct SecureAcceptor::Impl {
       return;
     }
 
-    auto client = std::make_unique<TcpPeer>(_loop, *this);
+    auto client = std::make_unique<TcpPeer>(_loop, *this, _secure);
     int r = _socket.accept(client->socket());
     if (r < 0) {
       UVP_LOG_ERROR(r);
@@ -187,18 +190,28 @@ struct SecureAcceptor::Impl {
   }
 
   void onAsync(uvp::Async *handle) {
-    std::vector<uvplus::Packet> packets;
+    std::list<uvplus::Packet> packets;
     size_t count = 0;
     while ((count = downwardDequeue(packets)) > 0) {
-      for (int i = 0; i < count; ++i) {
-        auto it = _clients.find(packets.at(i)._peer);
+      for (auto &p : packets) {
+        auto it = _clients.find(p._peer);
         if (it == _clients.end()) {
-          LOG_INFO << "client " << packets.at(i)._peer << "has closed.";
+          // LOG_INFO << "client " << p._peer << "has closed.";
+          p._buf.clear();
         } else {
-          u8vector v(std::move(packets.at(i)._buf));
-          it->second->write(v.data(), v.size());
+          it->second->write(p._buf.data(), p._buf.size());
         }
       }
+      // _async.send();
+      // for (int i = 0; i < count; ++i) {
+      //   auto it = _clients.find(packets.at(i)._peer);
+      //   if (it == _clients.end()) {
+      //     LOG_INFO << "client " << packets.at(i)._peer << "has closed.";
+      //   } else {
+      //     u8vector v(std::move(packets.at(i)._buf));
+      //     it->second->write(v.data(), v.size());
+      //   }
+      // }
     }
     notifyHandler();
   }
@@ -253,22 +266,22 @@ struct SecureAcceptor::Impl {
 
     return true;
   }
-
-  bool downwardDequeue(uvplus::Packet &packet) {
-    return _downward.try_dequeue(packet);
-  }
-
-  size_t downwardDequeue(std::vector<uvplus::Packet> &packets) {
-    size_t n = _downward.size_approx();
-    if (!n) {
-      return 0;
+  /*
+    bool downwardDequeue(uvplus::Packet &packet) {
+      return _downward.try_dequeue(packet);
     }
+  */
+  size_t downwardDequeue(std::list<uvplus::Packet> &packets) {
+    size_t n = _downward.size_approx();
+    packets.resize(std::max((size_t)1, n));
+    n = _downward.try_dequeue_bulk(packets.begin(), packets.size());
     packets.resize(n);
-    return _downward.try_dequeue_bulk(packets.begin(), packets.size());
+    return n;
   }
 
-  Impl(uvp::Loop *loop, const struct sockaddr *addr)
-      : _socket(loop),
+public:
+  Impl(uvp::Loop *loop, const struct sockaddr *addr, bool secure)
+      : _secure(secure), _socket(loop),
         _async(loop, std::bind(&Impl::onAsync, this, std::placeholders::_1)),
         _timer(loop), _loop(loop) {
     const int backlog = 128;
@@ -299,16 +312,18 @@ struct SecureAcceptor::Impl {
     }
     return _name;
   }
-
-  bool read(uvplus::Packet &packet) {
-    return _upward.wait_dequeue_timed(packet, std::chrono::milliseconds(500));
-  }
-
-  size_t read(std::vector<uvplus::Packet> &packets) {
+  /*
+    bool read(uvplus::Packet &packet) {
+      return _upward.wait_dequeue_timed(packet, std::chrono::milliseconds(500));
+    }
+  */
+  size_t read(std::list<uvplus::Packet> &packets) {
     size_t n = _upward.size_approx();
     packets.resize(std::max((size_t)1, n));
-    return _upward.wait_dequeue_bulk_timed(packets.begin(), packets.size(),
-                                           std::chrono::milliseconds(500));
+    n = _upward.wait_dequeue_bulk_timed(packets.begin(), packets.size(),
+                                        std::chrono::milliseconds(500));
+    packets.resize(n);
+    return n;
   }
 
   int write(const char *name, const uint8_t *p, size_t len) {
@@ -333,18 +348,19 @@ struct SecureAcceptor::Impl {
 
 // --
 
-SecureAcceptor::SecureAcceptor(uvp::Loop *loop, const struct sockaddr *addr)
-    : _impl(std::make_unique<SecureAcceptor::Impl>(loop, addr)) {}
+SecureAcceptor::SecureAcceptor(uvp::Loop *loop, const struct sockaddr *addr,
+                               bool secure)
+    : _impl(std::make_unique<SecureAcceptor::Impl>(loop, addr, secure)) {}
 
 SecureAcceptor::~SecureAcceptor() {}
 
 std::string SecureAcceptor::name() const { return _impl->name(); }
-
+/*
 bool SecureAcceptor::read(uvplus::Packet &packet) {
   return _impl->read(packet);
 }
-
-size_t SecureAcceptor::read(std::vector<uvplus::Packet> &packets) {
+*/
+size_t SecureAcceptor::read(std::list<uvplus::Packet> &packets) {
   return _impl->read(packets);
 }
 

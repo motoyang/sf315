@@ -10,7 +10,7 @@
 SecureAcceptor *g_acceptor;
 Business *g_business;
 
-int loopRun(uvp::Loop *loop) {
+static int uvloopRun(uvp::Loop *loop) {
   int r = loop->run(UV_RUN_DEFAULT);
   UVP_LOG_ERROR(r);
   r = loop->close();
@@ -34,7 +34,7 @@ int tcp_server() {
   bness.bind(&acceptor);
   g_business = &bness;
 
-  std::thread t1(loopRun, loop.get());
+  std::thread t1(uvloopRun, loop.get());
   bness();
 
   t1.join();

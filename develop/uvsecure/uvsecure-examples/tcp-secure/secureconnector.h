@@ -9,15 +9,17 @@ class SecureConnector {
   std::unique_ptr<Impl> _impl;
 
 public:
-  SecureConnector(uvp::Loop *loop, const struct sockaddr *dest);
+  enum class NotifyTag :uint8_t{ NOTHING = 0, CLOSE, KILL };
+
+  SecureConnector(uvp::Loop *loop, const struct sockaddr *dest, bool secure = true);
   virtual ~SecureConnector();
 
   std::string name();
   std::string peer();
-  void notify(int tag);
-  void tcpNotifyInterface(uvplus::TcpNotifyInterface* tni);
+  void notify(NotifyTag tag);
+  void tcpStatusInterface(uvplus::TcpStatusInterface* tni);
   size_t read(u8vlist& l);
-  template<typename It> size_t read(It first, size_t max);
+  // template<typename It> size_t read(It first, size_t max);
   int write(const uint8_t *p, size_t len);
 };
 

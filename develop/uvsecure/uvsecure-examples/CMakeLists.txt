@@ -5,7 +5,7 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin2)
 # 设置可执行文件目录
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin2)
 
-set(UV_LIB "libuv.a")
+set(UV_LIB "uv")
 set(PTHREAD_LIB "pthread")
 
 set(CMAKE_BUILD_TYPE "Debug")
@@ -27,3 +27,4 @@ macro (example_build2 arg1 arg2)
 endmacro (example_build2)
 
 example_build2(tcp-secure "botan-2")
+

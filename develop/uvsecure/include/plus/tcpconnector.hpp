@@ -15,7 +15,7 @@ class TcpConnector {
 
   // Chunk _chunk;
   // Record _record;
-  RecordLayer _r2;
+  RecordLayer _rl;
 
   moodycamel::BlockingConcurrentQueue<u8vector> _upward;
   moodycamel::ConcurrentQueue<uvp::uv::BufT> _downward;
@@ -24,10 +24,10 @@ class TcpConnector {
   sockaddr _dest;
   std::string _name;
   std::string _peer;
-  TcpNotifyInterface* _tni = nullptr;
+  TcpStatusInterface* _tsi = nullptr;
 
   void collect(const char *p, size_t len) {
-    auto lv = _r2.feed(p, len);
+    auto lv = _rl.feed(p, len);
     for (auto v : lv) {
       // 进队列失败时，重新进队列直到进入队列成功。
       while (!_upward.try_enqueue(std::move(v)))
@@ -54,8 +54,8 @@ class TcpConnector {
       _socket.close();
       _timer.start(5000, 5000);
 
-      if (_tni) {
-        _tni->disconnected(peer());
+      if (_tsi) {
+        _tsi->disconnected(peer());
       }
 
       return;
@@ -86,14 +86,14 @@ class TcpConnector {
     }
 
     LOG_INFO << "client socket connected to: " << peer();
-    if(_tni) {
-      _tni->connected(peer());
+    if(_tsi) {
+      _tsi->connected(peer());
     }
 
     _socket.readStart();
     _async.send();
     _timer.stop();
-    _r2.reset();
+    _rl.reset();
   }
 
   void onShutdown(uvp::Stream *stream, int status) {
@@ -198,8 +198,8 @@ public:
     _async.send();
   }
 
-  void tcpNotifyInterface(TcpNotifyInterface* tni) {
-    _tni = tni;
+  void tcpStatusInterface(TcpStatusInterface* tsi) {
+    _tsi = tsi;
   }
 
   template<typename It> size_t read(It first, size_t max) {
@@ -229,7 +229,7 @@ public:
   }
 */
   int write(const uint8_t *p, size_t len) {
-    auto lb = _r2.slice(p, len);
+    auto lb = _rl.slice(p, len);
     for (auto b : lb) {
       // 进队列失败时，重新进队列直到进入队列成功。
       while (!_downward.enqueue(b)) {

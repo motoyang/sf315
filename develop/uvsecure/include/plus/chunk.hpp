@@ -292,7 +292,7 @@ public:
 
 // --
 
-struct TcpNotifyInterface {
+struct TcpStatusInterface {
   virtual void disconnected(const std::string& peer) = 0;
   virtual void connected(const std::string& peer) = 0;
 };
