@@ -202,16 +202,6 @@ private:
           it->second->write(p._buf.data(), p._buf.size());
         }
       }
-      // _async.send();
-      // for (int i = 0; i < count; ++i) {
-      //   auto it = _clients.find(packets.at(i)._peer);
-      //   if (it == _clients.end()) {
-      //     LOG_INFO << "client " << packets.at(i)._peer << "has closed.";
-      //   } else {
-      //     u8vector v(std::move(packets.at(i)._buf));
-      //     it->second->write(v.data(), v.size());
-      //   }
-      // }
     }
     notifyHandler();
   }
@@ -266,11 +256,7 @@ private:
 
     return true;
   }
-  /*
-    bool downwardDequeue(uvplus::Packet &packet) {
-      return _downward.try_dequeue(packet);
-    }
-  */
+
   size_t downwardDequeue(std::list<uvplus::Packet> &packets) {
     size_t n = _downward.size_approx();
     packets.resize(std::max((size_t)1, n));
@@ -312,11 +298,7 @@ public:
     }
     return _name;
   }
-  /*
-    bool read(uvplus::Packet &packet) {
-      return _upward.wait_dequeue_timed(packet, std::chrono::milliseconds(500));
-    }
-  */
+
   size_t read(std::list<uvplus::Packet> &packets) {
     size_t n = _upward.size_approx();
     packets.resize(std::max((size_t)1, n));
@@ -355,11 +337,7 @@ SecureAcceptor::SecureAcceptor(uvp::Loop *loop, const struct sockaddr *addr,
 SecureAcceptor::~SecureAcceptor() {}
 
 std::string SecureAcceptor::name() const { return _impl->name(); }
-/*
-bool SecureAcceptor::read(uvplus::Packet &packet) {
-  return _impl->read(packet);
-}
-*/
+
 size_t SecureAcceptor::read(std::list<uvplus::Packet> &packets) {
   return _impl->read(packets);
 }

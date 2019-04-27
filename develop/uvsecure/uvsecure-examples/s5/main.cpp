@@ -89,6 +89,7 @@ int main(int argc, char *argv[]) {
     return r;
   }
 
+  sig13_ignore();
   LOG_INFO << "libuv version: " << uvp::Version().str();
   std::cout << "libuv version: " << uvp::Version().str() << std::endl;
   if (opt.is_true('d')) {
@@ -99,8 +100,6 @@ int main(int argc, char *argv[]) {
 
     // 安装信号处理，处理SIGUSR2(12)号信号
     sig_capture(SIGUSR2, sig12_handler);
-    sig13_ignore();
-
     tcp_server();
   }
   if (opt.is_true('c')) {

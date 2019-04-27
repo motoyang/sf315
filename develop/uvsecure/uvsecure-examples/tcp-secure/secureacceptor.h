@@ -26,7 +26,6 @@ public:
   virtual ~SecureAcceptor();
 
   std::string name() const;
-  bool read(uvplus::Packet &packet);
   size_t read(std::list<uvplus::Packet> &packets);
   int write(const char *name, const uint8_t *p, size_t len);
   int notify(int tag);

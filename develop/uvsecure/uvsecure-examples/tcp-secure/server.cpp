@@ -28,10 +28,12 @@ int tcp_server() {
   sockaddr_in addr;
   uvp::ip4Addr("0", 7001, &addr);
   SecureAcceptor acceptor(loop.get(), (const sockaddr *)&addr);
-  g_acceptor = &acceptor;
+  // S5Acceptor acceptor(loop.get(), (const sockaddr *)&addr);
 
+  g_acceptor = &acceptor;
   Business bness("business");
   bness.bind(&acceptor);
+
   g_business = &bness;
 
   std::thread t1(uvloopRun, loop.get());

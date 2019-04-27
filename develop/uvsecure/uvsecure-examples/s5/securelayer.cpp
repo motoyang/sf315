@@ -120,8 +120,6 @@ struct SecureCenter {
     return u8vector(enkey.data(), enkey.data() + enkey.size());
   }
   void received(RecordType rt, const ssvector &v) {
-    std::cout << "enkey: " << secure::hex_encode(v) << std::endl;
-
     // 读取对方发来的write key，作为本端的read key
     auto len = _readCipherFun->default_nonce_length();
     ssvector nonce(v.data(), v.data() + len);
@@ -181,6 +179,7 @@ struct SecureRecord::Impl {
       // 复制到buf中，作为out parameter返回
       buf.assign(v.data(), v.data() + v.size());
     } else {
+      buf.resize(body_len);
       _ring.read((char *)buf.data(), body_len);
     }
 
@@ -251,7 +250,7 @@ size_t SecureRecord::length() const {
 }
 
 std::list<uvp::uv::BufT> SecureRecord::pack(const uint8_t *p,
-                                            size_t len) const {
+                                             size_t len) const {
   if (_impl->_sc) {
     ssvector v(p, p + len);
     _impl->_sc->encrypt(SecureCenter::RecordType::Application, v);

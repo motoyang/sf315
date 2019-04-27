@@ -12,6 +12,12 @@
 
 // --
 
+class TcpStatusImpl : public uvplus::TcpStatusInterface{
+
+};
+
+// --
+
 static int uvloopRun(uvp::Loop *loop) {
   int r = loop->run(UV_RUN_DEFAULT);
   UVP_LOG_ERROR(r);
@@ -27,7 +33,7 @@ bool g_running = true;
 static int saySomething(SecureConnector *client) {
   std::this_thread::sleep_for(std::chrono::milliseconds(1000));
   auto j = 0;
-  for (int i = 0; i < 1000000; ++i) {
+  for (int i = 0; i < 3; ++i) {
     u8vector buf(512 + (i % 13000), 0);
     for (auto &c : buf) {
       c = j++;

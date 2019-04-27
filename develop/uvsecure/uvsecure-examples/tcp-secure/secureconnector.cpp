@@ -210,12 +210,7 @@ public:
     l.resize(n);
     return n;
   }
-  /*
-    template <typename It> size_t read(It first, size_t max) {
-      return _upward.wait_dequeue_bulk_timed(first, max,
-                                             std::chrono::milliseconds(500));
-    }
-  */
+
   int write(const uint8_t *p, size_t len) {
     while (!_downward.enqueue(u8vector(p, p + len))) {
       LOG_CRIT << "enqueue faild in connector downward queue.";
@@ -246,11 +241,7 @@ void SecureConnector::tcpStatusInterface(uvplus::TcpStatusInterface *tni) {
 }
 
 size_t SecureConnector::read(u8vlist &l) { return _impl->read(l); }
-/*
-template <typename It> size_t SecureConnector::read(It first, size_t max) {
-  return _impl->read(first, max);
-}
-*/
+
 int SecureConnector::write(const uint8_t *p, size_t len) {
   return _impl->write(p, len);
 }

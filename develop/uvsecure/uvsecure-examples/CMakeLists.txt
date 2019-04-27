@@ -27,4 +27,4 @@ macro (example_build2 arg1 arg2)
 endmacro (example_build2)
 
 example_build2(tcp-secure "botan-2")
-
+example_build2(s5 "botan-2")
