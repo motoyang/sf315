@@ -31,6 +31,7 @@ public:
 
   uvp::Tcp *socket() const;
   std::string peer();
+  void shutdown();
   void write(const uint8_t *p, size_t len);
 };
 
@@ -56,6 +57,7 @@ public:
 
   std::string name() const;
   void shutdown();
+  void shutdown(const std::string &from);
   void secureConnector(Connector *conn);
   void write(S5Record::Type t, const std::string &from, const uint8_t *p,
              size_t len);
@@ -68,11 +70,7 @@ void S5Acceptor::Impl::clientsShutdown() {
   for (auto &c : _clients) {
     int r = c.second->impl()->socket()->readStop();
     UVP_LOG_ERROR(r);
-    r = c.second->impl()->socket()->shutdown();
-    if (r) {
-      c.second->impl()->socket()->close();
-      UVP_LOG_ERROR(r);
-    }
+    c.second->impl()->shutdown();
   }
 }
 
@@ -99,6 +97,8 @@ void S5Acceptor::Impl::onShutdown(uvp::Stream *stream, int status) {
     UVP_LOG_ERROR(status);
   }
   LOG_INFO << "listen socket shutdown.";
+
+  // 这是一个listen socket，没有onRead函数，在此处直接close handle。
   _socket.close();
 }
 
@@ -165,6 +165,12 @@ void S5Acceptor::Impl::shutdown() {
   }
 }
 
+void S5Acceptor::Impl::shutdown(const std::string &from) {
+  if (auto it = _clients.find(from); it != _clients.end()) {
+    it->second->impl()->shutdown();
+  }
+}
+
 void S5Acceptor::Impl::secureConnector(Connector *conn) {
   _secureConnector = conn;
 }
@@ -192,7 +198,7 @@ void S5Peer::Impl::onHello(const char *p, size_t len) {
     return;
   }
   if (h->ver != 5) {
-    _socket.shutdown();
+    shutdown();
   }
 
   uint8_t r[2] = {5, 0};
@@ -210,32 +216,6 @@ void S5Peer::Impl::onRequest(const char *p, size_t len) {
 
   _acceptor->impl()->write(S5Record::Type::Request, peer(), (const uint8_t *)p,
                            len);
-  /*
-    std::string url(req->addr(), req->len);
-    std::string port(8, 0);
-    std::sprintf(port.data(), "%d", req->port());
-
-    auto conn = std::make_unique<TcpConn>(_socket.loop(), _acceptor);
-    conn->peer(peer());
-
-    addrinfo hints = {0};
-    hints.ai_family = PF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_protocol = IPPROTO_TCP;
-    hints.ai_flags = 0;
-
-    uvp::GetaddrinfoReq *resolver = new uvp::GetaddrinfoReq;
-    int r = _socket.loop()->getAddrInfo(
-        resolver,
-        std::bind(&TcpConn::onResolver, conn.get(), std::placeholders::_1,
-                  std::placeholders::_2, std::placeholders::_3),
-        url.c_str(), port.c_str(), &hints);
-    if (r) {
-      std::cerr << "getaddrinfo call error: " << uvp::Error(r).strerror()
-                << std::endl;
-    }
-    _acceptor->impl()->_connectors.insert({conn->peer(), std::move(conn)});
-  */
 }
 
 void S5Peer::Impl::onRead(uvp::Stream *stream, ssize_t nread,
@@ -243,6 +223,11 @@ void S5Peer::Impl::onRead(uvp::Stream *stream, ssize_t nread,
   if (nread < 0) {
     _socket.close();
     UVP_LOG_ERROR(nread);
+
+    uint8_t data[1] = {0};
+    _acceptor->impl()->write(S5Record::Type::S5PeerClosed, peer(), data,
+                             sizeof(data));
+
     return;
   }
 
@@ -257,11 +242,6 @@ void S5Peer::Impl::onRead(uvp::Stream *stream, ssize_t nread,
     if (p > 1) {
       _acceptor->impl()->write(S5Record::Type::Data, peer(),
                                (const uint8_t *)buf->base, nread);
-      // auto it = _acceptor->impl()->_connectors.find(peer());
-      // if (it == _acceptor->impl()->_connectors.end()) {
-      //   assert(false);
-      // }
-      // it->second->write((const uint8_t *)buf->base, nread);
     }
     ++p;
   }
@@ -281,15 +261,17 @@ void S5Peer::Impl::onWrite(uvp::Stream *stream, int status,
 void S5Peer::Impl::onShutdown(uvp::Stream *stream, int status) {
   if (status < 0) {
     UVP_LOG_ERROR(status);
+    if (!_socket.isClosing()) {
+      _socket.close();
+    }
   }
-  LOG_INFO << "agent socket shutdown." << peer();
-  _socket.close();
+  LOG_INFO << "s5peer socket shutdown." << peer();
 }
 
 void S5Peer::Impl::onClose(uvp::Handle *handle) {
   // 需要在onClose中先hold住clientagent，否则对象被销毁，onClose代码执行非法！
   auto p = _acceptor->impl()->removeClient(_peer);
-  LOG_INFO << "handle of agent socket closed." << _peer;
+  LOG_INFO << "handle of s5peer socket closed." << _peer;
 }
 
 S5Peer::Impl::Impl(uvp::Loop *loop, S5Acceptor *acceptor)
@@ -314,6 +296,14 @@ std::string S5Peer::Impl::peer() {
     _peer = _socket.peer();
   }
   return _peer;
+}
+
+void S5Peer::Impl::shutdown() {
+  int r = _socket.shutdown();
+  if (r && !_socket.isClosing()) {
+    UVP_LOG_ERROR(r);
+    _socket.close();
+  }
 }
 
 void S5Peer::Impl::write(const uint8_t *p, size_t len) {
@@ -350,6 +340,8 @@ void S5Acceptor::secureConnector(Connector *conn) {
 }
 
 void S5Acceptor::shutdown() { _impl->shutdown(); }
+
+void S5Acceptor::shutdown(const std::string &from) { _impl->shutdown(from); }
 
 void S5Acceptor::reply(const std::string &from, const uint8_t *p, size_t len) {
   _impl->reply(from, p, len);

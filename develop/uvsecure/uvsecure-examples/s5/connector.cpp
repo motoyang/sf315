@@ -64,10 +64,20 @@ struct Connector::Impl {
       std::cout << "recv from: " << peer() << std::endl << s << std::endl;
 
       auto s5r = (S5Record *)v.data();
-      UVP_ASSERT(s5r->type == S5Record::Type::Reply);
-
       std::string from(s5r->from()->data(), s5r->from()->len());
-      _s5Acceptor->reply(from, s5r->data()->data(), s5r->data()->len());
+      switch (s5r->type) {
+      case S5Record::Type::Reply:
+        _s5Acceptor->reply(from, s5r->data()->data(), s5r->data()->len());
+        break;
+
+      case S5Record::Type::S5ConnectorClosed:
+        _s5Acceptor->shutdown(from);
+        break;
+
+      default:
+        UVP_ASSERT(false);
+        break;
+      }
     }
   }
 
@@ -131,9 +141,17 @@ struct Connector::Impl {
   void onShutdown(uvp::Stream *stream, int status) {
     if (status < 0) {
       UVP_LOG_ERROR(status);
+
+      // shutdown正常，那么就在onRead中close handle，
+      // 这个可能会等待很长时间（keepalive-timeout）。
+      // 如果在onShutdown中close handle，可能会导致对端发来的数据未被处理，
+      // 但是能够及时close handle。
+      // 权衡之后，等待在onRead中close handle的做法会让数据更可靠些。
+      if (!_socket.isClosing()) {
+        _socket.close();
+      }
     }
     LOG_INFO << "client socket shutdown.";
-    _socket.close();
   }
 
   void onClose(uvp::Handle *handle) { LOG_INFO << "handle of socket closed."; }

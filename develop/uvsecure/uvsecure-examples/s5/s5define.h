@@ -1,5 +1,7 @@
 #pragma once
 
+#include <netinet/in.h>
+
 #include <cstdint>
 #include <cstddef>
 
@@ -57,6 +59,8 @@ struct S5Record {
     Request = 1,
     Data = 2,
     Reply = 0x10,
+    S5ConnectorClosed = 0x21,
+    S5PeerClosed = 0x22,
     Invalidate = 0xff
   };
 
@@ -94,6 +98,21 @@ struct Request {
     return ntohs(p);
   }
   auto size() const { return sizeof(*this) + len + sizeof(uint16_t); }
+};
+
+struct Reply {
+  uint8_t ver;
+  uint8_t reply;
+  uint8_t rsv;
+  uint8_t atype;
+  // uint8_t len;
+  auto addr() const { return (char *)(this + 1); }
+  auto port() const {
+    uint16_t p = *(uint16_t *)(addr() + 4);
+    return ntohs(p);
+  }
+  void port(uint16_t p) { *(uint16_t *)(addr() + 4) = htons(p); }
+  auto size() const { return sizeof(*this) + 4 + sizeof(uint16_t); }
 };
 
 // --

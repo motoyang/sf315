@@ -3,9 +3,12 @@
 #include <memory>
 #include <uvp.hpp>
 
+#include "s5define.h"
+
 // --
 
 class Acceptor;
+class S5Connector;
 
 class TcpPeer {
   struct Impl;
@@ -16,7 +19,8 @@ public:
   virtual ~TcpPeer();
 
   Impl *impl() const;
-  void write(const std::string &from, const uint8_t *p, size_t len);
+  void write(S5Record::Type t, const std::string &from, const uint8_t *p, size_t len);
+  std::unique_ptr<S5Connector> removeConnector(const std::string &name);
 };
 
 // --

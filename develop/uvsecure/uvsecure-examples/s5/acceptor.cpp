@@ -29,15 +29,17 @@ class TcpPeer::Impl {
                int nbufs);
   void onShutdown(uvp::Stream *stream, int status);
   void onClose(uvp::Handle *handle);
+  void write(const uint8_t *p, size_t len);
+  void write(const std::list<uvp::uv::BufT> &l);
 
 public:
   Impl(uvp::Loop *loop, Acceptor *acceptor, TcpPeer *peer, bool secure);
 
   uvp::Tcp *socket() const { return (uvp::Tcp *)&_socket; }
-  void write(const uint8_t *p, size_t len);
   void sayHello();
-  void write(const std::list<uvp::uv::BufT> &l);
-  size_t length() const;
+  std::unique_ptr<S5Connector> removeConnector(const std::string &name);
+  void write(S5Record::Type t, const std::string &from, const uint8_t *p,
+             size_t len);
 };
 
 // --
@@ -64,22 +66,6 @@ public:
 };
 
 // --
-
-TcpPeer::Impl::Impl(uvp::Loop *loop, Acceptor *acceptor, TcpPeer *peer,
-                    bool secure)
-    : _sr(secure), _socket(loop), _acceptor(acceptor), _peer(peer) {
-  _socket.writeCallback(std::bind(
-      &TcpPeer::Impl::onWrite, this, std::placeholders::_1,
-      std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
-  _socket.readCallback(std::bind(&TcpPeer::Impl::onRead, this,
-                                 std::placeholders::_1, std::placeholders::_2,
-                                 std::placeholders::_3));
-  _socket.shutdownCallback(std::bind(&TcpPeer::Impl::onShutdown, this,
-                                     std::placeholders::_1,
-                                     std::placeholders::_2));
-  _socket.closeCallback(
-      std::bind(&TcpPeer::Impl::onClose, this, std::placeholders::_1));
-}
 
 void TcpPeer::Impl::request1(const std::string &from, const Request *req) {
   std::string url(req->addr(), req->len);
@@ -112,7 +98,7 @@ void TcpPeer::Impl::request2(const std::string &from, const uint8_t *p,
   if (auto it = _connectors.find(from); it != _connectors.end()) {
     it->second->write(p, len);
   } else {
-    UVP_ASSERT(false);
+    // UVP_ASSERT(false);
   }
 }
 
@@ -130,8 +116,13 @@ void TcpPeer::Impl::doSomething(const u8vector &v) {
   if (s5r->type == S5Record::Type::Data) {
     request2(from, s5r->data()->data(), s5r->data()->len());
   }
-
-  // write(_sr.pack(v.data(), v.size()));
+  if (s5r->type == S5Record::Type::S5PeerClosed) {
+    if (auto it = _connectors.find(from); it != _connectors.end()) {
+      // it->second->shutdown();
+    } else {
+      // UVP_ASSERT(false);
+    }
+  }
 }
 
 void TcpPeer::Impl::collect(const char *p, size_t len) {
@@ -169,15 +160,18 @@ void TcpPeer::Impl::onWrite(uvp::Stream *stream, int status,
 void TcpPeer::Impl::onShutdown(uvp::Stream *stream, int status) {
   if (status < 0) {
     UVP_LOG_ERROR(status);
+    if (!_socket.isClosing()) {
+      _socket.close();
+    }
   }
-  LOG_INFO << "agent socket shutdown." << _socket.peer();
-  _socket.close();
+  LOG_INFO << "peer socket shutdown." << _socket.peer();
 }
 
 void TcpPeer::Impl::onClose(uvp::Handle *handle) {
   // 需要在onClose中先hold住clientagent，否则对象被销毁，onClose代码执行非法！
-  auto p = _acceptor->impl()->removeClient(_socket.peer());
-  LOG_INFO << "handle of agent socket closed." << _socket.peer();
+  std::string peer = _socket.peer();
+  auto p = _acceptor->impl()->removeClient(peer);
+  LOG_INFO << "handle of agent socket closed. " << peer;
 }
 
 void TcpPeer::Impl::write(const uint8_t *p, size_t len) {
@@ -186,11 +180,6 @@ void TcpPeer::Impl::write(const uint8_t *p, size_t len) {
     write(l);
   }
   auto l = _sr.pack(p, len);
-  write(l);
-}
-
-void TcpPeer::Impl::sayHello() {
-  auto l = _sr.reset();
   write(l);
 }
 
@@ -204,7 +193,65 @@ void TcpPeer::Impl::write(const std::list<uvp::uv::BufT> &l) {
   }
 }
 
-size_t TcpPeer::Impl::length() const { return _sr.length() - 256 - 2 - 64; }
+TcpPeer::Impl::Impl(uvp::Loop *loop, Acceptor *acceptor, TcpPeer *peer,
+                    bool secure)
+    : _sr(secure), _socket(loop), _acceptor(acceptor), _peer(peer) {
+  _socket.writeCallback(std::bind(
+      &TcpPeer::Impl::onWrite, this, std::placeholders::_1,
+      std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+  _socket.readCallback(std::bind(&TcpPeer::Impl::onRead, this,
+                                 std::placeholders::_1, std::placeholders::_2,
+                                 std::placeholders::_3));
+  _socket.shutdownCallback(std::bind(&TcpPeer::Impl::onShutdown, this,
+                                     std::placeholders::_1,
+                                     std::placeholders::_2));
+  _socket.closeCallback(
+      std::bind(&TcpPeer::Impl::onClose, this, std::placeholders::_1));
+}
+
+void TcpPeer::Impl::sayHello() {
+  auto l = _sr.reset();
+  write(l);
+}
+
+std::unique_ptr<S5Connector>
+TcpPeer::Impl::removeConnector(const std::string &name) {
+  // 将s5connector从列表中移除
+  auto i = _connectors.find(name);
+  if (i == _connectors.end()) {
+    LOG_CRIT << "can't find the client: " << name;
+    return std::unique_ptr<S5Connector>();
+  }
+  auto p = std::move(i->second);
+
+  int num = _connectors.erase(name);
+  LOG_INFO << "remove " << num << " client: " << name;
+
+  return p;
+}
+
+void TcpPeer::Impl::write(S5Record::Type t, const std::string &from,
+                          const uint8_t *p, size_t len) {
+  UVP_ASSERT(len > 0);
+  while (len > 0) {
+    auto writeLen =
+        std::min(_sr.length() - S5Record::HeadLen() - from.size() - 64, len);
+    u8vector v(S5Record::HeadLen() + from.size() + writeLen);
+    auto s5r = (S5Record *)v.data();
+
+    s5r->type = t;
+    s5r->from()->len(from.size());
+    std::memcpy(s5r->from()->data(), from.data(), from.size());
+    s5r->data()->len(writeLen);
+    std::memcpy(s5r->data()->data(), p, writeLen);
+
+    len -= writeLen;
+    p += writeLen;
+
+    UVP_ASSERT(s5r->size() == v.size());
+    write(v.data(), v.size());
+  }
+}
 
 // --
 
@@ -298,32 +345,13 @@ TcpPeer::~TcpPeer() {}
 
 TcpPeer::Impl *TcpPeer::impl() const { return _impl.get(); }
 
-void TcpPeer::write(const std::string &from, const uint8_t *p, size_t len) {
+void TcpPeer::write(S5Record::Type t, const std::string &from, const uint8_t *p,
+                    size_t len) {
+  _impl->write(t, from, p, len);
+}
 
-  while (len > 0) {
-    auto writeLen = std::min(_impl->length(), len);
-    UVP_ASSERT(writeLen < 18 * 1024);
-
-    // auto from = _impl->from();
-    u8vector v(S5Record::HeadLen() + from.size() + writeLen);
-    auto s5r = (S5Record *)v.data();
-
-    s5r->type = S5Record::Type::Reply;
-    s5r->from()->len(from.size());
-    std::memcpy(s5r->from()->data(), from.data(), from.size());
-    s5r->data()->len(writeLen);
-    std::memcpy(s5r->data()->data(), p, writeLen);
-    auto l1 = s5r->size();
-    auto l2 = v.size();
-
-    UVP_ASSERT(s5r->size() == v.size());
-
-    // v.resize(s5r->size());
-    _impl->write(v.data(), v.size());
-
-    len -= writeLen;
-    p += writeLen;
-  }
+std::unique_ptr<S5Connector> TcpPeer::removeConnector(const std::string &name) {
+  return _impl->removeConnector(name);
 }
 
 // --

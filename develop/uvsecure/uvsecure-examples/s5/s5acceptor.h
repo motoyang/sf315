@@ -33,6 +33,7 @@ public:
   std::string name() const;
   void secureConnector(Connector *conn);
   void shutdown();
+  void shutdown(const std::string& from);
   void reply(const std::string& from, const uint8_t* p, size_t len);
 };
 
