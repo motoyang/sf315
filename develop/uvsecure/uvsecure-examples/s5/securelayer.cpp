@@ -16,6 +16,7 @@ struct SecureCenter {
   constexpr static const char *AeadName = "ChaCha20Poly1305";
 
   u8vector _psk;
+  ssvector _readNonce, _writeNonce;
   size_t _granularity;
   std::unique_ptr<secure::RandomNumberGenerator> _rng;
   std::unique_ptr<secure::HashFunction> _hashFun;
@@ -31,11 +32,26 @@ struct SecureCenter {
             secure::Cipher_Mode::create(AeadName, secure::DECRYPTION)) {
     _psk = secure::hex_decode("000102030405060708090a0b0c0d0e0f");
     _granularity = _writeCipherFun->update_granularity();
+
+    reset();
+  }
+  void reset() {
+    auto len = _writeCipherFun->default_nonce_length();
+    _readNonce.assign(len, 0);
+    _writeNonce.assign(len, 0);
+
+    // read和write密码初始化
+    _psk.resize(_readCipherFun->minimum_keylength());
+    ssvector nonce(len, 0);
+    _readCipherFun->set_key(_psk);
+    _readCipherFun->start(_readNonce);
+    _writeCipherFun->set_key(_psk);
+    _writeCipherFun->start(_writeNonce);
   }
   void encrypt(RecordType rt, secure::secure_vector<uint8_t> &v) const {
     // 将RecordType加入尾部
     v.push_back((uint8_t)rt);
-
+/*
     // Record的size必须是granularity的整数倍，不足的在后面padding zeros。
     auto len = v.size();
     if (auto needed = len % _granularity; needed > 0) {
@@ -43,13 +59,34 @@ struct SecureCenter {
       len = len + _granularity - needed;
       v.resize(len);
     }
+    if (v.size() < _writeCipherFun->minimum_final_size()) {
+      v.resize(v.size() + _writeCipherFun->minimum_final_size());
+    }
+*/
+   if (v.size() <= 256) {
+      uint8_t padding = 0;
+      _rng->randomize(&padding, sizeof(padding));
+      v.resize(v.size() + padding);
+    }
 
     // 对Record加密
-    _writeCipherFun->update(v);
+    _writeCipherFun->finish(v);
+
+    // 更新nonce，每次加密和解密，nonce都有更新
+    ++(*(size_t *)(_writeNonce.data() + 3));
+    _writeCipherFun->start(_writeNonce);
   }
   void decrypt(RecordType &rt, secure::secure_vector<uint8_t> &v) const {
-    assert(v.size() % _granularity == 0);
-    _readCipherFun->update(v);
+    // assert(v.size() % _granularity == 0);
+    try {
+      _readCipherFun->finish(v);
+    } catch (secure::Exception &e) {
+      std::cout << "ex: " << e.what() << std::endl;
+    }
+
+    // 更新nonce，每次加密和解密，nonce都有更新
+    ++(*(size_t *)(_readNonce.data() + 3));
+    _readCipherFun->start(_readNonce);
 
     // 剔除padding的zero，并取出RecordType
     auto rtAddr =
@@ -59,7 +96,8 @@ struct SecureCenter {
     auto distance = std::distance(rtAddr, v.crend());
     v.resize(distance - 1); // -1是为了排除附加的RecordType
   }
-  u8vector reset() {
+/*
+  u8vector reset333() {
     // 生成新的write key
     auto len = _writeCipherFun->default_nonce_length();
     ssvector nonce(len);
@@ -95,26 +133,32 @@ struct SecureCenter {
     // 将加密后的新write key发送给对方
     return u8vector(enkey.data(), enkey.data() + enkey.size());
   }
+*/
   u8vector update() {
     // 生成新的write key
-    auto len = _writeCipherFun->default_nonce_length();
-    ssvector nonce(len);
-    _rng->randomize(nonce.data(), nonce.size());
-    len = _writeCipherFun->minimum_keylength();
+    // auto len = _writeCipherFun->default_nonce_length();
+    // ssvector nonce(len);
+    _rng->randomize(_writeNonce.data(), _writeNonce.size());
+    auto len = _writeCipherFun->minimum_keylength();
     ssvector wkey(len);
     _rng->randomize(wkey.data(), wkey.size());
-    ssvector enkey(nonce);
+    ssvector enkey(_writeNonce);
     enkey.insert(enkey.cend(), wkey.cbegin(), wkey.cend());
+
+    len = enkey.size();
+    auto padingLen = _granularity - len;
+    enkey.resize(len + padingLen);
+    _rng->randomize(enkey.data() + len, padingLen);
 
     // 用当前的write key对新生成的write key加密
     encrypt(RecordType::CipherChanged, enkey);
 
     // 更新write key和noncu
     _writeCipherFun->set_key(wkey);
-    _writeCipherFun->start(nonce);
+    _writeCipherFun->start(_writeNonce);
 
     std::cout << "update wkey: " << secure::hex_encode(wkey) << std::endl
-              << "nonce: " << secure::hex_encode(nonce) << std::endl;
+              << "nonce: " << secure::hex_encode(_writeNonce) << std::endl;
 
     // 将加密后的新write key发送给对方
     return u8vector(enkey.data(), enkey.data() + enkey.size());
@@ -122,16 +166,17 @@ struct SecureCenter {
   void received(RecordType rt, const ssvector &v) {
     // 读取对方发来的write key，作为本端的read key
     auto len = _readCipherFun->default_nonce_length();
-    ssvector nonce(v.data(), v.data() + len);
+    _readNonce.assign(v.data(), v.data() + len);
     ssvector rkey(v.data() + len,
                   v.data() + len + _readCipherFun->minimum_keylength());
 
     std::cout << "rkey: " << secure::hex_encode(rkey) << std::endl
-              << "nonce: " << secure::hex_encode(nonce) << std::endl;
+              << "nonce: " << secure::hex_encode(_readNonce) << std::endl;
 
     // 设置本端的read key
     _readCipherFun->set_key(rkey);
-    _readCipherFun->start(nonce);
+    ++(*(size_t *)(_readNonce.data() + 3));
+    _readCipherFun->start(_readNonce);
   }
 };
 
@@ -141,12 +186,45 @@ struct SecureRecord::Impl {
   uvplus::RingBuffer _ring;
   uvplus::Chunk _chunk;
   std::unique_ptr<SecureCenter> _sc;
+  uint16_t _count = 0;
+  static constexpr int TagSize = 16;
 
   Impl(bool secure, size_t recordSize, size_t chunkSize)
-      : _ring(recordSize + sizeof(Definition::_len)), _chunk(chunkSize),
-        _sc(secure ? std::make_unique<SecureCenter>() : nullptr) {}
+      : _ring(recordSize + sizeof(SecureCenter::RecordType) +
+              sizeof(Definition::_len) + TagSize),
+        _chunk(chunkSize),
+        _sc(secure ? std::make_unique<SecureCenter>() : nullptr) {
+/*    if (_sc) {
+      // 净负荷的长度有如下限制，这是加密算法的要求
+      UVP_ASSERT(0 == ((recordSize + sizeof(SecureCenter::RecordType)) %
+                       _sc->_granularity));
+    }
+*/
+    // 因为初始count为0，isExpired返回true，会重置count
+    // isExpired();
+  }
 
-  size_t length() const { return _ring.capacity() - sizeof(Definition::_len); }
+  // 净负荷的长度
+  size_t length() const {
+    auto len = _ring.capacity() - sizeof(Definition::_len);
+    if (_sc) {
+      len -= (sizeof(SecureCenter::RecordType) + TagSize);
+    }
+    return len;
+  }
+
+  bool isExpired() {
+    bool r = false;
+    if (_sc && (0 == _count--)) {
+      // 重置count，最大为4096，最小为256
+      _sc->_rng->randomize((uint8_t *)&_count, sizeof(_count));
+      _count %= 4 * 1024;
+      _count += 256;
+
+      r = true;
+    }
+    return r;
+  }
 
   bool combine(u8vector &buf) {
     int head_len = sizeof(Definition::_len);
@@ -210,7 +288,8 @@ struct SecureRecord::Impl {
 
   std::list<uvp::uv::BufT> cut(const uint8_t *p, size_t len) const {
     UVP_ASSERT(len);
-    UVP_ASSERT(len <= length());
+    UVP_ASSERT(len <=
+               _ring.capacity() - sizeof(Definition::_len)); // length());
 
     std::list<uvp::uv::BufT> l;
     u8vector v;
@@ -245,12 +324,10 @@ SecureRecord::SecureRecord(bool secure, size_t recordSize, size_t chunkSize)
 
 SecureRecord::~SecureRecord() {}
 
-size_t SecureRecord::length() const {
-  return _impl->_ring.capacity() - sizeof(Definition::_len);
-}
+size_t SecureRecord::length() const { return _impl->length(); }
 
 std::list<uvp::uv::BufT> SecureRecord::pack(const uint8_t *p,
-                                             size_t len) const {
+                                            size_t len) const {
   if (_impl->_sc) {
     ssvector v(p, p + len);
     _impl->_sc->encrypt(SecureCenter::RecordType::Application, v);
@@ -274,10 +351,12 @@ u8vlist SecureRecord::feed(const char *p, size_t len) {
 }
 
 std::list<uvp::uv::BufT> SecureRecord::reset() const {
+  _impl->_count = 0;
   _impl->_ring.reset();
 
   if (_impl->_sc) {
-    auto h = _impl->_sc->reset();
+    _impl->_sc->reset();
+    auto h = _impl->_sc->update(); // _impl->_sc->reset();
     return _impl->cut(h.data(), h.size());
   }
   return std::list<uvp::uv::BufT>();
@@ -290,3 +369,5 @@ std::list<uvp::uv::BufT> SecureRecord::update() const {
   }
   return std::list<uvp::uv::BufT>();
 }
+
+bool SecureRecord::isExpired() const { return _impl->isExpired(); }

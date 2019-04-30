@@ -3,6 +3,8 @@
 #include <memory>
 #include <uvp.hpp>
 
+#include "s5define.h"
+
 // --
 
 class S5Acceptor;
@@ -14,7 +16,10 @@ public:
   S5Peer(uvp::Loop *loop, S5Acceptor *acceptor);
   virtual ~S5Peer();
 
-  Impl* impl() const;
+  uvp::Tcp *socket() const;
+  std::string peer();
+  void shutdown();
+  void write(const uint8_t *p, size_t len);
 };
 
 // --
@@ -25,16 +30,16 @@ class S5Acceptor {
   std::unique_ptr<Impl> _impl;
 
 public:
-
-  S5Acceptor(uvp::Loop *loop, const struct sockaddr *addr);
+  S5Acceptor(Connector *conn, const struct sockaddr *addr);
   virtual ~S5Acceptor();
 
-  Impl* impl() const;
-  std::string name() const;
-  void secureConnector(Connector *conn);
+  void clientsShutdown();
+  std::unique_ptr<S5Peer> removeClient(const std::string &name);
   void shutdown();
-  void shutdown(const std::string& from);
-  void reply(const std::string& from, const uint8_t* p, size_t len);
+  void shutdown(const std::string &from);
+  void writeToConnector(S5Record::Type t, const std::string &from, const uint8_t *p,
+             size_t len);
+  void writeToPeer(const std::string &from, const uint8_t *p, size_t len);
 };
 
 // --

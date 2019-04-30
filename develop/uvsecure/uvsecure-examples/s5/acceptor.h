@@ -18,7 +18,8 @@ public:
   TcpPeer(uvp::Loop *loop, Acceptor *acceptor, bool secure);
   virtual ~TcpPeer();
 
-  Impl *impl() const;
+  uvp::Tcp *socket() const;
+  void sayHello();
   void write(S5Record::Type t, const std::string &from, const uint8_t *p, size_t len);
   std::unique_ptr<S5Connector> removeConnector(const std::string &name);
 };
@@ -33,5 +34,5 @@ public:
   Acceptor(uvp::Loop *loop, const struct sockaddr *addr, bool secure = true);
   virtual ~Acceptor();
 
-  Impl *impl() const;
+  std::unique_ptr<TcpPeer> removeClient(const std::string &name);
 };

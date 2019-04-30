@@ -17,7 +17,7 @@ class SecureRecord {
   std::unique_ptr<Impl> _impl;
 
 public:
-  SecureRecord(bool secure = true, size_t recordSize = 16 * 1024,
+  SecureRecord(bool secure = true, size_t recordSize = 16 * 1024 -1,
                size_t chunkSize = 16);
   virtual ~SecureRecord();
 
@@ -26,4 +26,5 @@ public:
   u8vlist feed(const char *p, size_t len);
   std::list<uvp::uv::BufT> reset() const;
   std::list<uvp::uv::BufT> update() const;
+  bool isExpired() const;
 };

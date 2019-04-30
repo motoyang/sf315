@@ -16,8 +16,6 @@ class TcpPeer::Impl {
   Acceptor *_acceptor = nullptr;
 
   SecureRecord _sr;
-  size_t _recordCount = 0;
-
   std::unordered_map<std::string, std::unique_ptr<S5Connector>> _connectors;
 
   void request1(const std::string &from, const Request *req);
@@ -29,8 +27,8 @@ class TcpPeer::Impl {
                int nbufs);
   void onShutdown(uvp::Stream *stream, int status);
   void onClose(uvp::Handle *handle);
-  void write(const uint8_t *p, size_t len);
-  void write(const std::list<uvp::uv::BufT> &l);
+  void writeRecord(const uint8_t *p, size_t len);
+  void writeChunks(const std::list<uvp::uv::BufT> &l);
 
 public:
   Impl(uvp::Loop *loop, Acceptor *acceptor, TcpPeer *peer, bool secure);
@@ -44,8 +42,7 @@ public:
 
 // --
 
-struct Acceptor::Impl {
-private:
+class Acceptor::Impl {
   uvp::TcpObject _socket;
   Acceptor *_acceptor;
   std::unordered_map<std::string, std::unique_ptr<TcpPeer>> _clients;
@@ -98,7 +95,9 @@ void TcpPeer::Impl::request2(const std::string &from, const uint8_t *p,
   if (auto it = _connectors.find(from); it != _connectors.end()) {
     it->second->write(p, len);
   } else {
-    // UVP_ASSERT(false);
+    // 通知local侧，s5connector已经关闭，local侧需要关闭对应的s5peer。
+    uint8_t data[1] = {0};
+    _peer->write(S5Record::Type::S5ConnectorClosed, from, data, sizeof(data));
   }
 }
 
@@ -115,13 +114,6 @@ void TcpPeer::Impl::doSomething(const u8vector &v) {
   }
   if (s5r->type == S5Record::Type::Data) {
     request2(from, s5r->data()->data(), s5r->data()->len());
-  }
-  if (s5r->type == S5Record::Type::S5PeerClosed) {
-    if (auto it = _connectors.find(from); it != _connectors.end()) {
-      // it->second->shutdown();
-    } else {
-      // UVP_ASSERT(false);
-    }
   }
 }
 
@@ -170,20 +162,20 @@ void TcpPeer::Impl::onShutdown(uvp::Stream *stream, int status) {
 void TcpPeer::Impl::onClose(uvp::Handle *handle) {
   // 需要在onClose中先hold住clientagent，否则对象被销毁，onClose代码执行非法！
   std::string peer = _socket.peer();
-  auto p = _acceptor->impl()->removeClient(peer);
-  LOG_INFO << "handle of agent socket closed. " << peer;
+  auto p = _acceptor->removeClient(peer);
+  LOG_INFO << "handle of peer socket closed. " << peer;
 }
 
-void TcpPeer::Impl::write(const uint8_t *p, size_t len) {
-  if (++_recordCount % 73 == 0) {
+void TcpPeer::Impl::writeRecord(const uint8_t *p, size_t len) {
+  if (_sr.isExpired()) {
     auto l = _sr.update();
-    write(l);
+    writeChunks(l);
   }
   auto l = _sr.pack(p, len);
-  write(l);
+  writeChunks(l);
 }
 
-void TcpPeer::Impl::write(const std::list<uvp::uv::BufT> &l) {
+void TcpPeer::Impl::writeChunks(const std::list<uvp::uv::BufT> &l) {
   for (auto b : l) {
     int r = _socket.write(&b, 1);
     if (r) {
@@ -211,7 +203,7 @@ TcpPeer::Impl::Impl(uvp::Loop *loop, Acceptor *acceptor, TcpPeer *peer,
 
 void TcpPeer::Impl::sayHello() {
   auto l = _sr.reset();
-  write(l);
+  writeChunks(l);
 }
 
 std::unique_ptr<S5Connector>
@@ -235,7 +227,7 @@ void TcpPeer::Impl::write(S5Record::Type t, const std::string &from,
   UVP_ASSERT(len > 0);
   while (len > 0) {
     auto writeLen =
-        std::min(_sr.length() - S5Record::HeadLen() - from.size() - 64, len);
+        std::min(_sr.length() - S5Record::HeadLen() - from.size(), len);
     u8vector v(S5Record::HeadLen() + from.size() + writeLen);
     auto s5r = (S5Record *)v.data();
 
@@ -249,7 +241,7 @@ void TcpPeer::Impl::write(S5Record::Type t, const std::string &from,
     p += writeLen;
 
     UVP_ASSERT(s5r->size() == v.size());
-    write(v.data(), v.size());
+    writeRecord(v.data(), v.size());
   }
 }
 
@@ -281,15 +273,15 @@ void Acceptor::Impl::onConnection(uvp::Stream *stream, int status) {
   }
 
   auto client = std::make_unique<TcpPeer>(_socket.loop(), _acceptor, _secure);
-  int r = _socket.accept(client->impl()->socket());
+  int r = _socket.accept(client->socket());
   if (r < 0) {
     UVP_LOG_ERROR(r);
     return;
   }
-  client->impl()->socket()->readStart();
-  client->impl()->sayHello();
+  client->socket()->readStart();
+  // client->sayHello();
 
-  LOG_INFO << "accept connection from: " << client->impl()->socket()->peer();
+  LOG_INFO << "accept connection from: " << client->socket()->peer();
   addClient(std::move(client));
 }
 
@@ -313,7 +305,7 @@ std::string Acceptor::Impl::name() const {
 }
 
 void Acceptor::Impl::addClient(std::unique_ptr<TcpPeer> &&client) {
-  std::string n = client->impl()->socket()->peer();
+  std::string n = client->socket()->peer();
 
   if (auto i = _clients.insert({n, std::forward<decltype(client)>(client)});
       !i.second) {
@@ -343,7 +335,9 @@ TcpPeer::TcpPeer(uvp::Loop *loop, Acceptor *acceptor, bool secure)
 
 TcpPeer::~TcpPeer() {}
 
-TcpPeer::Impl *TcpPeer::impl() const { return _impl.get(); }
+uvp::Tcp *TcpPeer::socket() const { return _impl->socket(); }
+
+void TcpPeer::sayHello() { return _impl->sayHello(); }
 
 void TcpPeer::write(S5Record::Type t, const std::string &from, const uint8_t *p,
                     size_t len) {
@@ -361,4 +355,6 @@ Acceptor::Acceptor(uvp::Loop *loop, const struct sockaddr *addr, bool secure)
 
 Acceptor::~Acceptor() {}
 
-Acceptor::Impl *Acceptor::impl() const { return _impl.get(); }
+std::unique_ptr<TcpPeer> Acceptor::removeClient(const std::string &name) {
+  return _impl->removeClient(name);
+}

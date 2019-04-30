@@ -60,7 +60,7 @@ struct S5Record {
     Data = 2,
     Reply = 0x10,
     S5ConnectorClosed = 0x21,
-    S5PeerClosed = 0x22,
+    // S5PeerClosed = 0x22,
     Invalidate = 0xff
   };
 
@@ -69,11 +69,11 @@ struct S5Record {
   auto data() const {
     return (DataType *)((uint8_t *)(this + 1) + from()->size());
   }
-  static constexpr size_t HeadLen() {
-    return sizeof(Type) + sizeof(FromType::Head) + sizeof(DataType::Head);
-  }
   size_t size() const {
     return sizeof(*this) + from()->size() + data()->size();
+  }
+  static constexpr size_t HeadLen() {
+    return sizeof(Type) + sizeof(FromType::Head) + sizeof(DataType::Head);
   }
 };
 

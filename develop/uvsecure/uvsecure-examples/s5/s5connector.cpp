@@ -15,7 +15,6 @@ struct S5Connector::Impl {
   void onConnect(uvp::Stream *stream, int status);
   void onShutdown(uvp::Stream *stream, int status);
   void onClose(uvp::Handle *handle);
-  void close();
 
 public:
   Impl(uvp::Loop *loop, TcpPeer *peer, const std::string &from);
@@ -42,7 +41,7 @@ void S5Connector::Impl::onWrite(uvp::Stream *stream, int status,
 void S5Connector::Impl::onRead(uvp::Stream *stream, ssize_t nread,
                                const uvp::uv::BufT *buf) {
   if (nread < 0) {
-    close();
+    _socket.close();
     UVP_LOG_ERROR(nread);
     return;
   }
@@ -96,14 +95,6 @@ void S5Connector::Impl::onClose(uvp::Handle *handle) {
   // 需要在onClose中先hold住connector，否则对象被销毁，onClose代码执行非法！
   auto p = _peer->removeConnector(from());
   LOG_INFO << "handle of s5 connector closed." << from();
-}
-
-void S5Connector::Impl::close() {
-  // 通知local侧，s5connector已经关闭，local侧需要关闭对应的s5peer。
-  uint8_t data[1] = {0};
-  _peer->write(S5Record::Type::S5ConnectorClosed, from(), data, sizeof(data));
-
-  _socket.close();
 }
 
 S5Connector::Impl::Impl(uvp::Loop *loop, TcpPeer *peer, const std::string &from)

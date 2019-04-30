@@ -67,7 +67,7 @@ struct Connector::Impl {
       std::string from(s5r->from()->data(), s5r->from()->len());
       switch (s5r->type) {
       case S5Record::Type::Reply:
-        _s5Acceptor->reply(from, s5r->data()->data(), s5r->data()->len());
+        _s5Acceptor->writeToPeer(from, s5r->data()->data(), s5r->data()->len());
         break;
 
       case S5Record::Type::S5ConnectorClosed:
@@ -133,8 +133,10 @@ struct Connector::Impl {
       sockaddr_in addr;
       uvp::ip4Addr("0", 7001, &addr);
       _s5Acceptor =
-          std::make_unique<S5Acceptor>(_socket.loop(), (const sockaddr *)&addr);
-      _s5Acceptor->secureConnector(_connector);
+          std::make_unique<S5Acceptor>(_connector, (const sockaddr *)&addr);
+    } else {
+      // 需要清除所以已经连接的s5peer
+      _s5Acceptor->clientsShutdown();
     }
   }
 
@@ -158,10 +160,10 @@ struct Connector::Impl {
 
   void sayHello() {
     auto l = _sr.reset();
-    write(l);
+    writeChunks(l);
   }
 
-  void write(const std::list<uvp::uv::BufT> &l) {
+  void writeChunks(const std::list<uvp::uv::BufT> &l) {
     for (auto b : l) {
       int r = _socket.write(&b, 1);
       if (r) {
@@ -171,13 +173,13 @@ struct Connector::Impl {
     }
   }
 
-  void write(const uint8_t *p, size_t len) {
-    if (std::time(nullptr) % 73 == 0) {
+  void writeRecord(const uint8_t *p, size_t len) {
+    if (_sr.isExpired()) {
       auto l = _sr.update();
-      write(l);
+      writeChunks(l);
     }
     auto l = _sr.pack(p, len);
-    write(l);
+    writeChunks(l);
   }
 
   void shutdown() {
@@ -198,11 +200,11 @@ struct Connector::Impl {
       static size_t sn = 0;
       if (sn++ < 0) {
         auto j = 0;
-        u8vector v(112 + (sn % 383));
+        u8vector v(12 + (sn % 383));
         for (auto &c : v) {
           c = j++;
         }
-        write(v.data(), v.size());
+        writeRecord(v.data(), v.size());
       } else {
         // _timer.stop();
         // _timer.close();
@@ -212,7 +214,7 @@ struct Connector::Impl {
     }
   }
 
-  size_t length() const { return _sr.length() - 256 - 2 - 64; }
+  // size_t length() const { return _sr.length() - 256 - 2 - 64; }
 };
 
 Connector::Connector(uvp::Loop *loop, const struct sockaddr *dest, bool secure)
@@ -220,14 +222,17 @@ Connector::Connector(uvp::Loop *loop, const struct sockaddr *dest, bool secure)
 
 Connector::~Connector() {}
 
-void Connector::secureWrite(S5Record::Type t, const std::string &from,
-                            const uint8_t *p, size_t len) {
+uvp::Loop *Connector::loop() const { return _impl->_socket.loop(); }
+
+S5Acceptor *Connector::acceptor() const { return _impl->_s5Acceptor.get(); }
+
+void Connector::write(S5Record::Type t, const std::string &from,
+                      const uint8_t *p, size_t len) {
   UVP_ASSERT(from.size() < 0xFF);
 
   while (len > 0) {
-    auto writeLen = std::min(_impl->length(), len);
-    UVP_ASSERT(writeLen < 18 * 1024);
-
+    auto writeLen =
+        std::min(_impl->_sr.length() - S5Record::HeadLen() - from.size(), len);
     u8vector v(S5Record::HeadLen() + from.size() + writeLen);
     auto s5r = (S5Record *)v.data();
 
@@ -236,13 +241,9 @@ void Connector::secureWrite(S5Record::Type t, const std::string &from,
     std::memcpy(s5r->from()->data(), from.data(), from.size());
     s5r->data()->len(writeLen);
     std::memcpy(s5r->data()->data(), p, writeLen);
-    auto l1 = s5r->size();
-    auto l2 = v.size();
 
     UVP_ASSERT(s5r->size() == v.size());
-
-    // v.resize(s5r->size());
-    _impl->write(v.data(), v.size());
+    _impl->writeRecord(v.data(), v.size());
 
     len -= writeLen;
     p += writeLen;
