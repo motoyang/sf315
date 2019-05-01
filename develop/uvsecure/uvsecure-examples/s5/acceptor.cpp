@@ -15,7 +15,8 @@ class TcpPeer::Impl {
   TcpPeer *_peer = nullptr;
   Acceptor *_acceptor = nullptr;
 
-  SecureRecord _sr;
+  // SecureRecord _sr;
+    SsRecord _sr;
   std::unordered_map<std::string, std::unique_ptr<S5Connector>> _connectors;
 
   void request1(const std::string &from, const Request *req);
@@ -34,7 +35,7 @@ public:
   Impl(uvp::Loop *loop, Acceptor *acceptor, TcpPeer *peer, bool secure);
 
   uvp::Tcp *socket() const { return (uvp::Tcp *)&_socket; }
-  void sayHello();
+  // void sayHello();
   std::unique_ptr<S5Connector> removeConnector(const std::string &name);
   void write(S5Record::Type t, const std::string &from, const uint8_t *p,
              size_t len);
@@ -134,6 +135,9 @@ void TcpPeer::Impl::onRead(uvp::Stream *stream, ssize_t nread,
 
   // 整理包，并进一步处理包
   if (nread) {
+    // std::cout << "received " << nread << " bytes from: " << _socket.peer()
+    //           << std::endl;
+    // std::cout << secure::hex_encode(u8vector(buf->base, buf->base + nread)) << std::endl;
     collect(buf->base, nread);
   }
 }
@@ -200,12 +204,12 @@ TcpPeer::Impl::Impl(uvp::Loop *loop, Acceptor *acceptor, TcpPeer *peer,
   _socket.closeCallback(
       std::bind(&TcpPeer::Impl::onClose, this, std::placeholders::_1));
 }
-
+/*
 void TcpPeer::Impl::sayHello() {
   auto l = _sr.reset();
   writeChunks(l);
 }
-
+*/
 std::unique_ptr<S5Connector>
 TcpPeer::Impl::removeConnector(const std::string &name) {
   // 将s5connector从列表中移除
@@ -337,7 +341,7 @@ TcpPeer::~TcpPeer() {}
 
 uvp::Tcp *TcpPeer::socket() const { return _impl->socket(); }
 
-void TcpPeer::sayHello() { return _impl->sayHello(); }
+// void TcpPeer::sayHello() { return _impl->sayHello(); }
 
 void TcpPeer::write(S5Record::Type t, const std::string &from, const uint8_t *p,
                     size_t len) {

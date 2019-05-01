@@ -13,7 +13,8 @@
 struct Connector::Impl {
   uvp::TcpObject _socket;
   uvp::TimerObject _timer;
-  SecureRecord _sr;
+  // SecureRecord _sr;
+  SsRecord _sr;
   sockaddr _dest;
   std::string _name, _peer;
   Connector *_connector = nullptr;
@@ -126,7 +127,8 @@ struct Connector::Impl {
     _socket.readStart();
 
     // SecureRecord复位，向对端发送hello更新密码。
-    sayHello();
+    // sayHello();
+    _sr.reset();
 
     // 创建s5acceptor，接受来自socks5 client端的连接
     if (!_s5Acceptor) {
@@ -157,12 +159,13 @@ struct Connector::Impl {
   }
 
   void onClose(uvp::Handle *handle) { LOG_INFO << "handle of socket closed."; }
-
+/*
   void sayHello() {
-    auto l = _sr.reset();
+    _sr.reset();
+    auto l = _sr.update();
     writeChunks(l);
   }
-
+*/
   void writeChunks(const std::list<uvp::uv::BufT> &l) {
     for (auto b : l) {
       int r = _socket.write(&b, 1);
@@ -198,7 +201,7 @@ struct Connector::Impl {
       UVP_LOG_ERROR(r);
     } else {
       static size_t sn = 0;
-      if (sn++ < 0) {
+      if (sn++ < 333333) {
         auto j = 0;
         u8vector v(12 + (sn % 383));
         for (auto &c : v) {
