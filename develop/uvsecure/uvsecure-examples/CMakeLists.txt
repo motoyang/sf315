@@ -23,7 +23,7 @@ endmacro (example_build)
 macro (example_build2 arg1 arg2)
   file(GLOB EXAMPLE_SRC_FILES "${arg1}/*.cpp")
   add_executable(${arg1} ${EXAMPLE_SRC_FILES})
-  target_link_libraries(${arg1} ${UV_LIB} ${PTHREAD_LIB} ${arg2})
+  target_link_libraries(${arg1} ${UV_LIB} ${PTHREAD_LIB} ${arg2} "dl")
 endmacro (example_build2)
 
 example_build2(tcp-secure "botan-2")

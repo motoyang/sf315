@@ -14,6 +14,7 @@ struct SecureCenter {
 
   constexpr static const char *HashName = "SHA-256";
   constexpr static const char *AeadName = "ChaCha20Poly1305";
+  constexpr static const size_t NonceOffset = 3;
 
   u8vector _psk;
   ssvector _readNonce, _writeNonce;
@@ -62,7 +63,7 @@ struct SecureCenter {
     _writeCipherFun->finish(v);
 
     // 更新nonce，每次加密和解密，nonce都有更新
-    ++(*(uint16_t *)(_writeNonce.data() + 3));
+    ++(*(uint16_t *)(_writeNonce.data()+ NonceOffset));
     _writeCipherFun->start(_writeNonce);
   }
   void decrypt(secure::secure_vector<uint8_t> &v, bool padding) const {
@@ -75,7 +76,7 @@ struct SecureCenter {
     }
 
     // 更新nonce，每次加密和解密，nonce都有更新
-    ++(*(uint16_t *)(_readNonce.data() + 3));
+    ++(*(uint16_t *)(_readNonce.data()+ NonceOffset));
     _readCipherFun->start(_readNonce);
 
     if (padding) {
@@ -98,7 +99,7 @@ struct SecureCenter {
     }
 
     // 更新nonce，每次加密和解密，nonce都有更新
-    ++(*(uint16_t *)(_readNonce.data() + 3));
+    ++(*(uint16_t *)(_readNonce.data()+ NonceOffset));
     _readCipherFun->start(_readNonce);
 
     // 剔除padding的zero，并取出RecordType
@@ -149,7 +150,7 @@ struct SecureCenter {
 
     // 设置本端的read key
     _readCipherFun->set_key(rkey);
-    ++(*(uint16_t *)(_readNonce.data() + 3));
+    ++(*(uint16_t *)(_readNonce.data()+ NonceOffset));
     _readCipherFun->start(_readNonce);
   }
 };
@@ -502,10 +503,12 @@ struct SsCenter {
   constexpr static const char *AeadName = "ChaCha20Poly1305";
   constexpr static const char *HkdfName = "HKDF(SHA-256)";
   constexpr static const char *Label = "ss-socket";
-  constexpr static size_t SaltLen = 12;
+  constexpr static const size_t SaltLen = 12;
+  constexpr static const size_t TagSize = 16;
+  constexpr static const size_t NonceOffset = 3;
 
   u8vector _psk;
-  ssvector _subKey;
+  ssvector _drivedKey;
   ssvector _readNonce, _writeNonce;
   std::unique_ptr<secure::RandomNumberGenerator> _rng;
   std::unique_ptr<secure::HashFunction> _hashFun;
@@ -516,7 +519,7 @@ struct SsCenter {
 
   void reset();
   ssvector update();
-  void encrypt(secure::secure_vector<uint8_t> &v, bool padding) const;
+  void encrypt(secure::secure_vector<uint8_t> &v) const;
   void decrypt(secure::secure_vector<uint8_t> &v, bool padding) const;
   bool needSalt() const;
   void salt(const ssvector &salt);
@@ -528,10 +531,9 @@ SsCenter::SsCenter()
       _writeCipherFun(
           secure::Cipher_Mode::create(AeadName, secure::ENCRYPTION)),
       _readCipherFun(
-          secure::Cipher_Mode::create(AeadName, secure::DECRYPTION)) {
-  _hkdfFun = secure::HKDF::create(HkdfName);
+          secure::Cipher_Mode::create(AeadName, secure::DECRYPTION)),
+      _hkdfFun(secure::HKDF::create(HkdfName))     {
   _psk = secure::hex_decode("000102030405060708090a0b0c0d0e0f");
-
   reset();
 }
 
@@ -540,7 +542,7 @@ void SsCenter::reset() {
   _writeNonce.assign(len, 0);
   _readNonce.assign(len, 0);
 
-  _subKey.clear();
+  _drivedKey.clear();
 }
 ssvector SsCenter::update() {
   ssvector s(SaltLen);
@@ -549,22 +551,21 @@ ssvector SsCenter::update() {
 
   return s;
 }
-void SsCenter::encrypt(secure::secure_vector<uint8_t> &v, bool padding) const {
-  if (padding) {
+void SsCenter::encrypt(secure::secure_vector<uint8_t> &v) const {
+  v.push_back(_rng->next_nonzero_byte());
     // pading zeros
     if (v.size() <= 256) {
       uint8_t padding = _rng->next_nonzero_byte();
-      v.resize(v.size() + padding);
+      v.resize(v.size() + padding - 1);
     }
-  }
 
-  uint32_t len = v.size() + 16;
+  uint32_t len = v.size() + TagSize;
   // ssvector vlen(&len, &len + sizeof(len));
   ssvector vlen(sizeof(len));
   std::memcpy(vlen.data(), &len, vlen.size());
 
   // 更新nonce，每次加密和解密，nonce都有更新
-  ++(*(size_t *)(_writeNonce.data() + 3));
+  ++(*(size_t *)(_writeNonce.data()+ NonceOffset));
   _writeCipherFun->start(_writeNonce);
   _writeCipherFun->finish(vlen);
 
@@ -572,7 +573,7 @@ void SsCenter::encrypt(secure::secure_vector<uint8_t> &v, bool padding) const {
   vlen.insert(vlen.end(), v.begin(), v.end());
 
   // 更新nonce，每次加密和解密，nonce都有更新
-  ++(*(size_t *)(_writeNonce.data() + 3));
+  ++(*(size_t *)(_writeNonce.data()+ NonceOffset));
   _writeCipherFun->start(_writeNonce);
   _writeCipherFun->finish(vlen, len);
 
@@ -580,7 +581,7 @@ void SsCenter::encrypt(secure::secure_vector<uint8_t> &v, bool padding) const {
 }
 void SsCenter::decrypt(secure::secure_vector<uint8_t> &v, bool padding) const {
   // 更新nonce，每次加密和解密，nonce都有更新
-  ++(*(size_t *)(_readNonce.data() + 3));
+  ++(*(size_t *)(_readNonce.data()+ NonceOffset));
   _readCipherFun->start(_readNonce);
 
   try {
@@ -597,21 +598,21 @@ void SsCenter::decrypt(secure::secure_vector<uint8_t> &v, bool padding) const {
         std::find_if(v.crbegin(), v.crend(), [](uint8_t c) { return c > 0; });
     assert(rtAddr != v.crend());
     auto distance = std::distance(rtAddr, v.crend());
-    v.resize(distance - 1); // -1是为了排除附加的RecordType
+    v.resize(distance - 1);
   }
 }
-bool SsCenter::needSalt() const { return _subKey.empty(); }
+bool SsCenter::needSalt() const { return _drivedKey.empty(); }
 void SsCenter::salt(const ssvector &salt) {
   auto len = _writeCipherFun->minimum_keylength();
-  _subKey = _hkdfFun->derive_key(len, _psk, salt,
+  _drivedKey = _hkdfFun->derive_key(len, _psk, salt,
                                  ssvector(Label, Label + std::strlen(Label)));
 
-  std::cout << "subkey: " << secure::hex_encode(_subKey) << std::endl
+  std::cout << "drived key: " << secure::hex_encode(_drivedKey) << std::endl
             << "nonce: " << secure::hex_encode(_readNonce) << std::endl;
 
   // read和write密码初始化
-  _writeCipherFun->set_key(_subKey);
-  _readCipherFun->set_key(_subKey);
+  _writeCipherFun->set_key(_drivedKey);
+  _readCipherFun->set_key(_drivedKey);
 }
 
 // --
@@ -621,18 +622,17 @@ struct SsRecord::Impl {
   std::unique_ptr<SsCenter> _sc;
   uint16_t _count = 0, _body_len = 0;
 
-  static constexpr int TagSize = 16;
 
   Impl(bool secure, size_t recordSize, size_t chunkSize)
       : _ring(recordSize + sizeof(SecureCenter::RecordType) +
-              sizeof(Definition::_len) + TagSize),
+              sizeof(Definition::_len) + SsCenter::TagSize),
         _sc(secure ? std::make_unique<SsCenter>() : nullptr) {}
 
   // 净负荷的长度
   size_t length() const {
     auto len = _ring.capacity() - sizeof(Definition::_len);
     if (_sc) {
-      len -= (sizeof(SecureCenter::RecordType) + TagSize);
+      len -= (sizeof(SecureCenter::RecordType) + SsCenter::TagSize);
     }
     return len;
   }
@@ -668,7 +668,6 @@ struct SsRecord::Impl {
       _sc->decrypt(v, false);
       _body_len = *(uint16_t *)v.data();
     }
-
     if (_ring.size() < (head_len + _body_len)) {
       return false;
     }
@@ -720,7 +719,7 @@ struct SsRecord::Impl {
 
   std::list<uvp::uv::BufT> cut(const uint8_t *p, size_t len) const {
     UVP_ASSERT(len);
-    UVP_ASSERT(len <= _ring.capacity() - sizeof(Definition::_len));
+    UVP_ASSERT(len <= _ring.capacity());
 
     auto b = uvp::copyToBuf((const char *)p, len);
     std::list<uvp::uv::BufT> l;
@@ -742,7 +741,7 @@ size_t SsRecord::length() const { return _impl->length(); }
 std::list<uvp::uv::BufT> SsRecord::pack(const uint8_t *p, size_t len) const {
   if (_impl->_sc) {
     ssvector v(p, p + len);
-    _impl->_sc->encrypt(v, true);
+    _impl->_sc->encrypt(v);
     return _impl->cut(v.data(), v.size());
   }
 

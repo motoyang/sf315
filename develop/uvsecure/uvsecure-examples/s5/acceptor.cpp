@@ -116,6 +116,8 @@ void TcpPeer::Impl::doSomething(const u8vector &v) {
   if (s5r->type == S5Record::Type::Data) {
     request2(from, s5r->data()->data(), s5r->data()->len());
   }
+
+  // writeRecord(v.data(), v.size());
 }
 
 void TcpPeer::Impl::collect(const char *p, size_t len) {
@@ -171,10 +173,12 @@ void TcpPeer::Impl::onClose(uvp::Handle *handle) {
 }
 
 void TcpPeer::Impl::writeRecord(const uint8_t *p, size_t len) {
+/*
   if (_sr.isExpired()) {
     auto l = _sr.update();
     writeChunks(l);
   }
+*/
   auto l = _sr.pack(p, len);
   writeChunks(l);
 }

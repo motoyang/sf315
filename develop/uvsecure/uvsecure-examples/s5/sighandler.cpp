@@ -4,6 +4,7 @@
 
 #include <uvplus.hpp>
 
+#include "calltrace.h"
 #include "sighandler.h"
 
 // --
@@ -43,3 +44,35 @@ int sig_send(pid_t pid, int sig, int tag) {
   mysigval.sival_int = tag;
   return sigqueue(pid, sig, mysigval);
 }
+
+void coredump_catch(int singal) {
+  const size_t max = 30;
+  void *buffer[max];
+  std::ostringstream oss;
+  std::cout << "core dump due to singal: " << signal << std::endl;
+  dumpBacktrace(std::cout, buffer, captureBacktrace(buffer, max));
+}
+
+int sig_coredump() {
+  // 其中saveBackTrace为回调函数
+  signal(SIGSEGV, coredump_catch);
+  signal(SIGILL, coredump_catch);
+  signal(SIGFPE, coredump_catch);
+  signal(SIGABRT, coredump_catch);
+  signal(SIGTERM, coredump_catch);
+  signal(SIGKILL, coredump_catch);
+  signal(SIGXFSZ, coredump_catch);
+
+  // block SIGINT to all child process:
+  sigset_t bset, oset;
+  sigemptyset(&bset);
+  sigaddset(&bset, SIGINT);
+  // equivalent to sigprocmask
+  //设置信号为阻塞信号
+  if (pthread_sigmask(SIG_BLOCK, &bset, &oset) != 0) {
+    printf("set thread signal mask error!");
+    return 0;
+  }
+}
+
+int sig_coredump2() { signal(SIGSEGV, print_stack_frames); }

@@ -63,6 +63,7 @@ link_directories(
   )
 
 set(CMAKE_CXX_STANDARD 17)
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -rdynamic -g")
 
 # 添加子目录（每个子目录下都必须有自已的CMakeLists.txt文件
 add_subdirectory(uvsecure-examples)
