@@ -63,7 +63,7 @@ struct SecureCenter {
     _writeCipherFun->finish(v);
 
     // 更新nonce，每次加密和解密，nonce都有更新
-    ++(*(uint16_t *)(_writeNonce.data()+ NonceOffset));
+    ++(*(uint16_t *)(_writeNonce.data() + NonceOffset));
     _writeCipherFun->start(_writeNonce);
   }
   void decrypt(secure::secure_vector<uint8_t> &v, bool padding) const {
@@ -76,7 +76,7 @@ struct SecureCenter {
     }
 
     // 更新nonce，每次加密和解密，nonce都有更新
-    ++(*(uint16_t *)(_readNonce.data()+ NonceOffset));
+    ++(*(uint16_t *)(_readNonce.data() + NonceOffset));
     _readCipherFun->start(_readNonce);
 
     if (padding) {
@@ -99,7 +99,7 @@ struct SecureCenter {
     }
 
     // 更新nonce，每次加密和解密，nonce都有更新
-    ++(*(uint16_t *)(_readNonce.data()+ NonceOffset));
+    ++(*(uint16_t *)(_readNonce.data() + NonceOffset));
     _readCipherFun->start(_readNonce);
 
     // 剔除padding的zero，并取出RecordType
@@ -150,7 +150,7 @@ struct SecureCenter {
 
     // 设置本端的read key
     _readCipherFun->set_key(rkey);
-    ++(*(uint16_t *)(_readNonce.data()+ NonceOffset));
+    ++(*(uint16_t *)(_readNonce.data() + NonceOffset));
     _readCipherFun->start(_readNonce);
   }
 };
@@ -506,6 +506,9 @@ struct SsCenter {
   constexpr static const size_t SaltLen = 12;
   constexpr static const size_t TagSize = 16;
   constexpr static const size_t NonceOffset = 3;
+  constexpr static const size_t NeedPaddingLength = 256;
+
+  using PaddingType = uint8_t;
 
   u8vector _psk;
   ssvector _drivedKey;
@@ -519,8 +522,8 @@ struct SsCenter {
 
   void reset();
   ssvector update();
-  void encrypt(secure::secure_vector<uint8_t> &v) const;
-  void decrypt(secure::secure_vector<uint8_t> &v, bool padding) const;
+  void encrypt(secure::secure_vector<uint8_t> &v);
+  void decrypt(secure::secure_vector<uint8_t> &v, bool padding);
   bool needSalt() const;
   void salt(const ssvector &salt);
 };
@@ -530,9 +533,8 @@ SsCenter::SsCenter()
       _hashFun(secure::HashFunction::create(HashName)),
       _writeCipherFun(
           secure::Cipher_Mode::create(AeadName, secure::ENCRYPTION)),
-      _readCipherFun(
-          secure::Cipher_Mode::create(AeadName, secure::DECRYPTION)),
-      _hkdfFun(secure::HKDF::create(HkdfName))     {
+      _readCipherFun(secure::Cipher_Mode::create(AeadName, secure::DECRYPTION)),
+      _hkdfFun(secure::HKDF::create(HkdfName)) {
   _psk = secure::hex_decode("000102030405060708090a0b0c0d0e0f");
   reset();
 }
@@ -551,37 +553,42 @@ ssvector SsCenter::update() {
 
   return s;
 }
-void SsCenter::encrypt(secure::secure_vector<uint8_t> &v) const {
+void SsCenter::encrypt(secure::secure_vector<uint8_t> &v) {
+  // 如果是第一次加密，需要生成salt，并将salt发送给对方
+  ssvector salt;
+  if (_drivedKey.empty()) {
+    salt = update();
+  }
+
   v.push_back(_rng->next_nonzero_byte());
-    // pading zeros
-    if (v.size() <= 256) {
-      uint8_t padding = _rng->next_nonzero_byte();
-      v.resize(v.size() + padding - 1);
-    }
+  // pading zeros
+  if (v.size() <= NeedPaddingLength) {
+    uint8_t padding = _rng->next_byte();
+    v.resize(v.size() + padding);
+  }
 
+  auto offset = salt.size();
   uint32_t len = v.size() + TagSize;
-  // ssvector vlen(&len, &len + sizeof(len));
-  ssvector vlen(sizeof(len));
-  std::memcpy(vlen.data(), &len, vlen.size());
+  salt.insert(salt.end(), (uint8_t *)&len, (uint8_t *)&len + sizeof(len));
 
-  // 更新nonce，每次加密和解密，nonce都有更新
-  ++(*(size_t *)(_writeNonce.data()+ NonceOffset));
+  // 对加密后的包长度加密
+  ++(*(size_t *)(_writeNonce.data() + NonceOffset));
   _writeCipherFun->start(_writeNonce);
-  _writeCipherFun->finish(vlen);
+  _writeCipherFun->finish(salt, offset);
 
-  len = vlen.size();
-  vlen.insert(vlen.end(), v.begin(), v.end());
+  offset = salt.size();
+  salt.insert(salt.end(), v.begin(), v.end());
 
-  // 更新nonce，每次加密和解密，nonce都有更新
-  ++(*(size_t *)(_writeNonce.data()+ NonceOffset));
+  // 对包内容加密
+  ++(*(size_t *)(_writeNonce.data() + NonceOffset));
   _writeCipherFun->start(_writeNonce);
-  _writeCipherFun->finish(vlen, len);
+  _writeCipherFun->finish(salt, offset);
 
-  v.swap(vlen);
+  v.swap(salt);
 }
-void SsCenter::decrypt(secure::secure_vector<uint8_t> &v, bool padding) const {
+void SsCenter::decrypt(secure::secure_vector<uint8_t> &v, bool padding) {
   // 更新nonce，每次加密和解密，nonce都有更新
-  ++(*(size_t *)(_readNonce.data()+ NonceOffset));
+  ++(*(size_t *)(_readNonce.data() + NonceOffset));
   _readCipherFun->start(_readNonce);
 
   try {
@@ -604,8 +611,8 @@ void SsCenter::decrypt(secure::secure_vector<uint8_t> &v, bool padding) const {
 bool SsCenter::needSalt() const { return _drivedKey.empty(); }
 void SsCenter::salt(const ssvector &salt) {
   auto len = _writeCipherFun->minimum_keylength();
-  _drivedKey = _hkdfFun->derive_key(len, _psk, salt,
-                                 ssvector(Label, Label + std::strlen(Label)));
+  _drivedKey = _hkdfFun->derive_key(
+      len, _psk, salt, ssvector(Label, Label + std::strlen(Label)));
 
   std::cout << "drived key: " << secure::hex_encode(_drivedKey) << std::endl
             << "nonce: " << secure::hex_encode(_readNonce) << std::endl;
@@ -620,34 +627,18 @@ void SsCenter::salt(const ssvector &salt) {
 struct SsRecord::Impl {
   uvplus::RingBuffer _ring;
   std::unique_ptr<SsCenter> _sc;
-  uint16_t _count = 0, _body_len = 0;
+  uint16_t _body_len = 0;
+  bool _expired = true;
 
-
-  Impl(bool secure, size_t recordSize, size_t chunkSize)
-      : _ring(recordSize + sizeof(SecureCenter::RecordType) +
+  Impl(size_t payloadSize)
+      : _ring(payloadSize + sizeof(SsCenter::PaddingType) +
               sizeof(Definition::_len) + SsCenter::TagSize),
-        _sc(secure ? std::make_unique<SsCenter>() : nullptr) {}
+        _sc(std::make_unique<SsCenter>()) {}
 
   // 净负荷的长度
-  size_t length() const {
-    auto len = _ring.capacity() - sizeof(Definition::_len);
-    if (_sc) {
-      len -= (sizeof(SecureCenter::RecordType) + SsCenter::TagSize);
-    }
-    return len;
-  }
-
-  bool isExpired() {
-    bool r = false;
-    if (_sc && (0 == _count)) {
-      // 重置count，上下波动为256到4096+256
-      _sc->_rng->randomize((uint8_t *)&_count, sizeof(_count));
-      _count %= 4 * 1024;
-      _count += 256;
-
-      r = true;
-    }
-    return r;
+  size_t payloadSize() const {
+    return _ring.capacity() - sizeof(Definition::_len) -
+           sizeof(SsCenter::PaddingType) - SsCenter::TagSize;
   }
 
   bool combine(u8vector &buf) {
@@ -656,7 +647,7 @@ struct SsRecord::Impl {
     if (!_ring.peek((char *)v.data(), v.size())) {
       return false;
     }
-    if (_sc && _sc->needSalt()) {
+    if (_sc->needSalt()) {
       UVP_ASSERT(v.size() > SsCenter::SaltLen);
       v.resize(SsCenter::SaltLen);
       _sc->salt(v);
@@ -664,7 +655,7 @@ struct SsRecord::Impl {
       _ring.advance(v.size());
       return false;
     }
-    if (_sc && !_body_len) {
+    if (!_body_len) {
       _sc->decrypt(v, false);
       _body_len = *(uint16_t *)v.data();
     }
@@ -677,19 +668,14 @@ struct SsRecord::Impl {
     }
 
     _ring.advance(head_len);
-    if (_sc) {
-      v.resize(_body_len);
-      _ring.read((char *)v.data(), v.size());
+    v.resize(_body_len);
+    _ring.read((char *)v.data(), v.size());
 
-      // 对收到的Record解密
-      _sc->decrypt(v, true);
+    // 对收到的Record解密
+    _sc->decrypt(v, true);
 
-      // 复制到buf中，作为out parameter返回
-      buf.assign(v.data(), v.data() + v.size());
-    } else {
-      buf.resize(_body_len);
-      _ring.read((char *)buf.data(), _body_len);
-    }
+    // 复制到buf中，作为out parameter返回
+    buf.assign(v.data(), v.data() + v.size());
 
     _body_len = 0;
     return true;
@@ -731,12 +717,12 @@ struct SsRecord::Impl {
 
 // --
 
-SsRecord::SsRecord(bool secure, size_t recordSize, size_t chunkSize)
-    : _impl(std::make_unique<SsRecord::Impl>(secure, recordSize, chunkSize)) {}
+SsRecord::SsRecord(size_t payloadSize)
+    : _impl(std::make_unique<SsRecord::Impl>(payloadSize)) {}
 
 SsRecord::~SsRecord() {}
 
-size_t SsRecord::length() const { return _impl->length(); }
+size_t SsRecord::payloadSize() const { return _impl->payloadSize(); }
 
 std::list<uvp::uv::BufT> SsRecord::pack(const uint8_t *p, size_t len) const {
   if (_impl->_sc) {
@@ -753,14 +739,7 @@ u8vlist SsRecord::feed(const char *p, size_t len) {
 }
 
 void SsRecord::reset() const {
-  _impl->_count = 0;
+  _impl->_expired = true;
   _impl->_ring.reset();
   _impl->_sc->reset();
 }
-
-std::list<uvp::uv::BufT> SsRecord::update() const {
-  auto s = _impl->_sc->update();
-  return _impl->cut(s.data(), s.size());
-}
-
-bool SsRecord::isExpired() const { return _impl->isExpired(); }

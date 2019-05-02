@@ -16,7 +16,7 @@ class TcpPeer::Impl {
   Acceptor *_acceptor = nullptr;
 
   // SecureRecord _sr;
-    SsRecord _sr;
+  SsRecord _sr;
   std::unordered_map<std::string, std::unique_ptr<S5Connector>> _connectors;
 
   void request1(const std::string &from, const Request *req);
@@ -110,14 +110,17 @@ void TcpPeer::Impl::doSomething(const u8vector &v) {
 
   auto s5r = (S5Record *)v.data();
   std::string from(s5r->from()->data(), s5r->from()->len());
-  if (s5r->type == S5Record::Type::Request) {
+  switch (s5r->type) {
+  case S5Record::Type::Request:
     request1(from, (Request *)s5r->data()->data());
-  }
-  if (s5r->type == S5Record::Type::Data) {
+    break;
+  case S5Record::Type::Data:
     request2(from, s5r->data()->data(), s5r->data()->len());
+    break;
+  default:
+    UVP_ASSERT(false);
+    break;
   }
-
-  // writeRecord(v.data(), v.size());
 }
 
 void TcpPeer::Impl::collect(const char *p, size_t len) {
@@ -130,6 +133,7 @@ void TcpPeer::Impl::collect(const char *p, size_t len) {
 void TcpPeer::Impl::onRead(uvp::Stream *stream, ssize_t nread,
                            const uvp::uv::BufT *buf) {
   if (nread < 0) {
+    _socket.readStop();
     _socket.close();
     UVP_LOG_ERROR(nread);
     return;
@@ -137,9 +141,6 @@ void TcpPeer::Impl::onRead(uvp::Stream *stream, ssize_t nread,
 
   // 整理包，并进一步处理包
   if (nread) {
-    // std::cout << "received " << nread << " bytes from: " << _socket.peer()
-    //           << std::endl;
-    // std::cout << secure::hex_encode(u8vector(buf->base, buf->base + nread)) << std::endl;
     collect(buf->base, nread);
   }
 }
@@ -173,12 +174,6 @@ void TcpPeer::Impl::onClose(uvp::Handle *handle) {
 }
 
 void TcpPeer::Impl::writeRecord(const uint8_t *p, size_t len) {
-/*
-  if (_sr.isExpired()) {
-    auto l = _sr.update();
-    writeChunks(l);
-  }
-*/
   auto l = _sr.pack(p, len);
   writeChunks(l);
 }
@@ -195,7 +190,7 @@ void TcpPeer::Impl::writeChunks(const std::list<uvp::uv::BufT> &l) {
 
 TcpPeer::Impl::Impl(uvp::Loop *loop, Acceptor *acceptor, TcpPeer *peer,
                     bool secure)
-    : _sr(secure), _socket(loop), _acceptor(acceptor), _peer(peer) {
+    : _socket(loop), _acceptor(acceptor), _peer(peer) {
   _socket.writeCallback(std::bind(
       &TcpPeer::Impl::onWrite, this, std::placeholders::_1,
       std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
@@ -208,12 +203,7 @@ TcpPeer::Impl::Impl(uvp::Loop *loop, Acceptor *acceptor, TcpPeer *peer,
   _socket.closeCallback(
       std::bind(&TcpPeer::Impl::onClose, this, std::placeholders::_1));
 }
-/*
-void TcpPeer::Impl::sayHello() {
-  auto l = _sr.reset();
-  writeChunks(l);
-}
-*/
+
 std::unique_ptr<S5Connector>
 TcpPeer::Impl::removeConnector(const std::string &name) {
   // 将s5connector从列表中移除
@@ -235,7 +225,7 @@ void TcpPeer::Impl::write(S5Record::Type t, const std::string &from,
   UVP_ASSERT(len > 0);
   while (len > 0) {
     auto writeLen =
-        std::min(_sr.length() - S5Record::HeadLen() - from.size(), len);
+        std::min(_sr.payloadSize() - S5Record::HeadLen() - from.size(), len);
     u8vector v(S5Record::HeadLen() + from.size() + writeLen);
     auto s5r = (S5Record *)v.data();
 
@@ -287,7 +277,6 @@ void Acceptor::Impl::onConnection(uvp::Stream *stream, int status) {
     return;
   }
   client->socket()->readStart();
-  // client->sayHello();
 
   LOG_INFO << "accept connection from: " << client->socket()->peer();
   addClient(std::move(client));
@@ -344,8 +333,6 @@ TcpPeer::TcpPeer(uvp::Loop *loop, Acceptor *acceptor, bool secure)
 TcpPeer::~TcpPeer() {}
 
 uvp::Tcp *TcpPeer::socket() const { return _impl->socket(); }
-
-// void TcpPeer::sayHello() { return _impl->sayHello(); }
 
 void TcpPeer::write(S5Record::Type t, const std::string &from, const uint8_t *p,
                     size_t len) {

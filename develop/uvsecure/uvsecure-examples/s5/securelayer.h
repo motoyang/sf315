@@ -65,14 +65,11 @@ class SsRecord {
   std::unique_ptr<Impl> _impl;
 
 public:
-  SsRecord(bool secure = true, size_t recordSize = 16 * 1024 - 1,
-           size_t chunkSize = 16);
+  SsRecord(size_t payloadSize = 16 * 1024 - 20 -17);
   virtual ~SsRecord();
 
-  size_t length() const;
+  size_t payloadSize() const;
   std::list<uvp::uv::BufT> pack(const uint8_t *p, size_t len) const;
   u8vlist feed(const char *p, size_t len);
   void reset() const;
-  std::list<uvp::uv::BufT> update() const;
-  bool isExpired() const;
 };

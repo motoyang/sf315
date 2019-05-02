@@ -22,7 +22,7 @@ struct Connector::Impl {
 
   Impl(uvp::Loop *loop, const struct sockaddr *dest, Connector *conn,
        bool secure)
-      : _sr(secure), _socket(loop), _timer(loop), _dest(*dest),
+      : _socket(loop), _timer(loop), _dest(*dest),
         _connector(conn) {
     _socket.connectCallback(std::bind(
         &Impl::onConnect, this, std::placeholders::_1, std::placeholders::_2));
@@ -70,11 +70,9 @@ struct Connector::Impl {
       case S5Record::Type::Reply:
         _s5Acceptor->writeToPeer(from, s5r->data()->data(), s5r->data()->len());
         break;
-
       case S5Record::Type::S5ConnectorClosed:
         _s5Acceptor->shutdown(from);
         break;
-
       default:
         UVP_ASSERT(false);
         break;
@@ -127,7 +125,6 @@ struct Connector::Impl {
     _socket.readStart();
 
     // SecureRecord复位，向对端发送hello更新密码。
-    // sayHello();
     _sr.reset();
 
     // 创建s5acceptor，接受来自socks5 client端的连接
@@ -159,13 +156,7 @@ struct Connector::Impl {
   }
 
   void onClose(uvp::Handle *handle) { LOG_INFO << "handle of socket closed."; }
-/*
-  void sayHello() {
-    _sr.reset();
-    auto l = _sr.update();
-    writeChunks(l);
-  }
-*/
+
   void writeChunks(const std::list<uvp::uv::BufT> &l) {
     for (auto b : l) {
       int r = _socket.write(&b, 1);
@@ -177,10 +168,10 @@ struct Connector::Impl {
   }
 
   void writeRecord(const uint8_t *p, size_t len) {
-    if (_sr.isExpired()) {
-      auto l = _sr.update();
-      writeChunks(l);
-    }
+    // if (_sr.isExpired()) {
+    //   auto l = _sr.update();
+    //   writeChunks(l);
+    // }
     auto l = _sr.pack(p, len);
     writeChunks(l);
   }
@@ -216,8 +207,6 @@ struct Connector::Impl {
       }
     }
   }
-
-  // size_t length() const { return _sr.length() - 256 - 2 - 64; }
 };
 
 Connector::Connector(uvp::Loop *loop, const struct sockaddr *dest, bool secure)
@@ -235,7 +224,7 @@ void Connector::write(S5Record::Type t, const std::string &from,
 
   while (len > 0) {
     auto writeLen =
-        std::min(_impl->_sr.length() - S5Record::HeadLen() - from.size(), len);
+        std::min(_impl->_sr.payloadSize() - S5Record::HeadLen() - from.size(), len);
     u8vector v(S5Record::HeadLen() + from.size() + writeLen);
     auto s5r = (S5Record *)v.data();
 
