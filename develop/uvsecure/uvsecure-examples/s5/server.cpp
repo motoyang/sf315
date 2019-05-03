@@ -1,15 +1,17 @@
-// #include "s5acceptor.h"
+#include "readjson.h"
 #include "acceptor.h"
 #include "server.h"
 
 // --
 
 int tcp_server() {
-  sockaddr_in addr;
-  uvp::ip4Addr("0", 7002, &addr);
+  // sockaddr_in addr;
+  // uvp::ip4Addr("0", 7002, &addr);
+  JsonConfig jc;
+  readConfig(ConfigFilename, jc);
 
   auto loop = std::make_unique<uvp::LoopObject>();
-  Acceptor server(loop.get(), (const sockaddr *)&addr);
+  Acceptor server(loop.get(), jc);
   // S5Acceptor server(loop.get(), (const sockaddr *)&addr);
 
 

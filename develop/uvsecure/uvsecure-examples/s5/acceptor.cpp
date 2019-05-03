@@ -3,6 +3,7 @@
 #include <uvplus.hpp>
 
 #include "s5define.h"
+#include "readjson.h"
 #include "cryptography.h"
 #include "securelayer.h"
 #include "s5connector.h"
@@ -15,7 +16,6 @@ class TcpPeer::Impl {
   TcpPeer *_peer = nullptr;
   Acceptor *_acceptor = nullptr;
 
-  // SecureRecord _sr;
   SsRecord _sr;
   std::unordered_map<std::string, std::unique_ptr<S5Connector>> _connectors;
 
@@ -32,10 +32,9 @@ class TcpPeer::Impl {
   void writeChunks(const std::list<uvp::uv::BufT> &l);
 
 public:
-  Impl(uvp::Loop *loop, Acceptor *acceptor, TcpPeer *peer, bool secure);
+  Impl(uvp::Loop *loop, Acceptor *acceptor, TcpPeer *peer);
 
   uvp::Tcp *socket() const { return (uvp::Tcp *)&_socket; }
-  // void sayHello();
   std::unique_ptr<S5Connector> removeConnector(const std::string &name);
   void write(S5Record::Type t, const std::string &from, const uint8_t *p,
              size_t len);
@@ -48,7 +47,7 @@ class Acceptor::Impl {
   Acceptor *_acceptor;
   std::unordered_map<std::string, std::unique_ptr<TcpPeer>> _clients;
   mutable std::string _name;
-  bool _secure;
+  JsonConfig _jc;
 
   void onConnection(uvp::Stream *stream, int status);
   void onShutdown(uvp::Stream *stream, int status);
@@ -56,11 +55,11 @@ class Acceptor::Impl {
   std::string name() const;
 
 public:
-  Impl(uvp::Loop *loop, const struct sockaddr *addr, Acceptor *acceptor,
-       bool secure);
+  Impl(uvp::Loop *loop, const JsonConfig &jc, Acceptor *acceptor);
 
   void addClient(std::unique_ptr<TcpPeer> &&client);
   std::unique_ptr<TcpPeer> removeClient(const std::string &name);
+  const JsonConfig* jsonConfig() const;
 };
 
 // --
@@ -188,9 +187,10 @@ void TcpPeer::Impl::writeChunks(const std::list<uvp::uv::BufT> &l) {
   }
 }
 
-TcpPeer::Impl::Impl(uvp::Loop *loop, Acceptor *acceptor, TcpPeer *peer,
-                    bool secure)
-    : _socket(loop), _acceptor(acceptor), _peer(peer) {
+TcpPeer::Impl::Impl(uvp::Loop *loop, Acceptor *acceptor, TcpPeer *peer)
+    : _socket(loop), _acceptor(acceptor), _peer(peer),
+      _sr(acceptor->jsonConfig()->password.c_str(),
+          acceptor->jsonConfig()->method.c_str()) {
   _socket.writeCallback(std::bind(
       &TcpPeer::Impl::onWrite, this, std::placeholders::_1,
       std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
@@ -245,9 +245,8 @@ void TcpPeer::Impl::write(S5Record::Type t, const std::string &from,
 
 // --
 
-Acceptor::Impl::Impl(uvp::Loop *loop, const struct sockaddr *addr,
-                     Acceptor *acceptor, bool secure)
-    : _secure(secure), _socket(loop), _acceptor(acceptor) {
+Acceptor::Impl::Impl(uvp::Loop *loop, const JsonConfig &jc, Acceptor *acceptor)
+    : _socket(loop), _acceptor(acceptor), _jc(jc) {
   const int backlog = 128;
 
   _socket.connectionCallback(std::bind(
@@ -256,7 +255,9 @@ Acceptor::Impl::Impl(uvp::Loop *loop, const struct sockaddr *addr,
       &Impl::onShutdown, this, std::placeholders::_1, std::placeholders::_2));
   _socket.closeCallback(std::bind(&Impl::onClose, this, std::placeholders::_1));
 
-  int r = _socket.bind(addr, 0);
+  sockaddr addr = {0};
+  uvp::ip4Addr(_jc.server.c_str(), _jc.server_port, (sockaddr_in *)&addr);
+  int r = _socket.bind(&addr, 0);
   UVP_LOG_ERROR_EXIT(r);
   r = _socket.listen(backlog);
   UVP_LOG_ERROR_EXIT(r);
@@ -270,7 +271,7 @@ void Acceptor::Impl::onConnection(uvp::Stream *stream, int status) {
     return;
   }
 
-  auto client = std::make_unique<TcpPeer>(_socket.loop(), _acceptor, _secure);
+  auto client = std::make_unique<TcpPeer>(_socket.loop(), _acceptor);
   int r = _socket.accept(client->socket());
   if (r < 0) {
     UVP_LOG_ERROR(r);
@@ -325,10 +326,14 @@ std::unique_ptr<TcpPeer> Acceptor::Impl::removeClient(const std::string &name) {
   return p;
 }
 
+const JsonConfig* Acceptor::Impl::jsonConfig() const {
+  return &_jc;
+}
+
 // --
 
-TcpPeer::TcpPeer(uvp::Loop *loop, Acceptor *acceptor, bool secure)
-    : _impl(std::make_unique<TcpPeer::Impl>(loop, acceptor, this, secure)) {}
+TcpPeer::TcpPeer(uvp::Loop *loop, Acceptor *acceptor)
+    : _impl(std::make_unique<TcpPeer::Impl>(loop, acceptor, this)) {}
 
 TcpPeer::~TcpPeer() {}
 
@@ -345,11 +350,15 @@ std::unique_ptr<S5Connector> TcpPeer::removeConnector(const std::string &name) {
 
 // --
 
-Acceptor::Acceptor(uvp::Loop *loop, const struct sockaddr *addr, bool secure)
-    : _impl(std::make_unique<Acceptor::Impl>(loop, addr, this, secure)) {}
+Acceptor::Acceptor(uvp::Loop *loop, const JsonConfig &jc)
+    : _impl(std::make_unique<Acceptor::Impl>(loop, jc, this)) {}
 
 Acceptor::~Acceptor() {}
 
 std::unique_ptr<TcpPeer> Acceptor::removeClient(const std::string &name) {
   return _impl->removeClient(name);
+}
+
+const JsonConfig *Acceptor::jsonConfig() const {
+  return _impl->jsonConfig();
 }

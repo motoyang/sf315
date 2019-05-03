@@ -3,6 +3,7 @@
 
 #include <uvplus.hpp>
 
+#include "readjson.h"
 #include "cryptography.h"
 #include "securelayer.h"
 #include "s5acceptor.h"
@@ -13,17 +14,18 @@
 struct Connector::Impl {
   uvp::TcpObject _socket;
   uvp::TimerObject _timer;
-  // SecureRecord _sr;
   SsRecord _sr;
   sockaddr _dest;
   std::string _name, _peer;
   Connector *_connector = nullptr;
   std::unique_ptr<S5Acceptor> _s5Acceptor;
 
-  Impl(uvp::Loop *loop, const struct sockaddr *dest, Connector *conn,
-       bool secure)
-      : _socket(loop), _timer(loop), _dest(*dest),
-        _connector(conn) {
+  size_t _sn;
+  JsonConfig _jc;
+
+  Impl(uvp::Loop *loop, const JsonConfig &jc, Connector *conn)
+      : _socket(loop), _timer(loop), _connector(conn), _jc(jc),
+        _sr(jc.password.c_str(), jc.method.c_str()) {
     _socket.connectCallback(std::bind(
         &Impl::onConnect, this, std::placeholders::_1, std::placeholders::_2));
     _socket.shutdownCallback(std::bind(
@@ -40,7 +42,8 @@ struct Connector::Impl {
     _timer.startCallback(
         std::bind(&Impl::onTimer, this, std::placeholders::_1));
 
-    int r = _socket.connect(dest);
+    uvp::ip4Addr(_jc.server.c_str(), _jc.server_port, (sockaddr_in *)&_dest);
+    int r = _socket.connect(&_dest);
     UVP_LOG_ERROR_EXIT(r);
   }
 
@@ -62,7 +65,9 @@ struct Connector::Impl {
     auto lv = _sr.feed(p, len);
     for (auto v : lv) {
       std::string s = secure::hex_encode(v);
-      std::cout << "recv from: " << peer() << std::endl << s << std::endl;
+      std::cout << "recv from: " << peer() << ", Records: " << _sn++
+                << std::endl
+                << s << std::endl;
 
       auto s5r = (S5Record *)v.data();
       std::string from(s5r->from()->data(), s5r->from()->len());
@@ -130,7 +135,7 @@ struct Connector::Impl {
     // 创建s5acceptor，接受来自socks5 client端的连接
     if (!_s5Acceptor) {
       sockaddr_in addr;
-      uvp::ip4Addr("0", 7001, &addr);
+      uvp::ip4Addr(_jc.local_address.c_str(), _jc.local_port, &addr);
       _s5Acceptor =
           std::make_unique<S5Acceptor>(_connector, (const sockaddr *)&addr);
     } else {
@@ -168,10 +173,6 @@ struct Connector::Impl {
   }
 
   void writeRecord(const uint8_t *p, size_t len) {
-    // if (_sr.isExpired()) {
-    //   auto l = _sr.update();
-    //   writeChunks(l);
-    // }
     auto l = _sr.pack(p, len);
     writeChunks(l);
   }
@@ -209,8 +210,8 @@ struct Connector::Impl {
   }
 };
 
-Connector::Connector(uvp::Loop *loop, const struct sockaddr *dest, bool secure)
-    : _impl(std::make_unique<Connector::Impl>(loop, dest, this, secure)) {}
+Connector::Connector(uvp::Loop *loop, const JsonConfig &jc)
+    : _impl(std::make_unique<Connector::Impl>(loop, jc, this)) {}
 
 Connector::~Connector() {}
 
@@ -223,8 +224,8 @@ void Connector::write(S5Record::Type t, const std::string &from,
   UVP_ASSERT(from.size() < 0xFF);
 
   while (len > 0) {
-    auto writeLen =
-        std::min(_impl->_sr.payloadSize() - S5Record::HeadLen() - from.size(), len);
+    auto writeLen = std::min(
+        _impl->_sr.payloadSize() - S5Record::HeadLen() - from.size(), len);
     u8vector v(S5Record::HeadLen() + from.size() + writeLen);
     auto s5r = (S5Record *)v.data();
 

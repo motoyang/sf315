@@ -15,7 +15,7 @@ class TcpPeer {
   std::unique_ptr<Impl> _impl;
 
 public:
-  TcpPeer(uvp::Loop *loop, Acceptor *acceptor, bool secure);
+  TcpPeer(uvp::Loop *loop, Acceptor *acceptor);
   virtual ~TcpPeer();
 
   uvp::Tcp *socket() const;
@@ -26,13 +26,15 @@ public:
 
 // --
 
+struct JsonConfig;
 class Acceptor {
   struct Impl;
   std::unique_ptr<Impl> _impl;
 
 public:
-  Acceptor(uvp::Loop *loop, const struct sockaddr *addr, bool secure = true);
+  Acceptor(uvp::Loop *loop, const JsonConfig& jc);
   virtual ~Acceptor();
 
   std::unique_ptr<TcpPeer> removeClient(const std::string &name);
+  const JsonConfig* jsonConfig() const;
 };

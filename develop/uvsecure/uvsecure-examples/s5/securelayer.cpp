@@ -1,5 +1,6 @@
 #include <uvplus.hpp>
 
+#include "readjson.h"
 #include "cryptography.h"
 #include "securelayer.h"
 
@@ -518,24 +519,23 @@ struct SsCenter {
   std::unique_ptr<secure::Cipher_Mode> _writeCipherFun, _readCipherFun;
   std::unique_ptr<secure::KDF> _hkdfFun;
 
-  SsCenter();
+  SsCenter(const std::string &psk, const std::string &cipherMode);
 
   void reset();
   ssvector update();
   void encrypt(secure::secure_vector<uint8_t> &v);
   void decrypt(secure::secure_vector<uint8_t> &v, bool padding);
-  bool needSalt() const;
-  void salt(const ssvector &salt);
+  bool needKey() const;
+  void driveKey(const ssvector &salt);
 };
 
-SsCenter::SsCenter()
-    : _rng(new secure::AutoSeeded_RNG),
+SsCenter::SsCenter(const std::string &psk, const std::string &cipherMode)
+    : _psk(psk.begin(), psk.end()), _rng(new secure::AutoSeeded_RNG),
       _hashFun(secure::HashFunction::create(HashName)),
       _writeCipherFun(
           secure::Cipher_Mode::create(AeadName, secure::ENCRYPTION)),
       _readCipherFun(secure::Cipher_Mode::create(AeadName, secure::DECRYPTION)),
       _hkdfFun(secure::HKDF::create(HkdfName)) {
-  _psk = secure::hex_decode("000102030405060708090a0b0c0d0e0f");
   reset();
 }
 
@@ -546,18 +546,13 @@ void SsCenter::reset() {
 
   _drivedKey.clear();
 }
-ssvector SsCenter::update() {
-  ssvector s(SaltLen);
-  _rng->randomize(s.data(), s.size());
-  salt(s);
-
-  return s;
-}
 void SsCenter::encrypt(secure::secure_vector<uint8_t> &v) {
   // 如果是第一次加密，需要生成salt，并将salt发送给对方
   ssvector salt;
   if (_drivedKey.empty()) {
-    salt = update();
+    salt.resize(SaltLen);
+    _rng->randomize(salt.data(), salt.size());
+    driveKey(salt);
   }
 
   v.push_back(_rng->next_nonzero_byte());
@@ -608,8 +603,8 @@ void SsCenter::decrypt(secure::secure_vector<uint8_t> &v, bool padding) {
     v.resize(distance - 1);
   }
 }
-bool SsCenter::needSalt() const { return _drivedKey.empty(); }
-void SsCenter::salt(const ssvector &salt) {
+bool SsCenter::needKey() const { return _drivedKey.empty(); }
+void SsCenter::driveKey(const ssvector &salt) {
   auto len = _writeCipherFun->minimum_keylength();
   _drivedKey = _hkdfFun->derive_key(
       len, _psk, salt, ssvector(Label, Label + std::strlen(Label)));
@@ -628,12 +623,9 @@ struct SsRecord::Impl {
   uvplus::RingBuffer _ring;
   std::unique_ptr<SsCenter> _sc;
   uint16_t _body_len = 0;
-  bool _expired = true;
 
-  Impl(size_t payloadSize)
-      : _ring(payloadSize + sizeof(SsCenter::PaddingType) +
-              sizeof(Definition::_len) + SsCenter::TagSize),
-        _sc(std::make_unique<SsCenter>()) {}
+  Impl(const std::string &psk, const std::string &cipherMode, size_t capacity)
+      : _ring(capacity), _sc(std::make_unique<SsCenter>(psk, cipherMode)) {}
 
   // 净负荷的长度
   size_t payloadSize() const {
@@ -647,10 +639,10 @@ struct SsRecord::Impl {
     if (!_ring.peek((char *)v.data(), v.size())) {
       return false;
     }
-    if (_sc->needSalt()) {
+    if (_sc->needKey()) {
       UVP_ASSERT(v.size() > SsCenter::SaltLen);
       v.resize(SsCenter::SaltLen);
-      _sc->salt(v);
+      _sc->driveKey(v);
 
       _ring.advance(v.size());
       return false;
@@ -717,8 +709,9 @@ struct SsRecord::Impl {
 
 // --
 
-SsRecord::SsRecord(size_t payloadSize)
-    : _impl(std::make_unique<SsRecord::Impl>(payloadSize)) {}
+SsRecord::SsRecord(const std::string &psk, const std::string &cipherMode,
+                   size_t capacity)
+    : _impl(std::make_unique<SsRecord::Impl>(psk, cipherMode, capacity)) {}
 
 SsRecord::~SsRecord() {}
 
@@ -739,7 +732,6 @@ u8vlist SsRecord::feed(const char *p, size_t len) {
 }
 
 void SsRecord::reset() const {
-  _impl->_expired = true;
   _impl->_ring.reset();
   _impl->_sc->reset();
 }

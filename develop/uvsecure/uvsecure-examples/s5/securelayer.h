@@ -65,7 +65,8 @@ class SsRecord {
   std::unique_ptr<Impl> _impl;
 
 public:
-  SsRecord(size_t payloadSize = 16 * 1024 - 20 -17);
+  SsRecord(const std::string &psk, const std::string &cipherMode,
+           size_t capacity = 16 * 1024);
   virtual ~SsRecord();
 
   size_t payloadSize() const;

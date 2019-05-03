@@ -7,13 +7,14 @@
 
 // --
 
+struct JsonConfig;
 class S5Acceptor;
 class Connector {
   struct Impl;
   std::unique_ptr<Impl> _impl;
 
 public:
-  Connector(uvp::Loop *loop, const struct sockaddr *dest, bool secure = true);
+  Connector(uvp::Loop *loop, const JsonConfig& jc);
   virtual ~Connector();
 
   uvp::Loop *loop() const;
