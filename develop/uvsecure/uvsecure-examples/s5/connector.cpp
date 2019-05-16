@@ -129,7 +129,7 @@ struct Connector::Impl {
 
     _socket.readStart();
 
-    // SecureRecord复位，向对端发送hello更新密码。
+    // SecureRecord复位。
     _sr.reset();
 
     // 创建s5acceptor，接受来自socks5 client端的连接
@@ -139,7 +139,7 @@ struct Connector::Impl {
       _s5Acceptor =
           std::make_unique<S5Acceptor>(_connector, (const sockaddr *)&addr);
     } else {
-      // 需要清除所以已经连接的s5peer
+      // 需要清除所有已经连接的s5peer
       _s5Acceptor->clientsShutdown();
     }
   }

@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
   }
 
   sig13_ignore();
-  sig_coredump2();
+  // sig_coredump2();
   LOG_INFO << "libuv version: " << uvp::Version().str();
   std::cout << "libuv version: " << uvp::Version().str() << std::endl;
   if (opt.is_true('d')) {

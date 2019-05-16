@@ -60,7 +60,7 @@ struct S5Record {
     Data = 2,
     Reply = 0x10,
     S5ConnectorClosed = 0x21,
-    // S5PeerClosed = 0x22,
+    S5PeerClosed = 0x22,
     Invalidate = 0xff
   };
 

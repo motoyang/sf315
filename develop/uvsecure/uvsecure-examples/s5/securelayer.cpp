@@ -622,7 +622,7 @@ void SsCenter::driveKey(const ssvector &salt) {
 struct SsRecord::Impl {
   uvplus::RingBuffer _ring;
   std::unique_ptr<SsCenter> _sc;
-  uint16_t _body_len = 0;
+  uint32_t _body_len = 0;
 
   Impl(const std::string &psk, const std::string &cipherMode, size_t capacity)
       : _ring(capacity), _sc(std::make_unique<SsCenter>(psk, cipherMode)) {}
@@ -649,7 +649,9 @@ struct SsRecord::Impl {
     }
     if (!_body_len) {
       _sc->decrypt(v, false);
-      _body_len = *(uint16_t *)v.data();
+      auto len = *(uint32_t *)v.data();
+      UVP_ASSERT(len <= 0xFFFF);
+      _body_len = len;
     }
     if (_ring.size() < (head_len + _body_len)) {
       return false;

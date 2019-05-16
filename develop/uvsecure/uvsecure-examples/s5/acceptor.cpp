@@ -21,6 +21,7 @@ class TcpPeer::Impl {
 
   void request1(const std::string &from, const Request *req);
   void request2(const std::string &from, const uint8_t *p, size_t len);
+  void request3(const std::string &from);
   void doSomething(const u8vector &v);
   void collect(const char *p, size_t len);
   void onRead(uvp::Stream *stream, ssize_t nread, const uvp::uv::BufT *buf);
@@ -101,6 +102,13 @@ void TcpPeer::Impl::request2(const std::string &from, const uint8_t *p,
   }
 }
 
+void TcpPeer::Impl::request3(const std::string &from) {
+  if (auto it = _connectors.find(from); it != _connectors.end()) {
+    it->second->shutdown();
+  }
+}
+
+
 void TcpPeer::Impl::doSomething(const u8vector &v) {
   static size_t count = 0;
   std::cout << "received " << v.size() << " bytes from: " << _socket.peer()
@@ -115,6 +123,9 @@ void TcpPeer::Impl::doSomething(const u8vector &v) {
     break;
   case S5Record::Type::Data:
     request2(from, s5r->data()->data(), s5r->data()->len());
+    break;
+  case S5Record::Type::S5PeerClosed:
+    // request3(from);
     break;
   default:
     UVP_ASSERT(false);

@@ -236,6 +236,11 @@ void S5Peer::Impl::onRead(uvp::Stream *stream, ssize_t nread,
     _socket.close();
     UVP_LOG_ERROR(nread);
 
+    // 通知remote侧，s5peer已经关闭，remote侧需要关闭对应的s5connector。
+    uint8_t data[1] = {0};
+    _acceptor->writeToConnector(S5Record::Type::S5PeerClosed, peer(), data,
+                                sizeof(data));
+
     return;
   }
 
@@ -358,9 +363,7 @@ S5Acceptor::S5Acceptor(Connector *conn, const struct sockaddr *addr)
 
 S5Acceptor::~S5Acceptor() {}
 
-  void S5Acceptor::clientsShutdown() {
-    _impl->clientsShutdown();
-  }
+void S5Acceptor::clientsShutdown() { _impl->clientsShutdown(); }
 
 void S5Acceptor::shutdown() { _impl->shutdown(); }
 
