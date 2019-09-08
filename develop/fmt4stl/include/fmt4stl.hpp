@@ -15,49 +15,62 @@ namespace fmt4stl {
 
 namespace detail {
 
-// SFINAE type trait to detect whether T::const_iterator exists.
-struct sfinae_base {
-  using yes = char;
-  using no = yes[2];
-};
-
-template <typename T> struct has_const_iterator : private sfinae_base {
-private:
-  template <typename C> static yes &test(typename C::const_iterator *);
-  template <typename C> static no &test(...);
+// std::string and std::string_view always have substr() method.
+template <typename T> class has_substr {
+  template <typename U> static auto check(U *p) -> decltype(p->substr());
+  template <typename> static void check(...);
 
 public:
-  static const bool value = sizeof(test<T>(nullptr)) == sizeof(yes);
+  static constexpr const bool value =
+      !std::is_void<decltype(check<T>(nullptr))>::value;
   using type = T;
 };
 
-template <typename T> struct has_begin_end : private sfinae_base {
-private:
-  template <typename C>
-  static yes &
-  f(typename std::enable_if<
-      std::is_same<decltype(static_cast<typename C::const_iterator (C::*)()
-                                            const>(&C::begin)),
-                   typename C::const_iterator (C::*)() const>::value>::type *);
-
-  template <typename C> static no &f(...);
-
-  template <typename C>
-  static yes &
-  g(typename std::enable_if<
-      std::is_same<decltype(static_cast<typename C::const_iterator (C::*)()
-                                            const>(&C::end)),
-                   typename C::const_iterator (C::*)() const>::value,
-      void>::type *);
-
-  template <typename C> static no &g(...);
+template <typename T> class has_const_iterator {
+  template <typename U> static auto check(U *p) -> typename U::const_iterator *;
+  template <typename> static void check(...);
 
 public:
-  static bool const beg_value = sizeof(f<T>(nullptr)) == sizeof(yes);
-  static bool const end_value = sizeof(g<T>(nullptr)) == sizeof(yes);
+  static constexpr const bool value =
+      !std::is_void<decltype(check<T>(nullptr))>::value;
+  using type = T;
+};
+
+template <typename T> class has_begin_end {
+  template <typename U>
+  static auto f(U *p) -> decltype(p->begin(), p->cbegin());
+  template <typename> static void f(...);
+
+  template <typename U> static auto g(U *p) -> decltype(p->end(), p->cbegin());
+  template <typename> static void g(...);
+
+public:
+  static constexpr const bool beg_value =
+      !std::is_void<decltype(f<T>(nullptr))>::value;
+  static constexpr const bool end_value =
+      !std::is_void<decltype(g<T>(nullptr))>::value;
 };
 
 } // namespace detail
+
+// --
+
+// Basic is_container template; specialize to derive from std::true_type for all
+// desired container types
+
+template <typename T>
+struct is_container
+    : public std::integral_constant<bool,
+                                    !detail::has_substr<T>::value &&
+                                        detail::has_const_iterator<T>::value &&
+                                        detail::has_begin_end<T>::beg_value &&
+                                        detail::has_begin_end<T>::end_value> {};
+
+template <typename T> struct is_container<std::valarray<T>> : std::true_type {};
+template <typename T, std::size_t N>
+struct is_container<T[N]> : std::true_type {};
+template <std::size_t N> struct is_container<char[N]> : std::false_type {};
+template <std::size_t N> struct is_container<wchar_t[N]> : std::false_type {};
 
 // --
 
@@ -74,154 +87,84 @@ template <typename TChar> struct delimiters_values {
 
 template <typename T, typename TChar> struct delimiters {
   using type = delimiters_values<TChar>;
-  static const type values;
+  static constexpr const type values;
 };
-
-// --
-
-// Basic is_container template; specialize to derive from std::true_type for all
-// desired container types
-
-template <typename T>
-struct is_container
-    : public std::integral_constant<bool,
-                                    detail::has_const_iterator<T>::value &&
-                                        detail::has_begin_end<T>::beg_value &&
-                                        detail::has_begin_end<T>::end_value> {};
-
-template <std::size_t N> struct is_container<char[N]> : std::false_type {};
-template <std::size_t N> struct is_container<wchar_t[N]> : std::false_type {};
-template <typename CharT>
-struct is_container<std::basic_string_view<CharT>> : std::false_type {};
-template <typename CharT>
-struct is_container<std::basic_string<CharT>> : std::false_type {};
-
-template <typename T, std::size_t N>
-struct is_container<T[N]> : std::true_type {};
-template <typename T> struct is_container<std::valarray<T>> : std::true_type {};
 
 // --
 
 // Default delimiters
 
 template <typename T> struct delimiters<T, char> {
-  static const delimiters_values<char> values;
+  static constexpr const delimiters_values<char> values = {"[", ", ", "]"};
 };
-template <typename T>
-const delimiters_values<char> delimiters<T, char>::values = {"[", ", ", "]"};
-
 template <typename T> struct delimiters<T, wchar_t> {
-  static const delimiters_values<wchar_t> values;
+  static constexpr const delimiters_values<wchar_t> values = {L"[", L", ",
+                                                              L"]"};
 };
-template <typename T>
-const delimiters_values<wchar_t> delimiters<T, wchar_t>::values = {L"[", L", ",
-                                                                   L"]"};
 
 // Delimiters for (multi)set and unordered_(multi)set
 
 template <typename T, typename TComp, typename TAllocator>
 struct delimiters<::std::set<T, TComp, TAllocator>, char> {
-  static const delimiters_values<char> values;
+  static constexpr const delimiters_values<char> values = {"{", ", ", "}"};
 };
-template <typename T, typename TComp, typename TAllocator>
-const delimiters_values<char>
-    delimiters<::std::set<T, TComp, TAllocator>, char>::values = {"{", ", ",
-                                                                  "}"};
-
 template <typename T, typename TComp, typename TAllocator>
 struct delimiters<::std::set<T, TComp, TAllocator>, wchar_t> {
-  static const delimiters_values<wchar_t> values;
+  static constexpr const delimiters_values<wchar_t> values = {L"{", L", ",
+                                                              L"}"};
 };
-template <typename T, typename TComp, typename TAllocator>
-const delimiters_values<wchar_t>
-    delimiters<::std::set<T, TComp, TAllocator>, wchar_t>::values = {
-        L"{", L", ", L"}"};
 
 template <typename T, typename TComp, typename TAllocator>
 struct delimiters<::std::multiset<T, TComp, TAllocator>, char> {
-  static const delimiters_values<char> values;
+  static constexpr const delimiters_values<char> values = {"{", ", ", "}"};
 };
-template <typename T, typename TComp, typename TAllocator>
-const delimiters_values<char> delimiters<::std::multiset<T, TComp, TAllocator>,
-                                         char>::values = {"{", ", ", "}"};
-
 template <typename T, typename TComp, typename TAllocator>
 struct delimiters<::std::multiset<T, TComp, TAllocator>, wchar_t> {
-  static const delimiters_values<wchar_t> values;
+  static constexpr const delimiters_values<wchar_t> values = {L"{", L", ",
+                                                              L"}"};
 };
-template <typename T, typename TComp, typename TAllocator>
-const delimiters_values<wchar_t>
-    delimiters<::std::multiset<T, TComp, TAllocator>, wchar_t>::values = {
-        L"{", L", ", L"}"};
 
 template <typename T, typename THash, typename TEqual, typename TAllocator>
 struct delimiters<::std::unordered_set<T, THash, TEqual, TAllocator>, char> {
-  static const delimiters_values<char> values;
+  static constexpr const delimiters_values<char> values = {"{", ", ", "}"};
 };
-template <typename T, typename THash, typename TEqual, typename TAllocator>
-const delimiters_values<char> delimiters<
-    ::std::unordered_set<T, THash, TEqual, TAllocator>, char>::values = {
-    "{", ", ", "}"};
-
 template <typename T, typename THash, typename TEqual, typename TAllocator>
 struct delimiters<::std::unordered_set<T, THash, TEqual, TAllocator>, wchar_t> {
-  static const delimiters_values<wchar_t> values;
+  static constexpr const delimiters_values<wchar_t> values = {L"{", L", ",
+                                                              L"}"};
 };
-template <typename T, typename THash, typename TEqual, typename TAllocator>
-const delimiters_values<wchar_t> delimiters<
-    ::std::unordered_set<T, THash, TEqual, TAllocator>, wchar_t>::values = {
-    L"{", L", ", L"}"};
 
 template <typename T, typename THash, typename TEqual, typename TAllocator>
 struct delimiters<::std::unordered_multiset<T, THash, TEqual, TAllocator>,
                   char> {
-  static const delimiters_values<char> values;
+  static constexpr const delimiters_values<char> values = {"{", ", ", "}"};
 };
-template <typename T, typename THash, typename TEqual, typename TAllocator>
-const delimiters_values<char> delimiters<
-    ::std::unordered_multiset<T, THash, TEqual, TAllocator>, char>::values = {
-    "{", ", ", "}"};
 
 template <typename T, typename THash, typename TEqual, typename TAllocator>
 struct delimiters<::std::unordered_multiset<T, THash, TEqual, TAllocator>,
                   wchar_t> {
-  static const delimiters_values<wchar_t> values;
+  static constexpr const delimiters_values<wchar_t> values = {L"{", L", ",
+                                                              L"}"};
 };
-template <typename T, typename THash, typename TEqual, typename TAllocator>
-const delimiters_values<wchar_t>
-    delimiters<::std::unordered_multiset<T, THash, TEqual, TAllocator>,
-               wchar_t>::values = {L"{", L", ", L"}"};
 
 // Delimiters for pair and tuple
 
 template <typename T1, typename T2> struct delimiters<std::pair<T1, T2>, char> {
-  static const delimiters_values<char> values;
+  static constexpr const delimiters_values<char> values = {"(", ": ", ")"};
 };
-template <typename T1, typename T2>
-const delimiters_values<char> delimiters<std::pair<T1, T2>, char>::values = {
-    "(", ": ", ")"};
-
 template <typename T1, typename T2>
 struct delimiters<::std::pair<T1, T2>, wchar_t> {
-  static const delimiters_values<wchar_t> values;
+  static constexpr const delimiters_values<wchar_t> values = {L"(", L": ",
+                                                              L")"};
 };
-template <typename T1, typename T2>
-const delimiters_values<wchar_t>
-    delimiters<::std::pair<T1, T2>, wchar_t>::values = {L"(", L", ", L")"};
 
 template <typename... Args> struct delimiters<std::tuple<Args...>, char> {
-  static const delimiters_values<char> values;
+  static constexpr const delimiters_values<char> values = {"(", ", ", ")"};
 };
-template <typename... Args>
-const delimiters_values<char> delimiters<std::tuple<Args...>, char>::values = {
-    "(", ", ", ")"};
-
 template <typename... Args> struct delimiters<::std::tuple<Args...>, wchar_t> {
-  static const delimiters_values<wchar_t> values;
+  static constexpr const delimiters_values<wchar_t> values = {L"(", L", ",
+                                                              L")"};
 };
-template <typename... Args>
-const delimiters_values<wchar_t>
-    delimiters<::std::tuple<Args...>, wchar_t>::values = {L"(", L", ", L")"};
 
 } // namespace fmt4stl
 
@@ -267,8 +210,8 @@ public:
 template <typename Char>
 struct is_like_std_string<fmt::basic_string_view<Char>> : std::true_type {};
 
-template <typename Char>
-struct is_like_std_string<std::basic_string<Char>> : std::true_type {};
+// template <typename Char>
+// struct is_like_std_string<std::basic_string<Char>> : std::true_type {};
 
 // --
 
@@ -331,17 +274,13 @@ FMT_CONSTEXPR const char *format_str_quoted(const Arg &) {
   return "\"{}\"";
 }
 
-FMT_CONSTEXPR const char *format_str_quoted(const char *) {
-  return "\"{}\"";
-}
+FMT_CONSTEXPR const char *format_str_quoted(const char *) { return "\"{}\""; }
 FMT_CONSTEXPR const wchar_t *format_str_quoted(bool add_space,
                                                const wchar_t *) {
   return L"\"{}\"";
 }
 
-FMT_CONSTEXPR const char *format_str_quoted(const char) {
-  return "'{}'";
-}
+FMT_CONSTEXPR const char *format_str_quoted(const char) { return "'{}'"; }
 FMT_CONSTEXPR const wchar_t *format_str_quoted(const wchar_t) {
   return L"'{}'";
 }
@@ -368,7 +307,7 @@ struct formatter<T, Char, enable_if_t<fmt4stl::is_container<T>::value>> {
     std::size_t i = 0;
     auto out = ctx.out();
     internal::copy(Delimiters::values.prefix, out);
-    for (const auto& e: v) {
+    for (const auto &e : v) {
       if (i > 0) {
         internal::copy(Delimiters::values.delimiter, out);
       }

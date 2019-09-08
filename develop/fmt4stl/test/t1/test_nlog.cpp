@@ -3,14 +3,13 @@
 #include <memory>
 #include <cstring>
 #include <string>
+#include <array>
 #include <vector>
 #include <tuple>
 #include <set>
 #include <map>
 
 #include <fmt4stl.hpp>
-// #include <fmt/ranges.h>
-
 #include <doctest/extend.h>
 #include <nlog.hpp>
 
@@ -49,6 +48,11 @@ const fmt4stl::delimiters_values<char>
         "|| ", " ^ ", " ||"};
 template <>
 const fmt4stl::delimiters_values<char>
+    fmt4stl::delimiters<std::pair<int const, const char *>, char>::values = {
+        "|| ", " ^^ ", " ||"};
+
+template <>
+const fmt4stl::delimiters_values<char>
     fmt4stl::delimiters<std::pair<int, std::string>, char>::values = {
         "|| ", " $ ", " ||"};
 
@@ -57,6 +61,11 @@ const fmt4stl::delimiters_values<char>
     fmt4stl::delimiters<std::map<int, const char *>, char>::values = {
         "|| ", " # ", " ||"};
 */
+template <>
+const fmt4stl::delimiters_values<char>
+    fmt4stl::delimiters<std::set<std::string>, char>::values = {
+        "|| ", " # ", " ||"};
+
 TEST_SUITE("nlog.hpp") {
 
   nlog::NamedLogger nloger{nlog::NonGuaranteedLogger(1), "./", "nloger"};
@@ -66,11 +75,19 @@ TEST_SUITE("nlog.hpp") {
 
     SUBCASE(sc_no.c_str()) {
       NLOG_CRIT(nloger) << "sc_no";
+      CHECK(1);
+
+      std::array<int, 4> ca {3, 4, 5, 6};
+      int cb[] {5, 6, 7, 8};
       std::vector<int> vi{1, 2, 3, 5};
       std::vector<std::string> vs{"abcd", "ddd", "eee", "ffff"};
       std::vector<double> vd{0.88, 0.99, 0.66, 0.77};
-      std::set<std::string> ss{"234", "abc", "345", "eff"};
-      std::map<int, const char *> mis{{11, "abc"}, {12, "cdb"}, {13, "def"}};
+      std::set<std::string_view> ssv{"234", "abc", "345", "eff"};
+      std::set<std::string> ss{"12334", "2334", "abc", "345", "eff"};
+      std::multiset<std::string> mss{"2334", "2334", "abc", "345", "eff"};
+      int i1 = 11, i2 = 12, i3 = 13;
+      std::map<int, std::string> mis{{11, "abc"}, {12, "cdb"}, {13, "def"}};
+      std::map<int, const char *> mis2{{i1, "abc"}, {i2, "cdb"}, {i3, "def"}};
 
       CHECK(vi.size() > 0);
       // fmt::print("{}\n", 43);
@@ -87,17 +104,23 @@ TEST_SUITE("nlog.hpp") {
       // fmt::print("{}\n", std::string_view("bbb"));
 
       // fmt::print("{{{}}} + {}\n", fmt::join(vi, ", "), fmt::join(vi, ". "));
+      fmt::print("{}\n", fmt4stl::is_container<decltype(ca)>::value);
+      fmt::print("{}\n", ca);
+      fmt::print("{}\n", cb);
       fmt::print("{}\n", std::make_pair(1, "abc"));
       fmt::print("{}\n", std::make_tuple(11, 'a', '1', "223", "aaaabc", 2.3,
                                          0.88f, "acdf", vd, vs));
       fmt::print("{}\n", vi);
       fmt::print("{}\n", vd);
       fmt::print("{}\n", vs);
+      fmt::print("{}\n", ssv);
       fmt::print("{}\n", ss);
+      fmt::print("{}\n", mss);
       fmt::print("{}\n", mis);
       fmt::print("{}\n", std::make_pair(1, "abc"));
-      fmt::print("{}\n", std::make_tuple(11, 'a', '1', "223", "aaaabc", 2.3,
-                                         0.88f, "acdf", mis, ss));
+      fmt::print("{}\n",
+                 std::make_tuple(std::make_pair(111, "acdefabc"), 11, 'a', '1',
+                                 "223", "aaaabc", 2.3, 0.88f, "acdf", mis, ss));
 
       // pretty::print("aaaabbbb");
       // pretty::print(vi);
