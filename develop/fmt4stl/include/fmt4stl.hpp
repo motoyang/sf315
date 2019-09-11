@@ -67,10 +67,6 @@ struct is_container
                                         detail::has_begin_end<T>::end_value> {};
 
 template <typename T> struct is_container<std::valarray<T>> : std::true_type {};
-template <typename T, std::size_t N>
-struct is_container<T[N]> : std::true_type {};
-template <std::size_t N> struct is_container<char[N]> : std::false_type {};
-template <std::size_t N> struct is_container<wchar_t[N]> : std::false_type {};
 
 // --
 
@@ -210,39 +206,10 @@ public:
 template <typename Char>
 struct is_like_std_string<fmt::basic_string_view<Char>> : std::true_type {};
 
-// template <typename Char>
-// struct is_like_std_string<std::basic_string<Char>> : std::true_type {};
-
 // --
 
-// Check for integer_sequence
-#if defined(__cpp_lib_integer_sequence) || FMT_MSC_VER >= 1900
-template <typename T, T... N>
-using integer_sequence = std::integer_sequence<T, N...>;
-template <std::size_t... N> using index_sequence = std::index_sequence<N...>;
-template <std::size_t N>
-using make_index_sequence = std::make_index_sequence<N>;
-#else
-template <typename T, T... N> struct integer_sequence {
-  using value_type = T;
-
-  static FMT_CONSTEXPR std::size_t size() { return sizeof...(N); }
-};
-
-template <std::size_t... N>
-using index_sequence = integer_sequence<std::size_t, N...>;
-
-template <typename T, std::size_t N, T... Ns>
-struct make_integer_sequence : make_integer_sequence<T, N - 1, N - 1, Ns...> {};
-template <typename T, T... Ns>
-struct make_integer_sequence<T, 0, Ns...> : integer_sequence<T, Ns...> {};
-
-template <std::size_t N>
-using make_index_sequence = make_integer_sequence<std::size_t, N>;
-#endif
-
 template <class Tuple, class F, size_t... Is>
-void for_each(index_sequence<Is...>, Tuple &&tup, F &&f) FMT_NOEXCEPT {
+void for_each(std::index_sequence<Is...>, Tuple &&tup, F &&f) FMT_NOEXCEPT {
   using std::get;
   // using free function get<I>(T) now.
   const int _[] = {0, ((void)f(get<Is>(tup)), 0)...};
@@ -250,7 +217,8 @@ void for_each(index_sequence<Is...>, Tuple &&tup, F &&f) FMT_NOEXCEPT {
 }
 
 template <class T>
-FMT_CONSTEXPR make_index_sequence<std::tuple_size<T>::value>
+FMT_CONSTEXPR std::
+make_index_sequence<std::tuple_size<T>::value>
 get_indexes(T const &) {
   return {};
 }
