@@ -1,0 +1,35 @@
+[package]
+name = "bee1"
+version = "0.1.0"
+authors = ["xt <motoyang@163.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = "*"
+tokio-codec = "*"
+futures = "*"
+bytes = "*"
+env_logger = "*"
+log = "*"
+ring = "^0.16"
+# tarpc-json-transport = { version = "0.1", path = "../json-transport" }
+# clap = "2.0"
+# futures-preview = { version = "0.3.0-alpha.18" }
+# serde = { version = "1.0" }
+# tarpc = { version = "0.18", path = "../tarpc", features = ["serde1"] }
+# tokio = "0.2.0-alpha.3"
+# env_logger = "0.6"
+
+[lib]
+name = "bee"
+path = "src/bee.rs"
+
+[[bin]]
+name = "bee1-server"
+path = "src/server.rs"
+
+[[bin]]
+name = "bee1-client"
+path = "src/client.rs"
