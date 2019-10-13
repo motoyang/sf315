@@ -1,19 +1,17 @@
-// -- single.rs --
+// -- threadpool.rs --
 
 use futures::stream::Stream;
 use log::{error, info};
 use tokio::{
     net::{TcpListener, TcpStream},
     prelude::*,
-    runtime::current_thread,
 };
 use tokio_codec::{Decoder};
 use super::{Application, NewDrop};
 
 // --
 
-
-pub fn single_thread_client<T>(app: T)
+pub fn thread_pool_client<T>(app: T)
 where
     T: 'static + Application,
 {
@@ -41,7 +39,7 @@ where
             error!("connection error = {:?}", err);
         });
 
-    current_thread::run(client);
+    tokio::run(client);
 }
 
 pub fn thread_pool_server<T>(app: T) -> Result<(), Box<dyn std::error::Error>>

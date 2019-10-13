@@ -35,8 +35,25 @@ impl Application for Client {
         &self,
     ) -> Box<dyn Stream<Item = Option<Vec<u8>>, Error = std::io::Error> + std::marker::Send> {
         let mut n = 0_usize;
+        let mut m = 0_usize;
         let interval = Interval::new(Instant::now(), Duration::from_millis(10))
-            .take(88888)
+            // .take(88888)
+            .then(move |v| {
+                m += 1;
+                if m > 88888 {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "end of stream.",
+                    ))
+                }
+                if let Ok(v) = v {
+                    Ok(v)
+                } else {
+                    Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Interval error",))
+                }
+            })
             .then(move |v| match v {
                 Ok(_) => {
                     n %= 126;

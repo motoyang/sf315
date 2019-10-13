@@ -41,6 +41,9 @@ pub trait Application: std::marker::Sync + std::marker::Send {
 
 // --
 
-mod single;
-pub use single::single_thread_client;
-pub use single::thread_pool_server;
+mod singlethread;
+mod threadpool;
+
+pub use singlethread::single_thread_client;
+pub use threadpool::thread_pool_client;
+pub use threadpool::thread_pool_server;

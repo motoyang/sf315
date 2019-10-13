@@ -11,7 +11,7 @@ fn main() {
     let logger = ScropedLogger::new();
 
     let c = client::Client;
-    bee2::app::single_thread_client(c);
+    bee2::app::thread_pool_client(c);
 }
 
 /*
