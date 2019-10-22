@@ -1,0 +1,27 @@
+[package]
+name = "ssock"
+version = "0.1.0"
+authors = ["xt <motoyang@163.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = "^0.1.22"
+tokio-codec = "^0.1.1"
+futures = "^0.1.29"
+bytes = "^0.4.12"
+env_logger = "*"
+log = "*"
+ring = "^0.16"
+lazy_static = "^1.4"
+chrono = "*"
+trust-dns-resolver = "^0.12"
+
+[dependencies.clap]
+version = "^2.27.0"
+default-features = false
+# futures:
+#   default on: ["suggestions", "color", "wrap_help"]
+#   option: ["yaml", "unstable"]]
+features = [ "suggestions", "color", "wrap_help" ]
