@@ -50,8 +50,8 @@ impl FileSink {
         let current_roll = 0_usize;
         Self {
             name: name.clone(),
-            limit,
-            roll,
+            limit: if limit == 0 { u64::max_value() } else { limit },
+            roll: if roll == 0 { usize::max_value() } else { roll },
             current_roll,
             file: FileSink::create_file(&FileSink::roll_name(name, current_roll)),
         }
