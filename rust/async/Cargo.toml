@@ -1,0 +1,9 @@
+[workspace]
+
+members = [
+    "codec",
+]
+
+default-members = [
+    "codec"
+]
