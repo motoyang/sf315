@@ -2,6 +2,7 @@ use ring::rand::*;
 
 // --
 
+#[allow(unused)]
 pub fn rand_gen<T>(rng: &dyn SecureRandom) -> T
 where
     T: Sized + Copy,

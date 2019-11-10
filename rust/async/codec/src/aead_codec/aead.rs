@@ -1,29 +1,31 @@
 // -- aead.rs --
 
-use bytes::{Buf, BufMut, Bytes, BytesMut, IntoBuf};
-use futures_codec::{Decoder, Encoder};
-use ring::{aead::*, error::Unspecified, hkdf::*, rand::*};
-use std::{cell::RefCell, sync::Arc};
+use {
+    bytes::{Buf, BufMut, Bytes, BytesMut, IntoBuf},
+    futures_codec::{Decoder, Encoder},
+    ring::{
+        aead::{
+            Aad, Algorithm as AeadAlgorithm, BoundKey, Nonce, NonceSequence, OpeningKey,
+            SealingKey, UnboundKey, CHACHA20_POLY1305,
+        },
+        error::Unspecified,
+        hkdf::{Algorithm as HkdfAlgorithm, Salt, HKDF_SHA256},
+        rand::*,
+    },
+    std::{cell::RefCell, sync::Arc},
+};
 
 // --
 
-const SALT_LEN: usize = 12;
-const TAG_LEN: usize = 16;
-const PADDING_LEN: u8 = 128;
-const NONCE_LEN: usize = 12;
 const APP_INFO: &[u8] = b"bee lib";
-const PSK: &[u8] = b"abcdefg";
 
 // --
 
-struct Sequence([u8; NONCE_LEN]);
+struct Sequence(Vec<u8>);
 
 impl Sequence {
-    fn new() -> Self {
-        assert_eq!(TAG_LEN, CHACHA20_POLY1305.tag_len());
-        assert_eq!(NONCE_LEN, CHACHA20_POLY1305.nonce_len());
-
-        Sequence([0; NONCE_LEN])
+    fn new(nonce_len: usize) -> Self {
+        Sequence(vec![0; nonce_len])
     }
 }
 
@@ -31,7 +33,7 @@ impl NonceSequence for Sequence {
     fn advance(&mut self) -> Result<Nonce, Unspecified> {
         assert_eq!(
             std::mem::size_of::<u32>() + std::mem::size_of::<u64>(),
-            std::mem::size_of_val(&self.0)
+            self.0.len()
         );
 
         let ptr = self.0.as_mut_ptr();
@@ -55,57 +57,111 @@ impl NonceSequence for Sequence {
 
 // --
 
-fn get_padding() -> Vec<u8> {
-    let rng = SystemRandom::new();
-    let mut padding_len = crate::utility::no_zero_rand_gen::<u8>(&rng);
-    padding_len %= PADDING_LEN;
-    padding_len += 1;
-
-    let mut v = Vec::<u8>::new();
-    v.push(padding_len);
-    v.resize(padding_len as usize, 0);
-    v
+#[derive(Clone)]
+pub struct Builder {
+    hkdf_algorithm: &'static HkdfAlgorithm,
+    aead_algorithm: &'static AeadAlgorithm,
+    salt_len: usize,
+    padding_len: u8,
 }
 
-// --
+impl Builder {
+    pub fn new() -> Self {
+        Self {
+            hkdf_algorithm: &HKDF_SHA256,
+            aead_algorithm: &CHACHA20_POLY1305,
+            salt_len: 12,
+            padding_len: 128,
+        }
+    }
+    pub fn set_hkdf_algorithm(&mut self, a: &'static HkdfAlgorithm) -> &mut Self {
+        self.hkdf_algorithm = a;
+        self
+    }
+    pub fn set_aead_algorithm(&mut self, a: &'static AeadAlgorithm) -> &mut Self {
+        self.aead_algorithm = a;
+        self
+    }
+    pub fn set_salt_len(&mut self, len: usize) -> &mut Self {
+        self.salt_len = len;
+        self
+    }
+    pub fn set_padding_len(&mut self, len: u8) -> &mut Self {
+        self.padding_len = len;
+        self
+    }
+    pub fn create(self, psk: &str) -> AeadCodec {
+        AeadCodec::new(self, psk)
+    }
+}
 
 #[derive(Clone)]
 pub struct AeadCodec {
+    builder: Arc<Builder>,
+    psk: Arc<String>,
     sealing_key: Option<Arc<RefCell<SealingKey<Sequence>>>>,
     opening_key: Option<Arc<RefCell<OpeningKey<Sequence>>>>,
     body_len: Option<usize>,
 }
 
 impl AeadCodec {
+    fn new(builder: Builder, psk: &str) -> Self {
+        Self {
+            builder: Arc::new(builder),
+            psk: Arc::new(String::from(psk)),
+            sealing_key: None,
+            opening_key: None,
+            body_len: None,
+        }
+    }
+
+    fn get_padding(&self) -> Vec<u8> {
+        let rng = SystemRandom::new();
+        let mut padding_len = crate::utility::no_zero_rand_gen::<u8>(&rng);
+        padding_len %= self.builder.padding_len;
+        padding_len += 1;
+
+        let mut v = Vec::<u8>::new();
+        v.push(padding_len);
+        v.resize(padding_len as usize, 0);
+        v
+    }
+
     fn derive_encode_key(&mut self, buf: &mut BytesMut) {
         assert!(self.sealing_key.is_none());
 
-        let mut salt = [0_u8; SALT_LEN];
+        let mut salt = vec![0_u8; self.builder.salt_len];
         let rng = SystemRandom::new();
         rng.fill(&mut salt).unwrap();
         buf.put_slice(&salt);
 
-        let salt = Salt::new(HKDF_SHA256, &salt);
-        let prk = salt.extract(PSK);
-        let okm = prk.expand(&[APP_INFO], &CHACHA20_POLY1305).unwrap();
+        let salt = Salt::new(*self.builder.hkdf_algorithm, &salt);
+        let prk = salt.extract(self.psk.as_bytes());
+        let okm = prk
+            .expand(&[APP_INFO], self.builder.aead_algorithm)
+            .unwrap();
         let ubk = UnboundKey::from(okm);
+        let nonce_len = self.builder.aead_algorithm.nonce_len();
         self.sealing_key = Some(Arc::new(RefCell::new(SealingKey::new(
             ubk,
-            Sequence::new(),
+            Sequence::new(nonce_len),
         ))));
     }
 
     fn derive_decode_key(&mut self, buf: &mut BytesMut) {
         assert!(self.opening_key.is_none());
 
-        let salt = buf.split_to(SALT_LEN);
-        let salt = Salt::new(HKDF_SHA256, &salt);
-        let prk = salt.extract(PSK);
-        let okm = prk.expand(&[APP_INFO], &CHACHA20_POLY1305).unwrap();
+        let salt = buf.split_to(self.builder.salt_len);
+        let salt = Salt::new(*self.builder.hkdf_algorithm, &salt);
+        let prk = salt.extract(self.psk.as_bytes());
+        let okm = prk
+            .expand(&[APP_INFO], self.builder.aead_algorithm)
+            .unwrap();
         let ubk = UnboundKey::from(okm);
+        let nonce_len = self.builder.aead_algorithm.nonce_len();
         self.opening_key = Some(Arc::new(RefCell::new(OpeningKey::new(
             ubk,
-            Sequence::new(),
+            Sequence::new(nonce_len),
         ))));
     }
 
@@ -129,7 +185,7 @@ impl AeadCodec {
 }
 
 impl Encoder for AeadCodec {
-    type Item = Vec<u8>;
+    type Item = Bytes;
     type Error = std::io::Error;
 
     fn encode(&mut self, line: Self::Item, buf: &mut BytesMut) -> Result<(), Self::Error> {
@@ -144,14 +200,16 @@ impl Encoder for AeadCodec {
             ));
         }
 
-        let padding = get_padding();
+        let padding = self.get_padding();
         body_len += padding.len();
 
         let mut head_len = std::mem::size_of::<u16>();
-        head_len += TAG_LEN;
-        body_len += TAG_LEN;
+        let tag_len = self.builder.aead_algorithm.tag_len();
+        head_len += tag_len;
+        body_len += tag_len;
         if self.sealing_key.is_none() {
-            buf.reserve(SALT_LEN + head_len + body_len);
+            let salt_len = self.builder.salt_len;
+            buf.reserve(salt_len + head_len + body_len);
             self.derive_encode_key(buf);
         } else {
             buf.reserve(head_len + body_len);
@@ -178,10 +236,16 @@ impl Decoder for AeadCodec {
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         if self.opening_key.is_none() {
-            self.derive_decode_key(buf);
+            let salt_len = self.builder.salt_len;
+            if buf.len() >= salt_len {
+                self.derive_decode_key(buf);
+            } else {
+                return Ok(None);
+            }
         }
 
-        let head_len = std::mem::size_of::<u16>() + TAG_LEN;
+        let tag_len = self.builder.aead_algorithm.tag_len();
+        let head_len = std::mem::size_of::<u16>() + tag_len;
         if self.body_len == None && buf.len() >= head_len {
             let mut head = buf.split_to(head_len);
             let head = self.opening_decode(&mut head);
@@ -206,6 +270,8 @@ impl Decoder for AeadCodec {
     }
 }
 
+// --
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -227,15 +293,18 @@ mod tests {
 
     #[test]
     fn t_get_padding() {
+        let builder = Builder::new();
+        let codec = builder.create("abcd");
         for _ in 0..8 {
-            let padding = get_padding();
+            let padding = codec.get_padding();
             assert_eq!(padding[0] as usize, padding.len());
             println!("padding = {:?}", padding);
         }
     }
     #[test]
     fn t_sequence() {
-        let mut seq = Sequence::new();
+        let nonce_len = 12_usize;
+        let mut seq = Sequence::new(nonce_len);
         for i in 1..11 {
             seq.advance().unwrap();
             println!("{:?}", seq.0);
