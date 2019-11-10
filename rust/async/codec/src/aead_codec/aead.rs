@@ -193,7 +193,7 @@ impl Encoder for AeadCodec {
         if body_len == 0 {
             return Ok(());
         }
-        if body_len > u16::max_value() as usize {
+        if body_len > u32::max_value() as usize {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 "Input line is too long.",
@@ -203,7 +203,7 @@ impl Encoder for AeadCodec {
         let padding = self.get_padding();
         body_len += padding.len();
 
-        let mut head_len = std::mem::size_of::<u16>();
+        let mut head_len = std::mem::size_of::<u32>();
         let tag_len = self.builder.aead_algorithm.tag_len();
         head_len += tag_len;
         body_len += tag_len;
@@ -216,7 +216,7 @@ impl Encoder for AeadCodec {
         }
 
         let mut buf2 = buf.split_off(buf.len());
-        buf2.put_u16_be(body_len as u16);
+        buf2.put_u32_be(body_len as u32);
         self.sealing_encode(&mut buf2);
         buf.extend_from_slice(&buf2);
 
@@ -245,12 +245,12 @@ impl Decoder for AeadCodec {
         }
 
         let tag_len = self.builder.aead_algorithm.tag_len();
-        let head_len = std::mem::size_of::<u16>() + tag_len;
+        let head_len = std::mem::size_of::<u32>() + tag_len;
         if self.body_len == None && buf.len() >= head_len {
             let mut head = buf.split_to(head_len);
             let head = self.opening_decode(&mut head);
             let mut head = Bytes::from(head as &[u8]).into_buf();
-            self.body_len = Some(head.get_u16_be() as usize);
+            self.body_len = Some(head.get_u32_be() as usize);
         }
 
         if let Some(body_len) = self.body_len {

@@ -6,7 +6,7 @@ extern crate futures_codec;
 
 use bytes::Bytes;
 use futures::{executor, io::Cursor, sink::SinkExt, StreamExt, TryStreamExt};
-use futures_codec::{BytesCodec, Decoder, Encoder, FramedRead, FramedWrite};
+use futures_codec::{BytesCodec, Decoder, Encoder, Framed, FramedRead, FramedWrite};
 use std::io::Error;
 
 use codec::{AeadCodecBuilder as Builder, AES_256_GCM, HKDF_SHA512};
@@ -54,13 +54,18 @@ where
         let msg = Bytes::from(format!("Hello World! #{}", i));
         framed.send(msg.clone()).await.unwrap();
 
-        i < 8
+        i < 88
     } {}
     println!("buf: {:?}", buf);
 
+    i = 0;
     let mut framed2 = FramedRead::new(&buf[..], d);
     while let Some(msg2) = framed2.next().await {
-        println!("msg: {:?}", msg2.unwrap());
+        let msg2 = msg2.unwrap();
+        println!("msg: {:?}", msg2);
+
+        i += 1;
+        assert_eq!(msg2, Bytes::from(format!("Hello World! #{}", i)));
     }
 }
 
@@ -70,7 +75,7 @@ where
 {
     let mut buf = vec![];
     let cur = Cursor::new(&mut buf);
-    let mut framed = FramedWrite::new(cur, c);
+    let mut framed = Framed::new(cur, c);
 
     let mut i = 0_usize;
     while {
@@ -78,12 +83,17 @@ where
         let msg = Bytes::from(format!("Hello Customer! #{}", i));
         framed.send(msg.clone()).await.unwrap();
 
-        i < 8
+        i < 68
     } {}
     println!("buf: {:?}", buf);
 
-    let mut framed2 = FramedRead::new(&buf[..], d);
+    i = 0;
+    let cur = Cursor::new(&mut buf);
+    let mut framed2 = Framed::new(cur, d);
     while let Some(msg2) = framed2.try_next().await.unwrap() {
         println!("msg: {:?}", msg2);
+
+        i += 1;
+        assert_eq!(msg2, Bytes::from(format!("Hello Customer! #{}", i)));
     }
 }
