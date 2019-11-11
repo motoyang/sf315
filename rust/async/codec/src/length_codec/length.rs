@@ -138,3 +138,105 @@ impl<T: Length + Default + Copy> Decoder for LengthCodec<T> {
         }
     }
 }
+
+// --
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures::{executor, io::Cursor, sink::SinkExt, TryStreamExt};
+    use futures_codec::{BytesCodec, Framed, FramedRead, FramedWrite};
+
+    #[test]
+    fn t_bytes_codec() {
+        executor::block_on(async move {
+            let mut buf = vec![];
+            let cur = Cursor::new(&mut buf);
+            let mut framed = Framed::new(cur, BytesCodec {});
+
+            let msg = Bytes::from("Hello World!");
+            framed.send(msg.clone()).await.unwrap();
+            println!("buf: {:?}", buf);
+
+            let cur = Cursor::new(&mut buf);
+            let mut framed2 = Framed::new(cur, BytesCodec {});
+            while let Some(msg2) = framed2.try_next().await.unwrap() {
+                println!("msg: {:?}", msg2);
+                assert_eq!(msg, msg2);
+            }
+        });
+    }
+
+    #[test]
+    fn t_length_u8_codec() {
+        executor::block_on(async move {
+            let mut buf = vec![];
+            let cur = Cursor::new(&mut buf);
+            let mut framed = FramedWrite::new(cur, LengthCodec::<u8>::new());
+
+            let msg = Bytes::from("Hello World!");
+            framed.send(msg.clone()).await.unwrap();
+            println!("buf: {:?}", buf);
+
+            let mut framed2 = FramedRead::new(&buf[..], LengthCodec::<u8>::new());
+            let msg2 = framed2.try_next().await.unwrap().unwrap();
+            println!("msg: {:?}", msg2);
+
+            assert_eq!(msg, msg2);
+        });
+    }
+    #[test]
+    fn t_length_u16_codec() {
+        executor::block_on(async move {
+            let mut buf = vec![];
+            let cur = Cursor::new(&mut buf);
+            let mut framed = FramedWrite::new(cur, LengthCodec::<u16>::new());
+
+            let msg = Bytes::from("Hello World!");
+            framed.send(msg.clone()).await.unwrap();
+            println!("buf: {:?}", buf);
+
+            let mut framed2 = FramedRead::new(&buf[..], LengthCodec::<u16>::new());
+            let msg2 = framed2.try_next().await.unwrap().unwrap();
+            println!("msg: {:?}", msg2);
+
+            assert_eq!(msg, msg2);
+        });
+    }
+    #[test]
+    fn t_length_u32_codec() {
+        executor::block_on(async move {
+            let mut buf = vec![];
+            let cur = Cursor::new(&mut buf);
+            let mut framed = FramedWrite::new(cur, LengthCodec::<u32>::new());
+
+            let msg = Bytes::from("Hello World!");
+            framed.send(msg.clone()).await.unwrap();
+            println!("buf: {:?}", buf);
+
+            let mut framed2 = FramedRead::new(&buf[..], LengthCodec::<u32>::new());
+            let msg2 = framed2.try_next().await.unwrap().unwrap();
+            println!("msg: {:?}", msg2);
+
+            assert_eq!(msg, msg2);
+        });
+    }
+    #[test]
+    fn t_length_u64_codec() {
+        executor::block_on(async move {
+            let mut buf = vec![];
+            let cur = Cursor::new(&mut buf);
+            let mut framed = FramedWrite::new(cur, LengthCodec::<u64>::new());
+
+            let msg = Bytes::from("Hello World!");
+            framed.send(msg.clone()).await.unwrap();
+            println!("buf: {:?}", buf);
+
+            let mut framed2 = FramedRead::new(&buf[..], LengthCodec::<u64>::new());
+            let msg2 = framed2.try_next().await.unwrap().unwrap();
+            println!("msg: {:?}", msg2);
+
+            assert_eq!(msg, msg2);
+        });
+    }
+}
