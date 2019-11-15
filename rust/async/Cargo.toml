@@ -2,8 +2,9 @@
 
 members = [
     "codec",
+    "ss",
 ]
 
 default-members = [
-    "codec"
+    "ss"
 ]

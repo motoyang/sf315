@@ -1,0 +1,27 @@
+[package]
+name = "ss"
+version = "0.1.0"
+authors = ["xt <motoyang@163.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log = "^0.4.8"
+elog = { path = "../../omnibus/elog"}
+bytes = "^0.4.12"
+futures_codec = "^0.3.1"
+futures = "^0.3.1"
+codec = { path = "../codec" }
+
+[dependencies.async-std]
+version = "^1.0.1"
+features = ["unstable"]
+
+[dependencies.clap]
+version = "^2.27.0"
+default-features = false
+# futures:
+#   default on: ["suggestions", "color", "wrap_help"]
+#   option: ["yaml", "unstable"]]
+features = [ "suggestions", "color", "wrap_help" ]
