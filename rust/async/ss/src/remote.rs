@@ -8,14 +8,21 @@ use {
     async_std::{
         net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs},
         prelude::*,
-        sync::{channel, Arc, Mutex, Receiver, Sender},
+        sync::{Arc, Mutex},
         task,
     },
     bytes::{Buf, BufMut, Bytes, BytesMut, IntoBuf},
     codec::LengthCodec,
-    futures::{future::join_all, pin_mut, select, sink::SinkExt, FutureExt as _},
+    futures::{
+        channel::mpsc::{channel, unbounded, Receiver, Sender, UnboundedSender},
+        // future::join_all,
+        pin_mut, select,
+        sink::SinkExt,
+        FutureExt as _,
+    },
     futures_codec::{BytesCodec, FramedRead, FramedWrite},
-    std::{collections::HashMap},
+    log::{info, trace, warn},
+    std::collections::HashMap,
 };
 
 // --
@@ -45,10 +52,11 @@ impl ClientsMap {
 // --
 
 pub fn run(remote_addr: SocketAddr) -> BoxResult<()> {
-    let accept_handle = task::spawn(accept_on(remote_addr));
-    let v = vec![accept_handle];
-    let r = task::block_on(join_all(v));
-    println!("run result: {:?}", r);
+    let r = task::block_on(accept_on(remote_addr));
+    // let accept_handle = task::spawn(accept_on(remote_addr));
+    // let v = vec![accept_handle];
+    // let r = task::block_on(join_all(v));
+    info!("run result: {:?}", r);
 
     Ok(())
 }
@@ -58,7 +66,7 @@ async fn accept_on(addr: impl ToSocketAddrs) -> BoxResult<()> {
     let mut incoming = listener.incoming();
     while let Some(stream) = incoming.next().await {
         let stream = stream?;
-        println!("Accepting from: {}", stream.peer_addr()?);
+        info!("Accepting from: {}", stream.peer_addr()?);
         let _handle = task::spawn(connection_loop(stream));
     }
     Ok(())
@@ -75,9 +83,9 @@ async fn connection_loop(stream: TcpStream) -> BoxResult<()> {
     let read_framed = FramedRead::new(reader, LengthCodec::<u32>::new());
     let mut write_framed = FramedWrite::new(writer, LengthCodec::<u32>::new());
     let mut clients_map = ClientsMap::new();
-    let (tx, rx) = channel(3);
+    let (tx_to_local, mut rx) = unbounded();
 
-    pin_mut!(read_framed, rx);
+    pin_mut!(read_framed);
     loop {
         let value = select! {
             from_local = read_framed.next().fuse() => match from_local {
@@ -91,17 +99,16 @@ async fn connection_loop(stream: TcpStream) -> BoxResult<()> {
         };
         match value {
             SelectedValue::Read(msg) => {
-                println!("{:?}", msg);
                 let (id, msg) = extract(msg);
-                if let Some(tx) = clients_map.get(id).await {
-                    tx.send(msg).await;
+                if let Some(mut tx) = clients_map.get(id).await {
+                    tx.send(msg).await?;
                 } else {
-                    if let Some(addr) = get_address(msg).await {
-                        let (tx_to_server, rx_from_server) = channel::<Bytes>(3);
+                    if let Some(addr) = get_address(msg.clone()).await {
+                        let (tx_to_server, rx_from_server) = channel::<Bytes>(1);
                         clients_map.insert(id, tx_to_server).await;
                         task::spawn(connect_to(
                             addr,
-                            tx.clone(),
+                            tx_to_local.clone(),
                             rx_from_server,
                             id,
                             clients_map.clone(),
@@ -109,6 +116,7 @@ async fn connection_loop(stream: TcpStream) -> BoxResult<()> {
                     } else {
                         let rep = reply_unreachable();
                         write_framed.send(rep).await?;
+                        warn!("reply_unreachable. id = {}, msg = {:?}", id, msg);
                     }
                 }
             }
@@ -124,8 +132,8 @@ async fn connection_loop(stream: TcpStream) -> BoxResult<()> {
 
 async fn connect_to(
     server_addr: SocketAddr,
-    tx_to_local: Sender<Bytes>,
-    rx: Receiver<Bytes>,
+    mut tx_to_local: UnboundedSender<Bytes>,
+    mut rx: Receiver<Bytes>,
     id: u64,
     clients: ClientsMap,
 ) -> BoxResult<()> {
@@ -137,6 +145,7 @@ async fn connect_to(
 
     let _connect_clean = DropGuard::new((id, clients.clone()), |(x, mut c)| {
         task::block_on(async move {
+            trace!("connect clean: id = {}", id);
             c.remove(x).await;
         });
     });
@@ -148,9 +157,9 @@ async fn connect_to(
 
     // 连接到servers成功后，要返回给local Replies信息。参见rfc-1928
     let rep = reply(stream.local_addr()?);
-    tx_to_local.send(pack(id, rep)).await;
+    tx_to_local.send(pack(id, rep)).await?;
 
-    pin_mut!(read_framed, rx);
+    pin_mut!(read_framed);
     loop {
         let value = select! {
             msg_from = read_framed.next().fuse() => match msg_from {
@@ -166,8 +175,7 @@ async fn connect_to(
 
         match value {
             SelectedValue::Read(msg) => {
-                println!("{:?}", msg);
-                tx_to_local.send(pack(id, msg)).await;
+                tx_to_local.send(pack(id, msg)).await?;
             }
             SelectedValue::Write(msg) => {
                 write_framed.send(msg).await?;
@@ -242,7 +250,7 @@ async fn get_address(value: Bytes) -> Option<std::net::SocketAddr> {
             Some(SocketAddr::new(IpAddr::V6(ipv6), port))
         }
         _ => {
-            assert!(false);
+            // assert!(false);
             None
         }
     }

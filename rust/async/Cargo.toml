@@ -3,8 +3,9 @@
 members = [
     "codec",
     "ss",
+    "ex1"
 ]
 
 default-members = [
-    "ss"
+    "ss",
 ]

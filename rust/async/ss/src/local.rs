@@ -1,4 +1,5 @@
 // -- local.rs --
+
 use {
     crate::{
         common::{extract, pack, BoxResult},
@@ -7,93 +8,105 @@ use {
     async_std::{
         net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs},
         prelude::*,
-        // prelude::FutureExt as _,
-        // stream,
-        sync::{channel, Arc, Mutex, Sender},
+        sync::{Arc, Mutex},
         task,
     },
     bytes::{BufMut, Bytes, BytesMut},
     codec::LengthCodec,
-    futures::{future::join_all, pin_mut, select, sink::SinkExt, FutureExt as _},
+    futures::{
+        channel::mpsc::{channel, unbounded, Sender, UnboundedSender},
+        future::join_all,
+        pin_mut, select,
+        sink::SinkExt,
+        FutureExt as _,
+    },
     futures_codec::{Decoder, Encoder, FramedRead, FramedWrite},
+    log::{info, trace, warn},
     std::{collections::HashMap, time::Duration},
 };
 
 // --
 
 pub fn run(local_addr: SocketAddr, remote_addr: SocketAddr) -> BoxResult<()> {
-    // println!("l: {:?}, r: {:?}", local_addr, remote_addr);
     let d = DispatcherWraper::new();
     let remote_handle = task::spawn(connect_to(remote_addr, d.clone()));
     let accept_handle = task::spawn(accept_on(local_addr, d.clone()));
     let v = vec![remote_handle, accept_handle];
     let r = task::block_on(join_all(v));
-    println!("run result: {:?}", r);
-    println!("dispatcher: {:?}", d);
+    info!("run result: {:?}", r);
+    info!("dispatcher: {:?}", d);
 
     Ok(())
 }
 
 async fn connect_to(addr: impl ToSocketAddrs, mut dispatcher: DispatcherWraper) -> BoxResult<()> {
+    #[derive(Debug)]
     enum SelectedValue {
-        None,
+        ReadNone,
+        ReadError(std::io::Error),
         Read(Bytes),
+        WriteNone,
         Write(Bytes),
-        // Interval(Bytes),
-    };
+    }
 
-    let stream = TcpStream::connect(addr).await?;
+    let stream = match TcpStream::connect(addr).await {
+        Ok(s) => s,
+        Err(e) => {
+            warn!("connect err: {:?}", e);
+            return Err(e)?;
+        }
+    };
     let (reader, writer) = (&stream, &stream);
     let read_framed = FramedRead::new(reader, LengthCodec::<u32>::new());
     let mut write_framed = FramedWrite::new(writer, LengthCodec::<u32>::new());
 
-    let (tx, rx) = channel(1);
+    let (tx, mut rx) = unbounded();
     dispatcher.set_remote_tx(Some(tx)).await;
     let _dispatcher_clean = DropGuard::new(dispatcher.clone(), |mut d| {
         task::block_on(async move {
+            info!("connect_to quit.");
             d.clean().await;
         });
     });
 
-    // let mut i = 0_usize;
-    // let interval = stream::interval(Duration::from_secs(30));
-    pin_mut!(read_framed, rx);
+    pin_mut!(read_framed);
     loop {
         let value = select! {
             msg_to_client = read_framed.next().fuse() => match msg_to_client {
-                Some(msg) => SelectedValue::Read(msg?),
-                None => SelectedValue::None,
+                Some(msg) => match msg {
+                    Ok(msg) => SelectedValue::Read(msg),
+                    Err(e) => SelectedValue::ReadError(e),
+                },
+                None => SelectedValue::ReadNone,
             },
-
             msg_from_client = rx.next().fuse() => match msg_from_client {
                 Some(msg) => SelectedValue::Write(msg),
-                None => SelectedValue::None,
+                None => SelectedValue::WriteNone,
             },
-
-            // hello = interval.next().fuse() => match hello {
-            //     Some(hello) if i < 6666 => {
-            //         i += 1;
-            //         SelectedValue::Interval(Bytes::from(format!("Hello World! #{}", i)))
-            //     },
-            //     _ => SelectedValue::None,
-            // }
         };
 
         match value {
             SelectedValue::Read(msg) => {
-                println!("{:?}", msg);
                 let (id, msg) = extract(msg);
-                if let Some(c) = dispatcher.find_client(id).await {
-                    c.send(msg).await;
+                if let Some(mut tx) = dispatcher.find_client(id).await {
+                    if let Err(e) = tx.send(msg).await {
+                        warn!("tx.send() error: {:?}", e);
+                        return Err(e)?;
+                    }
                 }
-            },
-            SelectedValue::Write(msg) => {
-                write_framed.send(msg).await?;
             }
-            // SelectedValue::Interval(msg) => {
-            //     write_framed.send(msg).await?;
-            // }
-            SelectedValue::None => {
+            SelectedValue::Write(msg) => {
+                if let Err(e) = write_framed.send(msg).await {
+                    warn!("write to remote error: {:?}", e);
+                    return Err(e)?;
+                }
+            }
+            SelectedValue::ReadError(e) => {
+                warn!("ReadError: {:?}", e);
+                break;
+            }
+            _ => {
+                trace!("selected value: {:?}", value);
                 break;
             }
         }
@@ -102,8 +115,11 @@ async fn connect_to(addr: impl ToSocketAddrs, mut dispatcher: DispatcherWraper) 
 }
 
 async fn accept_on(addr: impl ToSocketAddrs, mut dispatcher: DispatcherWraper) -> BoxResult<()> {
+    #[derive(Debug)]
     enum SelectedValue {
-        None,
+        CloseNone,
+        ClientNone,
+        ClientError(std::io::Error),
         Client(TcpStream),
     }
 
@@ -114,47 +130,77 @@ async fn accept_on(addr: impl ToSocketAddrs, mut dispatcher: DispatcherWraper) -
 
     let _dispatcher_clean = DropGuard::new(dispatcher.clone(), |mut d| {
         task::block_on(async move {
+            info!("accept_on quit.");
             d.clean().await;
         });
     });
 
-    let listener = TcpListener::bind(addr).await?;
-    let (tx, rx) = channel::<u8>(1);
+    let listener = match TcpListener::bind(addr).await {
+        Ok(l) => l,
+        Err(e) => {
+            warn!("bind error: {:?}", e);
+            return Err(e)?;
+        }
+    };
+    let (tx, mut rx) = channel::<u8>(1);
     dispatcher.set_accept_tx(Some(tx)).await;
 
     let incoming = listener.incoming();
-    pin_mut!(incoming, rx);
+    pin_mut!(incoming);
     loop {
         let value = select! {
             client_stream = incoming.next().fuse() => match client_stream {
-                Some(stream) => SelectedValue::Client(stream?),
-                None => SelectedValue::None,
+                Some(stream) => match stream {
+                    Ok(s) => SelectedValue::Client(s),
+                    Err(e) => SelectedValue::ClientError(e)
+                },
+                None => SelectedValue::ClientNone,
             },
-            close_req = rx.next().fuse() => SelectedValue::None,
+            close_req = rx.next().fuse() => SelectedValue::CloseNone,
         };
         match value {
             SelectedValue::Client(stream) => {
-                println!("Accepting from: {}", stream.peer_addr()?);
+                let p = match stream.peer_addr() {
+                    Ok(p) => p,
+                    Err(e) => {
+                        warn!("peer_addr() error: {:?}", e);
+                        return Err(e)?;
+                    }
+                };
+                info!("Accepting from: {}", p);
                 task::spawn(connection_loop(dispatcher.clone(), stream));
             }
-            _ => break,
+            SelectedValue::ClientError(e) => {
+                warn!("ClientError: {:?}", e);
+                break;
+            }
+            _ => {
+                trace!("selected value: {:?}", value);
+                break;
+            }
         }
     }
     Ok(())
 }
 
 async fn connection_loop(mut dispatcher: DispatcherWraper, stream: TcpStream) -> BoxResult<()> {
+    #[derive(Debug)]
     enum SelectedValue {
-        None,
+        ReadNone,
+        ReadError(std::io::Error),
         Read(Bytes),
+        WriteNone,
         Write(Bytes),
     }
 
-    let (tx, rx) = channel(3);
-    let (tx, id) =
-        (dispatcher.remote_tx().await, dispatcher.insert_client(tx).await);
+    let (tx, mut rx) = channel(1);
+    let (mut tx, id) = (
+        dispatcher.remote_tx().await,
+        dispatcher.insert_client(tx).await,
+    );
     let _remove_client = DropGuard::new((id, dispatcher.clone()), |(x, mut d)| {
         task::block_on(async move {
+            trace!("connect clean: id = {}", id);
             d.remove_client(x).await;
         });
     });
@@ -164,32 +210,51 @@ async fn connection_loop(mut dispatcher: DispatcherWraper, stream: TcpStream) ->
     let mut write_framed = FramedWrite::new(writer, S5Codec::new());
 
     let mut req = 0_usize;
-    pin_mut!(read_framed, rx);
+    pin_mut!(read_framed);
     loop {
         let value = select! {
-        msg_from_client = read_framed.next().fuse() => match msg_from_client {
-                Some(msg) if msg.is_ok() => SelectedValue::Read(msg?),
-                _ => SelectedValue::None,
+            msg_from_client = read_framed.next().fuse() => match msg_from_client {
+                Some(msg) => match msg{
+                    Ok(msg) => SelectedValue::Read(msg),
+                    Err(e) => SelectedValue::ReadError(e),
+                },
+                None => SelectedValue::ReadNone,
             },
-        msg_to_client = rx.next().fuse() => match msg_to_client {
-            Some(msg) => SelectedValue::Write(msg),
-            None => SelectedValue::None,
-        }
+            msg_to_client = rx.next().fuse() => match msg_to_client {
+                Some(msg) => SelectedValue::Write(msg),
+                None => SelectedValue::WriteNone,
+            }
         };
         match value {
             SelectedValue::Read(msg) => {
                 if req == 0 {
                     let rep = Bytes::from_static(&[5, 0]);
-                    write_framed.send(rep).await?;
+                    if let Err(e) = write_framed.send(rep).await {
+                        warn!("send error: {:?}", e);
+                        return Err(e)?;
+                    }
                 } else {
-                    tx.send(pack(id, msg)).await;
+                    if let Err(e) = tx.send(pack(id, msg)).await {
+                        warn!("tx.send() error: {:?}", e);
+                        return Err(e)?;
+                    }
                 }
                 req += 1;
             }
             SelectedValue::Write(msg) => {
-                write_framed.send(msg).await?
+                if let Err(e) = write_framed.send(msg).await {
+                    warn!("send error: {:?}", e);
+                    return Err(e)?;
+                }
             }
-            SelectedValue::None => break,
+            SelectedValue::ReadError(e) => {
+                warn!("ReadError: {:?}", e);
+                break;
+            }
+            _ => {
+                trace!("selected value: {:?}", value);
+                break;
+            }
         }
     }
 
@@ -198,10 +263,10 @@ async fn connection_loop(mut dispatcher: DispatcherWraper, stream: TcpStream) ->
 
 // --
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct Dispatcher {
     index_of_client: u64,
-    remote_sender: Option<Sender<Bytes>>,
+    remote_sender: Option<UnboundedSender<Bytes>>,
     accept_sender: Option<Sender<u8>>,
     client_senders: HashMap<u64, Sender<Bytes>>,
 }
@@ -211,7 +276,7 @@ struct DispatcherWraper(Arc<Mutex<Dispatcher>>);
 
 impl DispatcherWraper {
     pub fn new() -> Self {
-        Self (Arc::new(Mutex::new(Dispatcher {
+        Self(Arc::new(Mutex::new(Dispatcher {
             index_of_client: 0,
             remote_sender: None,
             accept_sender: None,
@@ -245,7 +310,7 @@ impl DispatcherWraper {
             None
         }
     }
-    async fn set_remote_tx(&mut self, tx: Option<Sender<Bytes>>) {
+    async fn set_remote_tx(&mut self, tx: Option<UnboundedSender<Bytes>>) {
         let mut g = self.0.lock().await;
         g.remote_sender = tx;
     }
@@ -253,7 +318,7 @@ impl DispatcherWraper {
         let g = self.0.lock().await;
         g.remote_sender.is_none()
     }
-    async fn remote_tx(&self) -> Sender<Bytes> {
+    async fn remote_tx(&self) -> UnboundedSender<Bytes> {
         let g = self.0.lock().await;
         assert!(g.remote_sender.is_some());
         g.remote_sender.as_ref().unwrap().clone()
@@ -262,11 +327,6 @@ impl DispatcherWraper {
         let mut g = self.0.lock().await;
         g.accept_sender = tx;
     }
-    // async fn accept_tx(&self) -> Sender<u8> {
-    //     let g = self.0.lock().await;
-    //     assert!(g.accept_sender.is_some());
-    //     g.accept_sender.as_ref().unwrap().clone()
-    // }
 }
 
 // --
@@ -309,7 +369,6 @@ impl Decoder for S5Codec {
             return Ok(None);
         }
 
-        println!("self.0 = {}, buf = {:?}", self.0, buf.to_vec());
         match self.0 {
             0 => {
                 // +----+----------+----------+

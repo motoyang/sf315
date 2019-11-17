@@ -1,9 +1,10 @@
+extern crate async_std;
+extern crate bytes;
+extern crate codec;
 extern crate futures;
 extern crate futures_codec;
-extern crate async_std;
-extern crate codec;
-extern crate bytes;
-#[macro_use] extern crate elog;
+#[macro_use]
+extern crate elog;
 
 // --
 
@@ -22,23 +23,26 @@ use {
 // --
 
 fn main() {
-    init_ring_logger!(log::Level::Trace, String::new(), 1024*1024*3, 3);
+    // init_ring_logger!(log::Level::Trace, String::new(), 1024*1024*3, 3);
 
     let matches = App::new("s-sock")
         .version("1.0")
         .author("moto <kbknapp@gmail.com>")
         .about("Another shadow-sock build with rust.")
-        .arg(Arg::from_usage(
-            "[local-addr] -l --local-addr = [ADDR_LOCAL] 'Sets local server address'")
-            .requires("remote-addr")
+        .arg(
+            Arg::from_usage(
+                "[local-addr] -l --local-addr = [ADDR_LOCAL] 'Sets local server address'",
+            )
+            .requires("remote-addr"),
         )
         .arg(Arg::from_usage(
             "[remote-addr] -r --remote-addr = [ADDR_REMOTE] 'Sets remote server address'",
         ))
-        .group(ArgGroup::with_name("address")
-            .args(&["local-addr", "remote-addr"])
-            .multiple(true)
-            .required(true)
+        .group(
+            ArgGroup::with_name("address")
+                .args(&["local-addr", "remote-addr"])
+                .multiple(true)
+                .required(true),
         )
         .get_matches();
 
@@ -65,10 +69,22 @@ fn main() {
     };
 
     if matches.is_present("local-addr") {
+        init_ring_logger!(
+            log::Level::Info,
+            String::from("ss-local"),
+            1024 * 1024 * 3,
+            3
+        );
         local::run(local_addr.unwrap(), remote_addr.unwrap()).unwrap();
     }
 
     if matches.is_present("remote-addr") && !matches.is_present("local-addr") {
+        init_ring_logger!(
+            log::Level::Info,
+            String::from("ss-remote"),
+            1024 * 1024 * 3,
+            3
+        );
         remote::run(remote_addr.unwrap()).unwrap();
     }
 }
