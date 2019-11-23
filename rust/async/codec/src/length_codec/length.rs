@@ -8,7 +8,7 @@ use {
 
 // --
 
-pub trait Length {
+pub trait Length: Default + Copy {
     fn put(&self, dst: &mut BytesMut);
     fn get(src: &[u8]) -> Self;
     fn from_usize(len: usize) -> Self;
@@ -97,16 +97,16 @@ impl Length for u64 {
 
 // --
 
-#[derive(Clone, Copy)]
-pub struct LengthCodec<T: Length + Default + Copy>([T; 0]);
+#[derive(Default, Clone, Copy)]
+pub struct LengthCodec<T: Length>(std::marker::PhantomData<T>);
 
-impl<T: Length + Default + Copy> LengthCodec<T> {
-    pub fn new() -> Self {
-        Self([Default::default(); 0])
-    }
-}
+unsafe impl<T: Length> Send for LengthCodec<T> {}
+unsafe impl<T: Length> Sync for LengthCodec<T> {}
+impl<T: Length> Unpin for LengthCodec<T> {}
+impl<T: Length> std::panic::UnwindSafe for LengthCodec<T> {}
+impl<T: Length> std::panic::RefUnwindSafe for LengthCodec<T> {}
 
-impl<T: Length + Default + Copy> Encoder for LengthCodec<T> {
+impl<T: Length> Encoder for LengthCodec<T> {
     type Item = Bytes;
     type Error = Error;
 
@@ -119,7 +119,7 @@ impl<T: Length + Default + Copy> Encoder for LengthCodec<T> {
     }
 }
 
-impl<T: Length + Default + Copy> Decoder for LengthCodec<T> {
+impl<T: Length> Decoder for LengthCodec<T> {
     type Item = Bytes;
     type Error = Error;
 
@@ -143,9 +143,44 @@ impl<T: Length + Default + Copy> Decoder for LengthCodec<T> {
 
 #[cfg(test)]
 mod tests {
+    extern crate test_case;
+
+    use crate::utility::type_of;
     use super::*;
     use futures::{executor, io::Cursor, sink::SinkExt, TryStreamExt};
     use futures_codec::{BytesCodec, Framed, FramedRead, FramedWrite};
+    use test_case::test_case;
+
+    // --
+
+    #[test_case(Bytes::from("Hello World!") => vec![72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33]; "hello")]
+    #[test_case(Bytes::from("this is a new world!") => vec![116, 104, 105, 115, 32, 105, 115, 32, 97, 32, 110, 101, 119, 32, 119, 111, 114, 108, 100, 33]; "new_world")]
+    fn bytes_codec_encode(msg: Bytes) -> Vec<u8> {
+        executor::block_on(async move {
+            let mut buf = vec![];
+            let cur = Cursor::new(&mut buf);
+            let mut framed = Framed::new(cur, BytesCodec {});
+
+            framed.send(msg.clone()).await.unwrap();
+            println!("\nbuf: {} = {:?}", type_of(&&buf), buf);
+            buf
+        })
+    }
+
+    #[test_case(vec![72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33] => Bytes::from("Hello World!"); "hello")]
+    #[test_case(vec![116, 104, 105, 115, 32, 105, 115, 32, 97, 32, 110, 101, 119, 32, 119, 111, 114, 108, 100, 33] => Bytes::from("this is a new world!"); "new_world")]
+    fn bytes_codec_decode(mut buf: Vec<u8>) -> Bytes {
+        executor::block_on(async move {
+            let cur = Cursor::new(&mut buf);
+            let mut framed = Framed::new(cur, BytesCodec {});
+            if let Some(msg) = framed.try_next().await.unwrap() {
+                println!("\nmsg: {} = {:?}", type_of(&msg), msg);
+                msg
+            } else {
+                Bytes::new()
+            }
+        })
+    }
 
     #[test]
     fn t_bytes_codec() {
@@ -172,13 +207,13 @@ mod tests {
         executor::block_on(async move {
             let mut buf = vec![];
             let cur = Cursor::new(&mut buf);
-            let mut framed = FramedWrite::new(cur, LengthCodec::<u8>::new());
+            let mut framed = FramedWrite::new(cur, LengthCodec::<u8>::default());
 
             let msg = Bytes::from("Hello World!");
             framed.send(msg.clone()).await.unwrap();
             println!("buf: {:?}", buf);
 
-            let mut framed2 = FramedRead::new(&buf[..], LengthCodec::<u8>::new());
+            let mut framed2 = FramedRead::new(&buf[..], LengthCodec::<u8>::default());
             let msg2 = framed2.try_next().await.unwrap().unwrap();
             println!("msg: {:?}", msg2);
 
@@ -190,13 +225,13 @@ mod tests {
         executor::block_on(async move {
             let mut buf = vec![];
             let cur = Cursor::new(&mut buf);
-            let mut framed = FramedWrite::new(cur, LengthCodec::<u16>::new());
+            let mut framed = FramedWrite::new(cur, LengthCodec::<u16>::default());
 
             let msg = Bytes::from("Hello World!");
             framed.send(msg.clone()).await.unwrap();
             println!("buf: {:?}", buf);
 
-            let mut framed2 = FramedRead::new(&buf[..], LengthCodec::<u16>::new());
+            let mut framed2 = FramedRead::new(&buf[..], LengthCodec::<u16>::default());
             let msg2 = framed2.try_next().await.unwrap().unwrap();
             println!("msg: {:?}", msg2);
 
@@ -208,13 +243,13 @@ mod tests {
         executor::block_on(async move {
             let mut buf = vec![];
             let cur = Cursor::new(&mut buf);
-            let mut framed = FramedWrite::new(cur, LengthCodec::<u32>::new());
+            let mut framed = FramedWrite::new(cur, LengthCodec::<u32>::default());
 
             let msg = Bytes::from("Hello World!");
             framed.send(msg.clone()).await.unwrap();
             println!("buf: {:?}", buf);
 
-            let mut framed2 = FramedRead::new(&buf[..], LengthCodec::<u32>::new());
+            let mut framed2 = FramedRead::new(&buf[..], LengthCodec::<u32>::default());
             let msg2 = framed2.try_next().await.unwrap().unwrap();
             println!("msg: {:?}", msg2);
 
@@ -226,13 +261,13 @@ mod tests {
         executor::block_on(async move {
             let mut buf = vec![];
             let cur = Cursor::new(&mut buf);
-            let mut framed = FramedWrite::new(cur, LengthCodec::<u64>::new());
+            let mut framed = FramedWrite::new(cur, LengthCodec::<u64>::default());
 
             let msg = Bytes::from("Hello World!");
             framed.send(msg.clone()).await.unwrap();
             println!("buf: {:?}", buf);
 
-            let mut framed2 = FramedRead::new(&buf[..], LengthCodec::<u64>::new());
+            let mut framed2 = FramedRead::new(&buf[..], LengthCodec::<u64>::default());
             let msg2 = framed2.try_next().await.unwrap().unwrap();
             println!("msg: {:?}", msg2);
 

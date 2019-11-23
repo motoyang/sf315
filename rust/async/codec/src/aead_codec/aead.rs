@@ -12,7 +12,7 @@ use {
         hkdf::{Algorithm as HkdfAlgorithm, Salt, HKDF_SHA256},
         rand::*,
     },
-    std::{cell::RefCell, sync::Arc},
+    std::{cell::RefCell, rc::Rc},
 };
 
 // --
@@ -65,8 +65,8 @@ pub struct Builder {
     padding_len: u8,
 }
 
-impl Builder {
-    pub fn new() -> Self {
+impl Default for Builder {
+    fn default() -> Self {
         Self {
             hkdf_algorithm: &HKDF_SHA256,
             aead_algorithm: &CHACHA20_POLY1305,
@@ -74,6 +74,9 @@ impl Builder {
             padding_len: 128,
         }
     }
+}
+
+impl Builder {
     pub fn set_hkdf_algorithm(&mut self, a: &'static HkdfAlgorithm) -> &mut Self {
         self.hkdf_algorithm = a;
         self
@@ -95,20 +98,22 @@ impl Builder {
     }
 }
 
+// --
+
 #[derive(Clone)]
 pub struct AeadCodec {
-    builder: Arc<Builder>,
-    psk: Arc<String>,
-    sealing_key: Option<Arc<RefCell<SealingKey<Sequence>>>>,
-    opening_key: Option<Arc<RefCell<OpeningKey<Sequence>>>>,
+    builder: Rc<Builder>,
+    psk: Rc<String>,
+    sealing_key: Option<Rc<RefCell<SealingKey<Sequence>>>>,
+    opening_key: Option<Rc<RefCell<OpeningKey<Sequence>>>>,
     body_len: Option<usize>,
 }
 
 impl AeadCodec {
     fn new(builder: Builder, psk: &str) -> Self {
         Self {
-            builder: Arc::new(builder),
-            psk: Arc::new(String::from(psk)),
+            builder: Rc::new(builder),
+            psk: Rc::new(String::from(psk)),
             sealing_key: None,
             opening_key: None,
             body_len: None,
@@ -142,7 +147,7 @@ impl AeadCodec {
             .unwrap();
         let ubk = UnboundKey::from(okm);
         let nonce_len = self.builder.aead_algorithm.nonce_len();
-        self.sealing_key = Some(Arc::new(RefCell::new(SealingKey::new(
+        self.sealing_key = Some(Rc::new(RefCell::new(SealingKey::new(
             ubk,
             Sequence::new(nonce_len),
         ))));
@@ -159,7 +164,7 @@ impl AeadCodec {
             .unwrap();
         let ubk = UnboundKey::from(okm);
         let nonce_len = self.builder.aead_algorithm.nonce_len();
-        self.opening_key = Some(Arc::new(RefCell::new(OpeningKey::new(
+        self.opening_key = Some(Rc::new(RefCell::new(OpeningKey::new(
             ubk,
             Sequence::new(nonce_len),
         ))));
@@ -293,11 +298,13 @@ mod tests {
 
     #[test]
     fn t_get_padding() {
-        let builder = Builder::new();
+        let builder = Builder::default();
         let codec = builder.create("abcd");
+        println!("");
         for _ in 0..8 {
             let padding = codec.get_padding();
             assert_eq!(padding[0] as usize, padding.len());
+            padding[1..].iter().for_each(|x| assert_eq!(*x, 0));
             println!("padding = {:?}", padding);
         }
     }
@@ -305,6 +312,7 @@ mod tests {
     fn t_sequence() {
         let nonce_len = 12_usize;
         let mut seq = Sequence::new(nonce_len);
+        println!("");
         for i in 1..11 {
             seq.advance().unwrap();
             println!("{:?}", seq.0);
@@ -313,7 +321,7 @@ mod tests {
                 let ptr = ptr.offset(std::mem::size_of::<u32>() as isize) as *const usize;
                 println!("*ptr = {}", *ptr);
                 assert_eq!(i, *ptr);
-            }
+            };
         }
     }
 }

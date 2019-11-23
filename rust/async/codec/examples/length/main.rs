@@ -29,12 +29,12 @@ fn main() {
         }
     });
 
-    executor::block_on(codec(LengthCodec::<u8>::new()));
-    executor::block_on(codec(LengthCodec::<u16>::new()));
-    executor::block_on(codec(LengthCodec::<u32>::new()));
-    executor::block_on(codec(LengthCodec::<u64>::new()));
+    executor::block_on(codec(LengthCodec::<u8>::default()));
+    executor::block_on(codec(LengthCodec::<u16>::default()));
+    executor::block_on(codec(LengthCodec::<u32>::default()));
+    executor::block_on(codec(LengthCodec::<u64>::default()));
 
-    executor::block_on(codec2(LengthCodec::<u8>::new()));
+    executor::block_on(codec2(LengthCodec::<u8>::default()));
 }
 
 async fn codec<T>(c: T)

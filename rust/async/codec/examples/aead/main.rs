@@ -23,7 +23,7 @@ fn main() {
 
     let psk = "thisispsk";
 
-    let mut builder = Builder::new();
+    let mut builder = Builder::default();
     executor::block_on(codec(
         builder.clone().create(psk),
         builder.clone().create(psk),
