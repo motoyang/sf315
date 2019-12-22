@@ -11,7 +11,7 @@ use {
         sync::{Arc, Mutex},
         task,
     },
-    bytes::{Buf, BufMut, Bytes, BytesMut, IntoBuf},
+    bytes::{Buf, BufMut, Bytes, BytesMut},
     codec::LengthCodec,
     futures::{
         channel::mpsc::{channel, unbounded, Receiver, Sender, UnboundedSender},
@@ -80,8 +80,8 @@ async fn connection_loop(stream: TcpStream) -> BoxResult<()> {
     };
 
     let (reader, writer) = &mut (&stream, &stream);
-    let read_framed = FramedRead::new(reader, LengthCodec::<u32>::new());
-    let mut write_framed = FramedWrite::new(writer, LengthCodec::<u32>::new());
+    let read_framed = FramedRead::new(reader, LengthCodec::<u32>::default());
+    let mut write_framed = FramedWrite::new(writer, LengthCodec::<u32>::default());
     let mut clients_map = ClientsMap::new();
     let (tx_to_local, mut rx) = unbounded();
 
@@ -199,13 +199,13 @@ async fn get_address(value: Bytes) -> Option<std::net::SocketAddr> {
     let atyp = unsafe { *value.get_unchecked(3) as usize };
     match atyp {
         1 => {
-            let mut buf = value.into_buf();
+            let mut buf = value;
             buf.advance(4);
             let a1 = buf.get_u8();
             let a2 = buf.get_u8();
             let a3 = buf.get_u8();
             let a4 = buf.get_u8();
-            let port = buf.get_u16_be();
+            let port = buf.get_u16();
             Some(SocketAddr::new(
                 IpAddr::V4(Ipv4Addr::new(a1, a2, a3, a4)),
                 port,
@@ -215,9 +215,9 @@ async fn get_address(value: Bytes) -> Option<std::net::SocketAddr> {
             let len = unsafe { *value.get_unchecked(4) as usize };
             let name = value.clone().split_off(5).split_to(len);
             let mut name = unsafe { String::from_utf8_unchecked(name.to_vec()) };
-            let mut buf = value.into_buf();
+            let mut buf = value;
             buf.advance(5 + len);
-            let port = buf.get_u16_be();
+            let port = buf.get_u16();
 
             name.push_str(&format!(":{}", port));
             if let Ok(mut addrs_iter) = name.to_socket_addrs().await {
@@ -227,13 +227,13 @@ async fn get_address(value: Bytes) -> Option<std::net::SocketAddr> {
             }
         }
         4 => {
-            let mut buf = value.into_buf();
+            let mut buf = value;
             buf.advance(4);
             let mut v = Vec::<u16>::new();
             for _ in 0..8 {
-                v.push(buf.get_u16_be());
+                v.push(buf.get_u16());
             }
-            let port = buf.get_u16_be();
+            let port = buf.get_u16();
 
             let ipv6 = unsafe {
                 Ipv6Addr::new(
@@ -294,7 +294,7 @@ fn reply_unreachable() -> Bytes {
     buf.put_u8(0); // RSV: 0
     buf.put_u8(1); // ATYP: ipv4
     for _ in 0..3 {
-        buf.put_u16_be(0)
+        buf.put_u16(0)
     }
     buf.freeze()
 }

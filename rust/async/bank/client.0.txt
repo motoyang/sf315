@@ -1,0 +1,4 @@
+2019-12-22 15:20:42.347363 INFO  [elog::ring_logger::logger:/home/xt/dev/rust/level_1/elog/src/ring_logger/logger.rs:42] start of ring-logger
+2019-12-22 15:20:46.358853 INFO  [servant::terminal:servant/src/terminal.rs:195] terminal quit.
+2019-12-22 15:20:46.359609 INFO  [client::terminal:bank/src/bin/client/terminal.rs:63] run result: [Ok(())]
+2019-12-22 15:20:46.359933 INFO  [elog::ring_logger::logger:/home/xt/dev/rust/level_1/elog/src/ring_logger/logger.rs:50] end of ring-logger

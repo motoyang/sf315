@@ -1,7 +1,8 @@
 // -- length.rs --
 
 use {
-    bytes::{BigEndian, BufMut, ByteOrder, Bytes, BytesMut},
+    byteorder::{BigEndian, ByteOrder},
+    bytes::{Buf, BufMut, Bytes, BytesMut},
     futures_codec::{Decoder, Encoder},
     std::io::Error,
 };
@@ -38,7 +39,7 @@ impl Length for u8 {
 impl Length for u16 {
     #[inline]
     fn put(&self, dst: &mut BytesMut) {
-        dst.put_u16_be(*self);
+        dst.put_u16(*self);
     }
     #[inline]
     fn get(src: &[u8]) -> Self {
@@ -58,7 +59,7 @@ impl Length for u16 {
 impl Length for u32 {
     #[inline]
     fn put(&self, dst: &mut BytesMut) {
-        dst.put_u32_be(*self);
+        dst.put_u32(*self);
     }
     #[inline]
     fn get(src: &[u8]) -> Self {
@@ -78,7 +79,7 @@ impl Length for u32 {
 impl Length for u64 {
     #[inline]
     fn put(&self, dst: &mut BytesMut) {
-        dst.put_u64_be(*self);
+        dst.put_u64(*self);
     }
     #[inline]
     fn get(src: &[u8]) -> Self {

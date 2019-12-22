@@ -3,9 +3,7 @@
 members = [
     "codec",
     "ss",
-    "ex1"
-]
-
-default-members = [
-    "codec",
+    "servant_interface",
+    "servant",
+    "bank",
 ]

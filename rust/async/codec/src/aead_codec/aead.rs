@@ -1,7 +1,7 @@
 // -- aead.rs --
 
 use {
-    bytes::{Buf, BufMut, Bytes, BytesMut, IntoBuf},
+    bytes::{Buf, BufMut, Bytes, BytesMut},
     futures_codec::{Decoder, Encoder},
     ring::{
         aead::{
@@ -221,7 +221,7 @@ impl Encoder for AeadCodec {
         }
 
         let mut buf2 = buf.split_off(buf.len());
-        buf2.put_u32_be(body_len as u32);
+        buf2.put_u32(body_len as u32);
         self.sealing_encode(&mut buf2);
         buf.extend_from_slice(&buf2);
 
@@ -253,9 +253,9 @@ impl Decoder for AeadCodec {
         let head_len = std::mem::size_of::<u32>() + tag_len;
         if self.body_len == None && buf.len() >= head_len {
             let mut head = buf.split_to(head_len);
-            let head = self.opening_decode(&mut head);
-            let mut head = Bytes::from(head as &[u8]).into_buf();
-            self.body_len = Some(head.get_u32_be() as usize);
+            let head = self.opening_decode(&mut head).to_vec();
+            let mut head = Bytes::from(head);
+            self.body_len = Some(head.get_u32() as usize);
         }
 
         if let Some(body_len) = self.body_len {
@@ -265,7 +265,7 @@ impl Decoder for AeadCodec {
                 let body = self.opening_decode(&mut body);
                 let padding_len = *body.iter().rev().find(|&&v| v > 0).unwrap();
                 let (body, _) = body.split_at(body.len() - (padding_len as usize));
-                Ok(Some(Bytes::from(body as &[u8])))
+                Ok(Some(Bytes::from(body.to_vec())))
             } else {
                 Ok(None)
             }

@@ -57,8 +57,8 @@ async fn connect_to(addr: impl ToSocketAddrs, mut dispatcher: DispatcherWraper) 
         }
     };
     let (reader, writer) = (&stream, &stream);
-    let read_framed = FramedRead::new(reader, LengthCodec::<u32>::new());
-    let mut write_framed = FramedWrite::new(writer, LengthCodec::<u32>::new());
+    let read_framed = FramedRead::new(reader, LengthCodec::<u32>::default());
+    let mut write_framed = FramedWrite::new(writer, LengthCodec::<u32>::default());
 
     let (tx, mut rx) = unbounded();
     dispatcher.set_remote_tx(Some(tx)).await;

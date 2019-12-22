@@ -1,5 +1,6 @@
 // -- lib.rs --
 
+extern crate byteorder;
 extern crate bytes;
 extern crate futures_codec;
 
