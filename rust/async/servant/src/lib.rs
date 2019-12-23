@@ -9,15 +9,13 @@ extern crate serde;
 
 // --
 
-pub mod drop_guard;
+mod adapter;
+mod drop_guard;
 mod servant;
 mod terminal;
-mod adapter;
 
 // --
 
-pub use servant::{ServantResult, ServantError, Oid, ServantRegister, Servant, PushMessage};
-pub use terminal::{Terminal, OutOfBandProxy};
-pub use adapter::{Adapter, OutOfBandEntry, OutOfBandServant};
-
-
+pub use adapter::Adapter;
+pub use servant::{Oid, PushMessage, Servant, ServantError, ServantRegister, ServantResult};
+pub use terminal::Terminal;

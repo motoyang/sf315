@@ -3,7 +3,7 @@
 use {
     super::{
         drop_guard::DropGuard,
-        servant::{Oid, OutOfBandRequest, PushMessage, Record, ServantResult},
+        servant::{Oid, PushMessage, Record, ServantResult},
     },
     async_std::{
         net::{TcpStream, ToSocketAddrs},
@@ -43,7 +43,7 @@ type TokenPool = Vec<Token>;
 struct _Terminal {
     max_req_id: usize,
     req_id: usize,
-    push_id: usize,
+    report_id: usize,
     sender: Option<Tx>,
     pool: TokenPool,
     map: TokenMap,
@@ -56,7 +56,7 @@ impl Terminal {
         let mut t = _Terminal {
             max_req_id,
             req_id: 0,
-            push_id: 0,
+            report_id: 0,
             sender: None,
             pool: TokenPool::new(),
             map: TokenMap::new(),
@@ -78,11 +78,11 @@ impl Terminal {
         let mut g = self.0.lock().await;
         g.sender = tx;
     }
-    pub async fn push(&mut self, msg: PushMessage) -> ServantResult<()> {
+    pub async fn report(&mut self, msg: PushMessage) -> ServantResult<()> {
         let mut g = self.0.lock().await;
-        g.push_id += 1;
+        g.report_id += 1;
         if let Some(mut tx) = g.sender.as_ref() {
-            let record = Record::Push { id: g.push_id, msg };
+            let record = Record::Report { id: g.report_id, msg };
             if let Err(e) = tx.send(record).await {
                 Err(e.to_string().into())
             } else {
@@ -141,7 +141,7 @@ impl Terminal {
     }
     async fn received(&mut self, record: Record) -> ServantResult<()> {
         match record {
-            Record::Push { id, msg } => {
+            Record::Report { id, msg } => {
                 dbg!((id, msg));
             }
             Record::Return { id, oid, ret } => {
@@ -243,12 +243,12 @@ impl Terminal {
     }
     pub fn proxy<T, F>(&self, name: String, f: F) -> T
     where
-        F: Fn(String, Terminal) -> T,
+        F: Fn(String, &Terminal) -> T,
     {
-        f(name, self.clone())
+        f(name, self)
     }
 }
-
+/*
 pub struct OutOfBandProxy(Terminal);
 impl OutOfBandProxy {
     pub fn new(name: String, t: Terminal) -> Self {
@@ -265,3 +265,4 @@ impl OutOfBandProxy {
         Ok(bincode::deserialize(&response).unwrap())
     }
 }
+*/

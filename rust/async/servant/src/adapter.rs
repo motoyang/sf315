@@ -2,7 +2,7 @@
 
 use {
     super::servant::{
-        Oid, OutOfBand, OutOfBandRequest, PushMessage, Record, Servant, ServantRegister,
+        Oid, PushMessage, Record, ServantRegister,
         ServantResult,
     },
     async_std::{
@@ -41,7 +41,7 @@ impl Adapter {
     }
     async fn received(&mut self, record: Record) -> ServantResult<()> {
         match record {
-            Record::Push { id, msg } => {
+            Record::Report { id, msg } => {
                 dbg!((&id, &msg));
                 self.push(msg)
                     .await
@@ -56,10 +56,10 @@ impl Adapter {
                         Err(format!("can't find oid {} in register.", oid).into())
                     }
                 } else {
-                    if let Some(out_of_band) = ServantRegister::instance().out_of_band() {
-                        out_of_band.serve(req)
+                    if let Some(root) = ServantRegister::instance().root_servant() {
+                        root.serve(req)
                     } else {
-                        Err(format!("can't find out_of_band.").into())
+                        Err(format!("can't find root servant.").into())
                     }
                 };
                 match ret {
@@ -91,7 +91,7 @@ impl Adapter {
         let mut g = self.0.lock().await;
         g.push_id += 1;
         if let Some(mut tx) = g.tx.as_ref() {
-            let record = Record::Push { id: g.push_id, msg };
+            let record = Record::Report { id: g.push_id, msg };
             if let Err(e) = tx.send(record).await {
                 Err(e.to_string().into())
             } else {
@@ -147,44 +147,5 @@ impl Adapter {
         }
 
         Ok(())
-    }
-}
-
-pub struct OutOfBandEntry;
-impl OutOfBand for OutOfBandEntry {
-    fn export(&self) -> Vec<Oid> {
-        ServantRegister::instance().export()
-    }
-}
-
-#[derive(Clone)]
-pub struct OutOfBandServant<S> {
-    name: String,
-    entity: S,
-}
-
-impl<S> OutOfBandServant<S> {
-    pub fn new(name: String, entity: S) -> Self {
-        Self { name, entity }
-    }
-}
-
-impl<S> Servant for OutOfBandServant<S>
-where
-    S: OutOfBand + 'static,
-{
-    fn name(&self) -> &str {
-        &self.name
-    }
-    fn category(&self) -> &'static str {
-        "OutOfBandServant"
-    }
-    fn serve(&mut self, req: Vec<u8>) -> ServantResult<Vec<u8>> {
-        let req: OutOfBandRequest = bincode::deserialize(&req).unwrap();
-        let reps = match req {
-            OutOfBandRequest::Export {} => bincode::serialize(&self.entity.export()),
-        }
-        .unwrap();
-        Ok(reps)
     }
 }

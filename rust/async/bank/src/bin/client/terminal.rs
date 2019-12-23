@@ -2,10 +2,10 @@
 
 use {
     async_std::{prelude::*, stream, task},
-    bank::DogProxy,
+    bank::{DogProxy, GovementProxy},
     futures::future::join_all,
     log::{error, info},
-    servant::{OutOfBandProxy, PushMessage, Terminal},
+    servant::{PushMessage, Terminal},
     std::time::Duration,
 };
 
@@ -22,12 +22,12 @@ pub fn run(addr: String) {
             i += 1;
             let msg = format!("hello, #{}", i);
             let req = PushMessage::Hello { msg: msg.clone() };
-            if let Err(e) = terminal.push(req).await {
+            if let Err(e) = terminal.report(req).await {
                 error!("{}", e.to_string());
             }
 
-            let mut oob = terminal.proxy("oob".to_string(), OutOfBandProxy::new);
-            match oob.export().await {
+            let mut gov = GovementProxy::new(&terminal);
+            match gov.export().await {
                 Err(e) => error!("{}", e.to_string()),
                 Ok(v) => println!("{}:{}, {:?}", file!(), line!(), &v),
             }

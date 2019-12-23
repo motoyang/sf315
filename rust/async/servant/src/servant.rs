@@ -7,7 +7,7 @@ use {
 
 // --
 
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ServantError {
     desc: String,
 }
@@ -72,10 +72,10 @@ impl ServantRegister {
             })
         }
     }
-    pub fn set_out_of_band(&mut self, out_of_band: Box<dyn Servant>) {
-        self.out_of_band.replace(out_of_band);
+    pub fn set_root_servant(&mut self, root: Box<dyn Servant>) {
+        self.out_of_band.replace(root);
     }
-    pub fn out_of_band(&mut self) -> Option<&mut Box<dyn Servant>> {
+    pub fn root_servant(&mut self) -> Option<&mut Box<dyn Servant>> {
         self.out_of_band.as_mut()
     }
     pub fn find(&mut self, oid: &Oid) -> Option<&mut Box<dyn Servant>> {
@@ -100,10 +100,6 @@ pub trait Servant {
     fn serve(&mut self, req: Vec<u8>) -> ServantResult<Vec<u8>>;
 }
 
-pub trait OutOfBand {
-    fn export(&self) -> Vec<Oid>;
-}
-
 // --
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -112,18 +108,10 @@ pub enum PushMessage {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub enum OutOfBandRequest {
-    Export {},
-}
-#[derive(Debug, Serialize, Deserialize)]
-pub enum OutOfBandResponse {
-    Export { oid_list: Vec<Oid> },
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub enum Record {
-    Push {
+    Report {
         id: usize,
+        // oid: Option<Oid>,
         msg: PushMessage,
     },
     Invoke {

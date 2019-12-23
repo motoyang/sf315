@@ -14,7 +14,7 @@ use {
 // --
 
 struct GovementEntry{
-    premier: String
+    _premier: String
 }
 
 impl Govement for GovementEntry {
@@ -54,8 +54,8 @@ impl Dog for Somedog {
 
 pub fn run(remote_addr: impl ToSocketAddrs) -> ServantResult<()> {
     let register = ServantRegister::instance();
-    register.set_out_of_band(Box::new(GovementServant::new("Chin@".to_string(),
-        GovementEntry {premier: "Mr. Lee".to_string()}
+    register.set_root_servant(Box::new(GovementServant::new("Chin@".to_string(),
+        GovementEntry {_premier: "Mr. Lee".to_string()}
     )));
     register.add(Box::new(DogServant::new(
         "dog1".to_string(),
