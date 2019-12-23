@@ -569,11 +569,12 @@ pub fn report_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
 
         #[allow(unused)]
         #[derive(Clone, Debug)]
-        pub struct #proxy_ident(Terminal);
+        pub struct #proxy_ident(Oid, Terminal);
 
         impl #proxy_ident {
-            pub fn new(t: &Terminal) -> Self {
-                Self(t.clone())
+            pub fn new(name: String, t: &Terminal) -> Self {
+                let oid = Oid::new(name, stringify!(#ident).to_string());
+                Self(oid, t.clone())
             }
 
             #(
@@ -582,13 +583,12 @@ pub fn report_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
                 &mut self,
                 #(#inputs_vec)*
             ) -> ServantResult<()> {
-
                 let request =  #request_ident_vect::#idents_camel_vec { #(#args_vec)* };
                 let response = self
-                    .0
-                    .invoke(None, bincode::serialize(&request).unwrap())
-                    .await?;
-                Ok(bincode::deserialize(&response).unwrap())
+                    .1
+                    .report(self.0.clone(), bincode::serialize(&request).unwrap())
+                    .await;
+                response
             }
             )*
 

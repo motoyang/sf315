@@ -6,12 +6,27 @@ use {
         prelude::*,
         task,
     },
-    bank::{Dog, DogServant, Govement, GovementServant},
+    bank::{Dog, DogServant, Govement, GovementServant, Pusher, PusherServant},
     log::info,
     servant::{Adapter, Oid, ServantRegister, ServantResult},
 };
 
 // --
+
+struct Receiver;
+
+impl Pusher for Receiver {
+    fn f1(&self, count: i32) {
+        dbg!(count);
+    }
+    fn f2(&self) {
+        dbg!("f2 called");
+    }
+    fn f3(&mut self, s: String) {
+        dbg!(s);
+    }
+
+}
 
 struct GovementEntry{
     _premier: String
@@ -41,6 +56,7 @@ impl Dog for Somedog {
     }
 
     fn owner(&self) -> Oid {
+        std::thread::sleep(std::time::Duration::from_secs(8));
         Oid::new("Tom".to_string(), "Person".to_string())
     }
 
@@ -64,6 +80,10 @@ pub fn run(remote_addr: impl ToSocketAddrs) -> ServantResult<()> {
             name: "lg1".to_string(),
             wawa: "woo...".to_string(),
         },
+    )));
+    register.add(Box::new(PusherServant::new(
+        "receiver".to_string(),
+        Receiver,
     )));
 
     let r = task::block_on(accept_on(remote_addr));

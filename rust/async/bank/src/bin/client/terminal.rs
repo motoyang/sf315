@@ -2,10 +2,10 @@
 
 use {
     async_std::{prelude::*, stream, task},
-    bank::{DogProxy, GovementProxy},
+    bank::{DogProxy, GovementProxy, PusherProxy},
     futures::future::join_all,
     log::{error, info},
-    servant::{PushMessage, Terminal},
+    servant::{Terminal},
     std::time::Duration,
 };
 
@@ -21,8 +21,11 @@ pub fn run(addr: String) {
         while let Some(_) = interval.next().await {
             i += 1;
             let msg = format!("hello, #{}", i);
-            let req = PushMessage::Hello { msg: msg.clone() };
-            if let Err(e) = terminal.report(req).await {
+            let mut pusher = terminal.proxy("receiver".to_string(), PusherProxy::new);
+            if let Err(e) = pusher.f1(i as i32).await {
+                error!("{}", e.to_string());
+            }
+            if let Err(e) = pusher.f3(msg).await {
                 error!("{}", e.to_string());
             }
 

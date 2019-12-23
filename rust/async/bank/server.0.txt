@@ -1,2 +1,2 @@
-2019-12-23 15:56:14.541055 INFO  [elog::ring_logger::logger:/home/xt/dev/rust/level_1/elog/src/ring_logger/logger.rs:42] start of ring-logger
-2019-12-23 15:56:18.846753 INFO  [server::adapter:bank/src/bin/server/adapter.rs:80] Accepting from: 127.0.0.1:55898
+2019-12-23 18:52:20.292687 INFO  [elog::ring_logger::logger:/home/xt/dev/rust/level_1/elog/src/ring_logger/logger.rs:42] start of ring-logger
+2019-12-23 18:52:23.097299 INFO  [server::adapter:bank/src/bin/server/adapter.rs:100] Accepting from: 127.0.0.1:56264

@@ -1,4 +1,10 @@
-2019-12-23 15:56:18.845181 INFO  [elog::ring_logger::logger:/home/xt/dev/rust/level_1/elog/src/ring_logger/logger.rs:42] start of ring-logger
-2019-12-23 15:56:22.857172 INFO  [servant::terminal:servant/src/terminal.rs:195] terminal quit.
-2019-12-23 15:56:22.858188 INFO  [client::terminal:bank/src/bin/client/terminal.rs:63] run result: [Ok(())]
-2019-12-23 15:56:22.858581 INFO  [elog::ring_logger::logger:/home/xt/dev/rust/level_1/elog/src/ring_logger/logger.rs:50] end of ring-logger
+2019-12-23 18:52:23.095945 INFO  [elog::ring_logger::logger:/home/xt/dev/rust/level_1/elog/src/ring_logger/logger.rs:42] start of ring-logger
+2019-12-23 18:52:29.103887 ERROR [client::terminal:bank/src/bin/client/terminal.rs:46] Servant(timed_out.)
+2019-12-23 18:52:32.105471 ERROR [servant::terminal:servant/src/terminal.rs:221] Servant(can't find id: 3 in request map.)
+2019-12-23 18:52:37.194433 ERROR [client::terminal:bank/src/bin/client/terminal.rs:46] Servant(timed_out.)
+2019-12-23 18:52:40.196122 ERROR [servant::terminal:servant/src/terminal.rs:221] Servant(can't find id: 8 in request map.)
+2019-12-23 18:52:45.283411 ERROR [client::terminal:bank/src/bin/client/terminal.rs:46] Servant(timed_out.)
+2019-12-23 18:52:48.284822 ERROR [servant::terminal:servant/src/terminal.rs:221] Servant(can't find id: 13 in request map.)
+2019-12-23 18:52:49.329853 INFO  [servant::terminal:servant/src/terminal.rs:195] terminal quit.
+2019-12-23 18:52:49.330651 INFO  [client::terminal:bank/src/bin/client/terminal.rs:66] run result: [Ok(())]
+2019-12-23 18:52:49.331021 INFO  [elog::ring_logger::logger:/home/xt/dev/rust/level_1/elog/src/ring_logger/logger.rs:50] end of ring-logger

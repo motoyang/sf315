@@ -17,5 +17,5 @@ mod terminal;
 // --
 
 pub use adapter::Adapter;
-pub use servant::{Oid, PushMessage, Servant, ServantError, ServantRegister, ServantResult};
+pub use servant::{Oid, Servant, ServantError, ServantRegister, ServantResult};
 pub use terminal::Terminal;

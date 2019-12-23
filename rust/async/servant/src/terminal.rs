@@ -3,7 +3,7 @@
 use {
     super::{
         drop_guard::DropGuard,
-        servant::{Oid, PushMessage, Record, ServantResult},
+        servant::{Oid, Record, ServantResult},
     },
     async_std::{
         net::{TcpStream, ToSocketAddrs},
@@ -78,11 +78,11 @@ impl Terminal {
         let mut g = self.0.lock().await;
         g.sender = tx;
     }
-    pub async fn report(&mut self, msg: PushMessage) -> ServantResult<()> {
+    pub async fn report(&mut self, oid: Oid, msg: Vec<u8>) -> ServantResult<()> {
         let mut g = self.0.lock().await;
         g.report_id += 1;
         if let Some(mut tx) = g.sender.as_ref() {
-            let record = Record::Report { id: g.report_id, msg };
+            let record = Record::Report { id: g.report_id, oid, msg };
             if let Err(e) = tx.send(record).await {
                 Err(e.to_string().into())
             } else {
@@ -141,8 +141,8 @@ impl Terminal {
     }
     async fn received(&mut self, record: Record) -> ServantResult<()> {
         match record {
-            Record::Report { id, msg } => {
-                dbg!((id, msg));
+            Record::Report { id, oid, msg } => {
+                dbg!((id, oid, msg));
             }
             Record::Return { id, oid, ret } => {
                 let _oid = oid;

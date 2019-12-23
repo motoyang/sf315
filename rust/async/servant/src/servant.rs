@@ -101,18 +101,18 @@ pub trait Servant {
 }
 
 // --
-
+/*
 #[derive(Debug, Serialize, Deserialize)]
 pub enum PushMessage {
     Hello { msg: String },
 }
-
+*/
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Record {
     Report {
         id: usize,
-        // oid: Option<Oid>,
-        msg: PushMessage,
+        oid: Oid,
+        msg: Vec<u8>,
     },
     Invoke {
         id: usize,

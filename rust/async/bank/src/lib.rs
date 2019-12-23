@@ -29,5 +29,5 @@ pub trait Govement {
 pub trait Pusher {
     fn f1(&self, count: i32);
     fn f2(&self);
-    fn f3(&mut self, i: u32) -> u32;
+    fn f3(&mut self, s: String);
 }

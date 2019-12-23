@@ -1,10 +1,7 @@
 // -- adapter.rs --
 
 use {
-    super::servant::{
-        Oid, PushMessage, Record, ServantRegister,
-        ServantResult,
-    },
+    super::servant::{Oid, Record, ServantRegister, ServantResult},
     async_std::{
         net::TcpStream,
         prelude::*,
@@ -27,7 +24,7 @@ use {
 type Tx = UnboundedSender<Record>;
 struct _Adapter {
     tx: Option<Tx>,
-    push_id: usize,
+    _push_id: usize,
 }
 
 pub struct Adapter(Arc<Mutex<_Adapter>>);
@@ -35,20 +32,25 @@ impl Adapter {
     pub fn new() -> Self {
         let adapter = _Adapter {
             tx: None,
-            push_id: 0,
+            _push_id: 0,
         };
         Self(Arc::new(Mutex::new(adapter)))
     }
     async fn received(&mut self, record: Record) -> ServantResult<()> {
         match record {
-            Record::Report { id, msg } => {
-                dbg!((&id, &msg));
-                self.push(msg)
-                    .await
-                    .unwrap_or_else(|e| error!("{}", e.to_string()));
+            Record::Report { id, oid, msg } => {
+                let _id = id;
+                if let Some(servant) = ServantRegister::instance().find(&oid) {
+                    servant.serve(msg).unwrap_or_else(|e| {
+                        error!("{}", e.to_string());
+                        Vec::new()
+                    });
+                } else {
+                    warn!("can't find oid {} in register.", oid);
+                }
             }
             Record::Invoke { id, oid, req } => {
-                dbg!((&id, &oid, &req));
+                // dbg!((&id, &oid, &req));
                 let ret = if let Some(oid) = &oid {
                     if let Some(servant) = ServantRegister::instance().find(oid) {
                         servant.serve(req)
@@ -87,20 +89,22 @@ impl Adapter {
             Err("sender is none.".into())
         }
     }
-    pub async fn push(&mut self, msg: PushMessage) -> ServantResult<()> {
-        let mut g = self.0.lock().await;
-        g.push_id += 1;
-        if let Some(mut tx) = g.tx.as_ref() {
-            let record = Record::Report { id: g.push_id, msg };
-            if let Err(e) = tx.send(record).await {
-                Err(e.to_string().into())
+    /*
+        pub async fn push(&mut self, msg: PushMessage) -> ServantResult<()> {
+            let mut g = self.0.lock().await;
+            g.push_id += 1;
+            if let Some(mut tx) = g.tx.as_ref() {
+                let record = Record::Report { id: g.push_id, msg };
+                if let Err(e) = tx.send(record).await {
+                    Err(e.to_string().into())
+                } else {
+                    Ok(())
+                }
             } else {
-                Ok(())
+                Err("sender is none.".into())
             }
-        } else {
-            Err("sender is none.".into())
         }
-    }
+    */
     pub async fn run(mut self, stream: TcpStream) -> std::io::Result<()> {
         enum SelectedValue {
             None,
