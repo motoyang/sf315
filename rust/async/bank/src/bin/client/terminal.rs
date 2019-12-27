@@ -17,7 +17,7 @@ pub fn run(addr: String) {
 
     task::block_on(async {
         let mut i = 0_usize;
-        let mut interval = stream::interval(Duration::from_secs(1)).take(3);
+        let mut interval = stream::interval(Duration::from_secs(5)).take(3);
         while let Some(_) = interval.next().await {
             i += 1;
             let msg = format!("hello, #{}", i);

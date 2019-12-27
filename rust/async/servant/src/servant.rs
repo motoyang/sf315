@@ -3,6 +3,7 @@
 use {
     serde::{Deserialize, Serialize},
     std::{collections::HashMap, error::Error},
+    std::sync::{Arc, Mutex}
 };
 
 // --
@@ -56,39 +57,50 @@ impl std::fmt::Display for Oid {
 
 // --
 
-pub struct ServantRegister {
-    m: HashMap<Oid, Box<dyn Servant>>,
-    out_of_band: Option<Box<dyn Servant>>,
+lazy_static! {
+    static ref REGISTER: ServantRegister = ServantRegister(Mutex::new(_ServantRegister {
+        servants: HashMap::new(),
+        query: None
+    }));
 }
 
-impl ServantRegister {
-    pub fn instance() -> &'static mut ServantRegister {
-        static mut REGISTER: Option<ServantRegister> = None;
+pub struct _ServantRegister {
+    servants: HashMap<Oid, Arc<Mutex<dyn Servant + Send>>>,
+    query: Option<Arc<Mutex<dyn Servant + Send>>>,
+}
 
-        unsafe {
-            REGISTER.get_or_insert_with(|| ServantRegister {
-                m: HashMap::new(),
-                out_of_band: None,
-            })
+pub struct ServantRegister(Mutex<_ServantRegister>);
+impl ServantRegister {
+    pub fn instance() -> &'static Self {
+        &REGISTER
+    }
+    pub fn set_query_servant(&self, query: Arc<Mutex<dyn Servant + Send>>) {
+        let mut g = self.0.lock().unwrap();
+        g.query.replace(query);
+    }
+    pub fn query_servant(&self) -> Arc<Mutex<dyn Servant>> {
+        let g = self.0.lock().unwrap();
+        g.query.as_ref().unwrap().clone()
+    }
+    pub fn find(&self, oid: &Oid) -> Option<Arc<Mutex<dyn Servant>>> {
+        let g = self.0.lock().unwrap();
+        if let Some(s) = g.servants.get(&oid) {
+            Some(s.clone())
+        } else {
+            None
         }
     }
-    pub fn set_root_servant(&mut self, root: Box<dyn Servant>) {
-        self.out_of_band.replace(root);
+    pub fn add(&self, obj: Arc<Mutex<dyn Servant + Send>>) {
+        let oid = {
+            let g = obj.lock().unwrap();
+            Oid::new(String::from(g.name()), String::from(g.category()))
+        };
+        let mut g = self.0.lock().unwrap();
+        g.servants.insert(oid, obj);
     }
-    pub fn root_servant(&mut self) -> Option<&mut Box<dyn Servant>> {
-        self.out_of_band.as_mut()
-    }
-    pub fn find(&mut self, oid: &Oid) -> Option<&mut Box<dyn Servant>> {
-        self.m.get_mut(&oid)
-    }
-
-    pub fn add(&mut self, obj: Box<dyn Servant>) {
-        let oid = Oid::new(String::from(obj.name()), String::from(obj.category()));
-        self.m.insert(oid, obj);
-    }
-
     pub fn export(&self) -> Vec<Oid> {
-        self.m.keys().map(|x| x.clone()).collect()
+        let g = self.0.lock().unwrap();
+        g.servants.keys().map(|x| x.clone()).collect()
     }
 }
 
@@ -101,14 +113,13 @@ pub trait Servant {
 }
 
 // --
-/*
-#[derive(Debug, Serialize, Deserialize)]
-pub enum PushMessage {
-    Hello { msg: String },
-}
-*/
-#[derive(Debug, Serialize, Deserialize)]
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Record {
+    Notice {
+        id: usize,
+        msg: Vec<u8>
+    },
     Report {
         id: usize,
         oid: Oid,

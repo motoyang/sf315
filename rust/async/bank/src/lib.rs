@@ -31,3 +31,10 @@ pub trait Pusher {
     fn f2(&self);
     fn f3(&mut self, s: String);
 }
+
+#[servant_interface::notify_interface]
+pub trait StockNews {
+    fn f1(&self, count: i32);
+    fn f2(&self, msg: String);
+    fn f3(&mut self, count: usize, f: f64, b: Option<bool>, s: Vec<String>);
+}

@@ -141,8 +141,8 @@ impl Terminal {
     }
     async fn received(&mut self, record: Record) -> ServantResult<()> {
         match record {
-            Record::Report { id, oid, msg } => {
-                dbg!((id, oid, msg));
+            Record::Notice {id, msg} => {
+                dbg!(&id, &msg);
             }
             Record::Return { id, oid, ret } => {
                 let _oid = oid;
@@ -163,6 +163,7 @@ impl Terminal {
                     return Err(format!("can't find id: {} in request map.", id).into());
                 }
             }
+            Record::Report { .. } => unreachable!(),
             Record::Invoke { .. } => unreachable!(),
         }
         Ok(())

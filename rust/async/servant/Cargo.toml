@@ -16,6 +16,8 @@ futures = "^0.3.1"
 codec = { path = "../codec" }
 serde = { version = "^1.0",features = ["derive"]}
 bincode = { version = "^1.2.1" }
+lazy_static = "^1.4.0"
+# crossbeam-channel = "^0.4.0"
 
 [dependencies.async-std]
 version = "^1.3"
