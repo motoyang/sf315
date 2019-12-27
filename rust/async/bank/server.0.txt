@@ -1,9 +1,0 @@
-2019-12-27 12:59:14.464723 INFO  [elog::ring_logger::logger:/home/xt/dev/rust/level_1/elog/src/ring_logger/logger.rs:42] start of ring-logger
-2019-12-27 12:59:22.198310 INFO  [server::adapter:bank/src/bin/server/adapter.rs:116] Accepting from: 127.0.0.1:42020
-2019-12-27 12:59:25.591481 INFO  [server::adapter:bank/src/bin/server/adapter.rs:116] Accepting from: 127.0.0.1:42022
-2019-12-27 12:59:38.247227 INFO  [servant::adapter:servant/src/adapter.rs:44] adapter for (127.0.0.1:42020) quit.
-2019-12-27 12:59:41.637224 INFO  [servant::adapter:servant/src/adapter.rs:44] adapter for (127.0.0.1:42022) quit.
-2019-12-27 12:59:41.699136 INFO  [server::adapter:bank/src/bin/server/adapter.rs:116] Accepting from: 127.0.0.1:42026
-2019-12-27 12:59:44.287242 INFO  [server::adapter:bank/src/bin/server/adapter.rs:116] Accepting from: 127.0.0.1:42028
-2019-12-27 12:59:57.747133 INFO  [servant::adapter:servant/src/adapter.rs:44] adapter for (127.0.0.1:42026) quit.
-2019-12-27 13:00:00.335614 INFO  [servant::adapter:servant/src/adapter.rs:44] adapter for (127.0.0.1:42028) quit.

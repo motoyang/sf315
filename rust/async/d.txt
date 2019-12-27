@@ -1,0 +1,257 @@
+只在 . 存在：-
+只在 /home/xt/dev/rust/async/bank 存在：a.rs
+只在 /home/xt/dev/rust/async/bank 存在：client.0.txt
+只在 /home/xt/dev/rust/async/bank 存在：server.0.txt
+diff -ur ./bank/src/bin/client/terminal.rs /home/xt/dev/rust/async/bank/src/bin/client/terminal.rs
+--- ./bank/src/bin/client/terminal.rs	2019-12-27 13:00:31.614738082 +0800
++++ /home/xt/dev/rust/async/bank/src/bin/client/terminal.rs	2019-12-27 14:15:20.532965925 +0800
+@@ -2,18 +2,42 @@
+ 
+ use {
+     async_std::{prelude::*, stream, task},
+-    bank::{DogProxy, GovementProxy, PusherProxy},
++    bank::{DogProxy, GovementProxy, PusherProxy, StockNews, StockNewsReceiver},
+     futures::future::join_all,
+     log::{error, info},
+-    servant::{Terminal},
+-    std::time::Duration,
++    servant::Terminal,
++    std::{time::Duration, rc::Rc},
+ };
+ 
+ // --
+ 
++#[derive(Clone)]
++struct News;
++impl StockNews for News {
++    fn f1(&self, count: i32) {
++        dbg!(count);
++    }
++    fn f2(&self, msg: String) {
++        dbg!(msg);
++    }
++    fn f3(&mut self, count: usize, f: f64, b: Option<bool>, s: Vec<String>) {
++        dbg!(count, f, b, s);
++    }
++}
++
++// pub trait StockNews {
++//     fn f1(&self, count: i32);
++//     fn f2(&self, msg: String);
++//     fn f3(&mut self, count: usize, f: f64, b: Option<bool>, s: Vec<String>);
++// }
++
++// --
++
+ pub fn run(addr: String) {
+-    let mut terminal = Terminal::new(2);
+-    let terminal_handle = task::spawn(terminal.clone().run(addr));
++    let receiver = Rc::new(StockNewsReceiver::new("stock receiver".to_string(), News));
++    let mut terminal = Terminal::new(2, receiver);
++    let t2 = terminal.clone();
++    let terminal_handle = task::spawn(t2.run(addr));
+ 
+     task::block_on(async {
+         let mut i = 0_usize;
+diff -ur ./bank/src/bin/server/adapter.rs /home/xt/dev/rust/async/bank/src/bin/server/adapter.rs
+--- ./bank/src/bin/server/adapter.rs	2019-12-27 13:00:31.614738082 +0800
++++ /home/xt/dev/rust/async/bank/src/bin/server/adapter.rs	2019-12-27 13:45:51.915421680 +0800
+@@ -15,6 +15,7 @@
+ 
+ // --
+ 
++#[derive(Clone)]
+ struct Receiver;
+ 
+ impl Pusher for Receiver {
+@@ -29,6 +30,7 @@
+     }
+ }
+ 
++#[derive(Clone)]
+ struct GovementEntry {
+     _premier: String,
+ }
+diff -ur ./bank/src/lib.rs /home/xt/dev/rust/async/bank/src/lib.rs
+--- ./bank/src/lib.rs	2019-12-27 13:00:31.614738082 +0800
++++ /home/xt/dev/rust/async/bank/src/lib.rs	2019-12-27 13:46:56.032203731 +0800
+@@ -21,19 +21,19 @@
+ }
+ 
+ #[servant_interface::query_interface]
+-pub trait Govement {
++pub trait Govement: Clone {
+     fn export(&self) -> Vec<Oid>;
+ }
+ 
+ #[servant_interface::report_interface]
+-pub trait Pusher {
++pub trait Pusher: Clone {
+     fn f1(&self, count: i32);
+     fn f2(&self);
+     fn f3(&mut self, s: String);
+ }
+ 
+ #[servant_interface::notify_interface]
+-pub trait StockNews {
++pub trait StockNews: Clone {
+     fn f1(&self, count: i32);
+     fn f2(&self, msg: String);
+     fn f3(&mut self, count: usize, f: f64, b: Option<bool>, s: Vec<String>);
+只在 /home/xt/dev/rust/async/bank 存在：stock_news.txt
+只在 . 存在：d.txt
+diff -ur ./servant/src/servant.rs /home/xt/dev/rust/async/servant/src/servant.rs
+--- ./servant/src/servant.rs	2019-12-27 13:00:31.614738082 +0800
++++ /home/xt/dev/rust/async/servant/src/servant.rs	2019-12-27 14:21:39.395727155 +0800
+@@ -106,7 +106,40 @@
+ 
+ // --
+ 
+-pub trait Servant {
++trait ServantClone {
++    fn clone_box(&self) -> Box<dyn Servant>;
++}
++
++impl<T> ServantClone for T
++where
++    T: 'static + Servant + Clone,
++{
++    fn clone_box(&self) -> Box<dyn Servant> {
++        Box::new(self.clone())
++    }
++}
++
++impl Clone for Box<dyn Servant> {
++    fn clone(&self) -> Box<dyn Servant> {
++        self.clone_box()
++    }
++}
++
++impl std::fmt::Debug for Box<dyn Servant> {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        // (*self.
++        write!(f, "(Box<dyn Servant>)")
++    }
++}
++
++// impl std::fmt::Debug for std::rc::Rc<dyn Servant> {
++//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++//         // (*self.
++//         write!(f, "(Rc<dyn Servant>)")
++//     }
++// }
++
++pub trait Servant: ServantClone {
+     fn name(&self) -> &str;
+     fn category(&self) -> &'static str;
+     fn serve(&mut self, req: Vec<u8>) -> ServantResult<Vec<u8>>;
+diff -ur ./servant/src/terminal.rs /home/xt/dev/rust/async/servant/src/terminal.rs
+--- ./servant/src/terminal.rs	2019-12-27 13:00:31.614738082 +0800
++++ /home/xt/dev/rust/async/servant/src/terminal.rs	2019-12-27 14:30:22.956083391 +0800
+@@ -3,7 +3,7 @@
+ use {
+     super::{
+         drop_guard::DropGuard,
+-        servant::{Oid, Record, ServantResult},
++        servant::{Oid, Record, ServantResult, Servant},
+     },
+     async_std::{
+         net::{TcpStream, ToSocketAddrs},
+@@ -25,6 +25,7 @@
+         collections::HashMap,
+         sync::{Condvar, Mutex as StdMutex},
+         time::Duration,
++        rc::Rc
+     },
+ };
+ 
+@@ -39,7 +40,7 @@
+ type Token = Arc<_Token>;
+ type TokenMap = HashMap<usize, Token>;
+ type TokenPool = Vec<Token>;
+-#[derive(Debug, Clone)]
++#[derive(Clone)]
+ struct _Terminal {
+     max_req_id: usize,
+     req_id: usize,
+@@ -47,9 +48,10 @@
+     sender: Option<Tx>,
+     pool: TokenPool,
+     map: TokenMap,
++    // receiver: Rc<dyn Servant>
+ }
+ 
+-#[derive(Debug, Clone)]
++#[derive(Clone)]
+ pub struct Terminal(Arc<Mutex<_Terminal>>);
+ impl Terminal {
+     pub fn new(max_req_id: usize) -> Self {
+@@ -60,6 +62,7 @@
+             sender: None,
+             pool: TokenPool::new(),
+             map: TokenMap::new(),
++            // receiver
+         };
+         for _ in 0..t.max_req_id {
+             let r = _Token {
+@@ -143,6 +146,9 @@
+         match record {
+             Record::Notice {id, msg} => {
+                 dbg!(&id, &msg);
++                let mut g = self.0.lock().await;
++                Rc::get_mut(&mut g.receiver).unwrap().serve(msg);
++                // g.receiver.serve(msg);
+             }
+             Record::Return { id, oid, ret } => {
+                 let _oid = oid;
+@@ -191,12 +197,12 @@
+ 
+         let (tx, mut rx) = unbounded();
+         self.set_tx(Some(tx)).await;
+-        let _terminal_clean = DropGuard::new(self.clone(), |mut t| {
+-            task::block_on(async move {
+-                info!("terminal quit.");
+-                t.clean().await;
+-            });
+-        });
++        // let _terminal_clean = DropGuard::new(self.clone(), |mut t| {
++        //     task::block_on(async move {
++        //         info!("terminal quit.");
++        //         t.clean().await;
++        //     });
++        // });
+ 
+         pin_mut!(read_framed);
+         loop {
+diff -ur ./servant_interface/src/lib.rs /home/xt/dev/rust/async/servant_interface/src/lib.rs
+--- ./servant_interface/src/lib.rs	2019-12-27 13:00:31.614738082 +0800
++++ /home/xt/dev/rust/async/servant_interface/src/lib.rs	2019-12-27 14:26:11.440158807 +0800
+@@ -174,7 +174,7 @@
+         }
+ 
+         #[allow(unused)]
+-        #[derive(Clone, Debug)]
++        // #[derive(Clone, Debug)]
+         pub struct #proxy_ident(Oid, Terminal);
+ 
+         impl #proxy_ident {
+@@ -359,7 +359,7 @@
+         }
+ 
+         #[allow(unused)]
+-        #[derive(Clone, Debug)]
++        // #[derive(Clone, Debug)]
+         pub struct #proxy_ident(Oid, Terminal);
+ 
+         impl #proxy_ident {
+@@ -549,7 +549,7 @@
+         }
+ 
+         #[allow(unused)]
+-        #[derive(Clone, Debug)]
++        // #[derive(Clone, Debug)]
+         pub struct #proxy_ident(Terminal);
+ 
+         impl #proxy_ident {
+只在 /home/xt/dev/rust/async/ss 存在：examples
+只在 /home/xt/dev/rust/async/ 存在：target

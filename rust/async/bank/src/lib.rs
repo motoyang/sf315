@@ -9,7 +9,7 @@ extern crate servant_interface;
 
 // --
 
-use servant::{Oid, Servant, ServantResult, Terminal};
+use servant::{Oid, Servant, ServantResult, Terminal, NotifyServant};
 
 // std::include!("person.rs");
 
@@ -33,7 +33,7 @@ pub trait Pusher {
 }
 
 #[servant_interface::notify_interface]
-pub trait StockNews {
+pub trait StockNews: Clone {
     fn f1(&self, count: i32);
     fn f2(&self, msg: String);
     fn f3(&mut self, count: usize, f: f64, b: Option<bool>, s: Vec<String>);

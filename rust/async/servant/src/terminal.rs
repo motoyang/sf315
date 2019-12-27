@@ -3,7 +3,7 @@
 use {
     super::{
         drop_guard::DropGuard,
-        servant::{Oid, Record, ServantResult},
+        servant::{Oid, Record, ServantResult, NotifyServant},
     },
     async_std::{
         net::{TcpStream, ToSocketAddrs},
@@ -47,12 +47,13 @@ struct _Terminal {
     sender: Option<Tx>,
     pool: TokenPool,
     map: TokenMap,
+    receiver: Box<dyn NotifyServant + Send>
 }
 
 #[derive(Debug, Clone)]
 pub struct Terminal(Arc<Mutex<_Terminal>>);
 impl Terminal {
-    pub fn new(max_req_id: usize) -> Self {
+    pub fn new(max_req_id: usize, receiver: Box<dyn NotifyServant + Send>) -> Self {
         let mut t = _Terminal {
             max_req_id,
             req_id: 0,
@@ -60,6 +61,7 @@ impl Terminal {
             sender: None,
             pool: TokenPool::new(),
             map: TokenMap::new(),
+            receiver
         };
         for _ in 0..t.max_req_id {
             let r = _Token {
@@ -93,20 +95,20 @@ impl Terminal {
         }
     }
     pub async fn invoke(&mut self, oid: Option<Oid>, req: Vec<u8>) -> ServantResult<Vec<u8>> {
-        let (mut tx, index, request) = {
+        let (mut tx, index, token) = {
             let mut g = self.0.lock().await;
-            if let Some(req) = g.pool.pop() {
+            if let Some(tok) = g.pool.pop() {
                 g.req_id += 1;
                 let id = g.req_id;
-                g.map.insert(id, req.clone());
+                g.map.insert(id, tok.clone());
                 let tx = g.sender.as_ref().unwrap().clone();
-                (tx, g.req_id, req)
+                (tx, g.req_id, tok)
             } else {
-                return Err("request pool is empty.".into());
+                return Err("token pool is empty.".into());
             }
         };
 
-        let ret = match request.m.lock() {
+        let ret = match token.m.lock() {
             Ok(m) => {
                 assert_eq!(*m, None);
                 let record = Record::Invoke {
@@ -117,7 +119,7 @@ impl Terminal {
                 if let Err(e) = tx.send(record).await {
                     Err(e.to_string().into())
                 } else {
-                    match request.cv.wait_timeout(m, Duration::from_secs(5)) {
+                    match token.cv.wait_timeout(m, Duration::from_secs(5)) {
                         Ok(mut r) => {
                             if !r.1.timed_out() {
                                 Ok(r.0.take().unwrap())
@@ -142,25 +144,28 @@ impl Terminal {
     async fn received(&mut self, record: Record) -> ServantResult<()> {
         match record {
             Record::Notice {id, msg} => {
-                dbg!(&id, &msg);
+                let mut g = self.0.lock().await;
+                if let Err(e) = g.receiver.serve(msg) {
+                    warn!("id = {}, error: {}", id, e.to_string());
+                }
             }
             Record::Return { id, oid, ret } => {
                 let _oid = oid;
-                let request = {
+                let token = {
                     let mut g = self.0.lock().await;
                     g.map.remove(&id)
                 };
-                if let Some(request) = request {
+                if let Some(token) = token {
                     {
-                        let mut g = request.m.lock().unwrap();
+                        let mut g = token.m.lock().unwrap();
                         assert_eq!(*g, None);
                         g.replace(ret);
-                        request.cv.notify_one();
+                        token.cv.notify_one();
                     }
                     let mut g = self.0.lock().await;
-                    g.pool.push(request);
+                    g.pool.push(token);
                 } else {
-                    return Err(format!("can't find id: {} in request map.", id).into());
+                    return Err(format!("can't find id: {} in token map.", id).into());
                 }
             }
             Record::Report { .. } => unreachable!(),
@@ -189,7 +194,7 @@ impl Terminal {
         let read_framed = FramedRead::new(reader, LengthCodec::<u32>::default());
         let mut write_framed = FramedWrite::new(writer, LengthCodec::<u32>::default());
 
-        let (tx, mut rx) = unbounded();
+        let (tx, rx) = unbounded();
         self.set_tx(Some(tx)).await;
         let _terminal_clean = DropGuard::new(self.clone(), |mut t| {
             task::block_on(async move {
@@ -198,7 +203,7 @@ impl Terminal {
             });
         });
 
-        pin_mut!(read_framed);
+        pin_mut!(read_framed, rx);
         loop {
             let value = select! {
                 read_msg = read_framed.next().fuse() => match read_msg {
@@ -249,21 +254,3 @@ impl Terminal {
         f(name, self)
     }
 }
-/*
-pub struct OutOfBandProxy(Terminal);
-impl OutOfBandProxy {
-    pub fn new(name: String, t: Terminal) -> Self {
-        let _oid = Oid::new(name, "OutOfBand".to_string());
-        Self(t.clone())
-    }
-    #[allow(unused)]
-    pub async fn export(&mut self) -> ServantResult<Vec<Oid>> {
-        let request = OutOfBandRequest::Export {};
-        let response = self
-            .0
-            .invoke(None, bincode::serialize(&request).unwrap())
-            .await?;
-        Ok(bincode::deserialize(&response).unwrap())
-    }
-}
-*/

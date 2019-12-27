@@ -2,18 +2,36 @@
 
 use {
     async_std::{prelude::*, stream, task},
-    bank::{DogProxy, GovementProxy, PusherProxy},
+    bank::{DogProxy, GovementProxy, PusherProxy, StockNews, StockNewsReceiver},
     futures::future::join_all,
     log::{error, info},
-    servant::{Terminal},
+    servant::Terminal,
     std::time::Duration,
 };
 
 // --
 
+#[derive(Clone)]
+struct News;
+impl StockNews for News {
+    fn f1(&self, count: i32) {
+        dbg!(count);
+    }
+    fn f2(&self, msg: String) {
+        dbg!(msg);
+    }
+    fn f3(&mut self, count: usize, f: f64, b: Option<bool>, s: Vec<String>) {
+        dbg!(count, f, b, s);
+    }
+}
+
+// --
+
 pub fn run(addr: String) {
-    let mut terminal = Terminal::new(2);
-    let terminal_handle = task::spawn(terminal.clone().run(addr));
+    let receiver = Box::new(StockNewsReceiver::new("stock receiver".to_string(), News));
+    let mut terminal = Terminal::new(2, receiver);
+    let t2 = terminal.clone();
+    let terminal_handle = task::spawn(t2.run(addr));
 
     task::block_on(async {
         let mut i = 0_usize;

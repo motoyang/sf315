@@ -708,17 +708,10 @@ pub fn notify_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
                 Self { name, entity }
             }
         }
-        impl<S> Servant for #receiver_ident<S>
+        impl<S> NotifyServant for #receiver_ident<S>
         where
-            S: #ident + 'static,
+            S: #ident + 'static + Send,
         {
-            fn name(&self) -> &str {
-                &self.name
-            }
-            fn category(&self) -> &'static str {
-                stringify!(#ident)
-            }
-
             fn serve(&mut self, req: Vec<u8>) -> ServantResult<(Vec<u8>)> {
                 let req: #request_ident = bincode::deserialize(&req).unwrap();
                 let reps = match req {

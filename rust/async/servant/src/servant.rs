@@ -106,6 +106,36 @@ impl ServantRegister {
 
 // --
 
+pub trait ServantClone {
+    fn clone_box(&self) -> Box<dyn NotifyServant + Send>;
+}
+
+impl<T> ServantClone for T
+where
+    T: 'static + NotifyServant + Clone + Send,
+{
+    fn clone_box(&self) -> Box<dyn NotifyServant + Send> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn NotifyServant + Send> {
+    fn clone(&self) -> Box<dyn NotifyServant + Send> {
+        self.clone_box()
+    }
+}
+
+impl std::fmt::Debug for Box<dyn NotifyServant + Send> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // (*self.
+        write!(f, "(Box<dyn Servant>)")
+    }
+}
+
+pub trait NotifyServant: ServantClone {
+    fn serve(&mut self, req: Vec<u8>) -> ServantResult<Vec<u8>>;
+}
+
 pub trait Servant {
     fn name(&self) -> &str;
     fn category(&self) -> &'static str;

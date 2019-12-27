@@ -15,6 +15,7 @@ use {
 
 // --
 
+// #[derive(Clone)]
 struct Receiver;
 
 impl Pusher for Receiver {
@@ -29,6 +30,7 @@ impl Pusher for Receiver {
     }
 }
 
+// #[derive(Clone)]
 struct GovementEntry {
     _premier: String,
 }
