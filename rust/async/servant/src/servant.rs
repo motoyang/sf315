@@ -41,11 +41,11 @@ impl Oid {
     pub fn new(name: String, category: String) -> Self {
         Self { name, category }
     }
-    pub fn name(&self) -> String {
-        self.name.clone()
+    pub fn name(&self) -> &str {
+        &self.name
     }
-    pub fn category(&self) -> String {
-        self.category.clone()
+    pub fn category(&self) -> &str {
+        &self.category
     }
 }
 
@@ -60,13 +60,17 @@ impl std::fmt::Display for Oid {
 lazy_static! {
     static ref REGISTER: ServantRegister = ServantRegister(Mutex::new(_ServantRegister {
         servants: HashMap::new(),
+        report_servants: HashMap::new(),
         query: None
     }));
 }
 
+pub type ServantEntry = Arc<Mutex<dyn Servant + Send>>;
+pub type ReportServantEntry = Arc<Mutex<dyn ReportServant + Send>>;
 pub struct _ServantRegister {
-    servants: HashMap<Oid, Arc<Mutex<dyn Servant + Send>>>,
-    query: Option<Arc<Mutex<dyn Servant + Send>>>,
+    servants: HashMap<Oid, ServantEntry>,
+    report_servants: HashMap<Oid, ReportServantEntry>,
+    query: Option<ServantEntry>,
 }
 
 pub struct ServantRegister(Mutex<_ServantRegister>);
@@ -74,23 +78,23 @@ impl ServantRegister {
     pub fn instance() -> &'static Self {
         &REGISTER
     }
-    pub fn set_query_servant(&self, query: Arc<Mutex<dyn Servant + Send>>) {
+    pub fn set_query_servant(&self, query: ServantEntry) {
         let mut g = self.0.lock().unwrap();
         g.query.replace(query);
     }
-    pub fn query_servant(&self) -> Arc<Mutex<dyn Servant>> {
+    pub fn query_servant(&self) -> ServantEntry {
         let g = self.0.lock().unwrap();
         g.query.as_ref().unwrap().clone()
     }
-    pub fn find(&self, oid: &Oid) -> Option<Arc<Mutex<dyn Servant>>> {
+    pub fn find_servant(&self, oid: &Oid) -> Option<ServantEntry> {
         let g = self.0.lock().unwrap();
-        if let Some(s) = g.servants.get(&oid) {
-            Some(s.clone())
-        } else {
-            None
-        }
+        g.servants.get(&oid).map(|s| s.clone())
     }
-    pub fn add(&self, obj: Arc<Mutex<dyn Servant + Send>>) {
+    pub fn find_report_servant(&self, oid: &Oid) -> Option<ReportServantEntry> {
+        let g = self.0.lock().unwrap();
+        g.report_servants.get(&oid).map(|s| s.clone())
+    }
+    pub fn add_servant(&self, obj: ServantEntry) {
         let oid = {
             let g = obj.lock().unwrap();
             Oid::new(String::from(g.name()), String::from(g.category()))
@@ -98,14 +102,26 @@ impl ServantRegister {
         let mut g = self.0.lock().unwrap();
         g.servants.insert(oid, obj);
     }
-    pub fn export(&self) -> Vec<Oid> {
+    pub fn add_report_servant(&self, entry: ReportServantEntry) {
+        let oid = {
+            let g = entry.lock().unwrap();
+            Oid::new(String::from(g.name()), String::from(g.category()))
+        };
+        let mut g = self.0.lock().unwrap();
+        g.report_servants.insert(oid, entry);
+    }
+    pub fn export_servants(&self) -> Vec<Oid> {
         let g = self.0.lock().unwrap();
         g.servants.keys().map(|x| x.clone()).collect()
+    }
+    pub fn export_report_servants(&self) -> Vec<Oid> {
+        let g = self.0.lock().unwrap();
+        g.report_servants.keys().map(|x| x.clone()).collect()
     }
 }
 
 // --
-
+/*
 pub trait ServantClone {
     fn clone_box(&self) -> Box<dyn NotifyServant + Send>;
 }
@@ -127,19 +143,24 @@ impl Clone for Box<dyn NotifyServant + Send> {
 
 impl std::fmt::Debug for Box<dyn NotifyServant + Send> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // (*self.
-        write!(f, "(Box<dyn Servant>)")
+        write!(f, "(Box<dyn NotifyServant>)")
     }
 }
-
-pub trait NotifyServant: ServantClone {
-    fn serve(&mut self, req: Vec<u8>) -> ServantResult<Vec<u8>>;
+*/
+pub trait NotifyServant {
+    fn serve(&mut self, req: Vec<u8>);
 }
 
 pub trait Servant {
     fn name(&self) -> &str;
     fn category(&self) -> &'static str;
     fn serve(&mut self, req: Vec<u8>) -> ServantResult<Vec<u8>>;
+}
+
+pub trait ReportServant {
+    fn name(&self) -> &str;
+    fn category(&self) -> &'static str;
+    fn serve(&mut self, req: Vec<u8>);
 }
 
 // --
@@ -155,12 +176,12 @@ pub enum Record {
         oid: Oid,
         msg: Vec<u8>,
     },
-    Invoke {
+    Request {
         id: usize,
         oid: Option<Oid>,
         req: Vec<u8>,
     },
-    Return {
+    Response {
         id: usize,
         oid: Option<Oid>,
         ret: Vec<u8>,

@@ -134,12 +134,12 @@ pub fn invoke_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
             #(#methods)*
         }
 
-        #[derive(Debug, serde::Serialize, serde::Deserialize)]
+        #[derive(serde::Serialize, serde::Deserialize)]
         enum #request_ident {
             #(#idents_camel_vec { #(#inputs_vec)* },)*
         }
 
-        #[derive(Clone)]
+        // #[derive(Clone)]
         pub struct #servant_ident<S> {
             name: String,
             entity: S,
@@ -159,7 +159,6 @@ pub fn invoke_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
             fn category(&self) -> &'static str {
                 stringify!(#ident)
             }
-
             fn serve(&mut self, req: Vec<u8>) -> ServantResult<Vec<u8>> {
                 let req: #request_ident = bincode::deserialize(&req).unwrap();
                 let reps = match req {
@@ -173,8 +172,8 @@ pub fn invoke_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
             }
         }
 
-        #[allow(unused)]
-        #[derive(Clone, Debug)]
+        // #[allow(unused)]
+        #[derive(Clone)]
         pub struct #proxy_ident(Oid, Terminal);
 
         impl #proxy_ident {
@@ -184,7 +183,7 @@ pub fn invoke_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
             }
 
             #(
-            #[allow(unused)]
+            // #[allow(unused)]
             pub async fn #ident_vec(
                 &mut self,
                 #(#inputs_vec)*
@@ -310,8 +309,8 @@ pub fn report_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
         .iter()
         .map(|_| request_ident.clone())
         .collect();
-    let servant_ident = Ident::new(&format!("{}Servant", ident), ident.span());
-    let proxy_ident = Ident::new(&format!("{}Proxy", ident), ident.span());
+    let servant_ident = Ident::new(&format!("{}ReportServant", ident), ident.span());
+    let proxy_ident = Ident::new(&format!("{}ReportProxy", ident), ident.span());
 
     let output = quote! {
         #( #attrs )*
@@ -319,12 +318,12 @@ pub fn report_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
             #(#methods_vec)*
         }
 
-        #[derive(Debug, serde::Serialize, serde::Deserialize)]
+        #[derive(serde::Serialize, serde::Deserialize)]
         enum #request_ident {
             #(#idents_camel_vec { #(#inputs_vec)* },)*
         }
 
-        #[derive(Clone)]
+        // #[derive(Clone)]
         pub struct #servant_ident<S> {
             name: String,
             entity: S,
@@ -334,7 +333,7 @@ pub fn report_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
                 Self { name, entity }
             }
         }
-        impl<S> Servant for #servant_ident<S>
+        impl<S> ReportServant for #servant_ident<S>
         where
             S: #ident + 'static,
         {
@@ -344,22 +343,19 @@ pub fn report_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
             fn category(&self) -> &'static str {
                 stringify!(#ident)
             }
-
-            fn serve(&mut self, req: Vec<u8>) -> ServantResult<Vec<u8>> {
+            fn serve(&mut self, req: Vec<u8>) {
                 let req: #request_ident = bincode::deserialize(&req).unwrap();
-                let reps = match req {
+                match req {
                     #(
                         #request_ident_vect::#idents_camel_vec{ #(#args_vec)* } =>
-                            bincode::serialize(&self.entity.#ident_vec(#(#args_vec)*)),
+                            self.entity.#ident_vec(#(#args_vec)*),
                     )*
                 }
-                .unwrap();
-                Ok(reps)
             }
         }
 
-        #[allow(unused)]
-        #[derive(Clone, Debug)]
+        // #[allow(unused)]
+        #[derive(Clone)]
         pub struct #proxy_ident(Oid, Terminal);
 
         impl #proxy_ident {
@@ -509,12 +505,12 @@ pub fn query_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
             #(#methods)*
         }
 
-        #[derive(Debug, serde::Serialize, serde::Deserialize)]
+        #[derive(serde::Serialize, serde::Deserialize)]
         enum #request_ident {
             #(#idents_camel_vec { #(#inputs_vec)* },)*
         }
 
-        #[derive(Clone)]
+        // #[derive(Clone)]
         pub struct #servant_ident<S> {
             name: String,
             entity: S,
@@ -534,7 +530,6 @@ pub fn query_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
             fn category(&self) -> &'static str {
                 stringify!(#ident)
             }
-
             fn serve(&mut self, req: Vec<u8>) -> ServantResult<Vec<u8>> {
                 let req: #request_ident = bincode::deserialize(&req).unwrap();
                 let reps = match req {
@@ -548,8 +543,8 @@ pub fn query_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
             }
         }
 
-        #[allow(unused)]
-        #[derive(Clone, Debug)]
+        // #[allow(unused)]
+        #[derive(Clone)]
         pub struct #proxy_ident(Terminal);
 
         impl #proxy_ident {
@@ -558,7 +553,7 @@ pub fn query_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
             }
 
             #(
-            #[allow(unused)]
+            // #[allow(unused)]
             pub async fn #ident_vec(
                 &mut self,
                 #(#inputs_vec)*
@@ -693,12 +688,12 @@ pub fn notify_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
             #(#methods_vec)*
         }
 
-        #[derive(Debug, serde::Serialize, serde::Deserialize)]
+        #[derive(serde::Serialize, serde::Deserialize)]
         enum #request_ident {
             #(#idents_camel_vec { #(#inputs_vec)* },)*
         }
 
-        #[derive(Clone)]
+        // #[derive(Clone)]
         pub struct #receiver_ident<S> {
             name: String,
             entity: S,
@@ -712,21 +707,19 @@ pub fn notify_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
         where
             S: #ident + 'static + Send,
         {
-            fn serve(&mut self, req: Vec<u8>) -> ServantResult<(Vec<u8>)> {
+            fn serve(&mut self, req: Vec<u8>) {
                 let req: #request_ident = bincode::deserialize(&req).unwrap();
-                let reps = match req {
+                match req {
                     #(
                         #request_ident_vect::#idents_camel_vec{ #(#args_vec)* } =>
-                            bincode::serialize(&self.entity.#ident_vec(#(#args_vec)*)),
+                            self.entity.#ident_vec(#(#args_vec)*),
                     )*
                 }
-                .unwrap();
-                Ok(reps)
             }
 
         }
-        #[allow(unused)]
-        #[derive(Clone, Debug)]
+        // #[allow(unused)]
+        #[derive(Clone)]
         pub struct #sender_ident(servant::Notifier);
 
         impl #sender_ident {
@@ -735,7 +728,7 @@ pub fn notify_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
             }
 
             #(
-            #[allow(unused)]
+            // #[allow(unused)]
             pub async fn #ident_vec(
                 &mut self,
                 #(#inputs_vec)*

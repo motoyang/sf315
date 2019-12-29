@@ -2,7 +2,7 @@
 
 use {
     async_std::{prelude::*, stream, task},
-    bank::{DogProxy, GovementProxy, PusherProxy, StockNews, StockNewsReceiver},
+    bank::{DogProxy, GovementProxy, PusherReportProxy, StockNews, StockNewsReceiver},
     futures::future::join_all,
     log::{error, info},
     servant::Terminal,
@@ -39,7 +39,7 @@ pub fn run(addr: String) {
         while let Some(_) = interval.next().await {
             i += 1;
             let msg = format!("hello, #{}", i);
-            let mut pusher = terminal.proxy("receiver".to_string(), PusherProxy::new);
+            let mut pusher = terminal.proxy("receiver".to_string(), PusherReportProxy::new);
             if let Err(e) = pusher.f1(i as i32).await {
                 error!("{}", e.to_string());
             }
@@ -48,7 +48,11 @@ pub fn run(addr: String) {
             }
 
             let mut gov = GovementProxy::new(&terminal);
-            match gov.export().await {
+            match gov.export_servants().await {
+                Err(e) => error!("{}", e.to_string()),
+                Ok(v) => println!("{}:{}, {:?}", file!(), line!(), &v),
+            }
+            match gov.export_report_servants().await {
                 Err(e) => error!("{}", e.to_string()),
                 Ok(v) => println!("{}:{}, {:?}", file!(), line!(), &v),
             }

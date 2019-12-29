@@ -3,7 +3,7 @@
 members = [
     "codec",
     "ss",
-    "servant_interface",
+    "servant-macro",
     "servant",
     "bank",
 ]

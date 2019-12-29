@@ -21,6 +21,6 @@ mod notifier;
 // --
 
 pub use adapter::Adapter;
-pub use servant::{Oid, Servant, NotifyServant, ServantError, ServantRegister, ServantResult};
+pub use servant::{Oid, Servant, ReportServant, NotifyServant, ServantError, ServantRegister, ServantResult};
 pub use terminal::Terminal;
 pub use notifier::{Notifier};

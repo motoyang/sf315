@@ -25,14 +25,13 @@ lazy_static! {
     })));
 }
 
-#[derive(Debug, Clone)]
 struct _Notifier {
     id: usize,
     tx: Option<UnboundedSender<Record>>,
     senders: HashMap<SocketAddr, UnboundedSender<Record>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Notifier(Arc<Mutex<_Notifier>>);
 impl Notifier {
     pub fn instance() -> Self {

@@ -2,37 +2,38 @@
 
 extern crate async_std;
 extern crate bincode;
-extern crate serde;
 extern crate futures;
+extern crate serde;
 extern crate servant;
-extern crate servant_interface;
+extern crate servant_macro;
 
 // --
 
-use servant::{Oid, Servant, ServantResult, Terminal, NotifyServant};
+use servant::{NotifyServant, Oid, ReportServant, Servant, ServantResult, Terminal};
 
-// std::include!("person.rs");
+// --
 
-#[servant_interface::invoke_interface]
+#[servant_macro::invoke_interface]
 pub trait Dog: Clone {
     fn speak(&self, count: i32) -> String;
     fn owner(&self) -> Oid;
     fn age(&mut self, i: u32) -> u32;
 }
 
-#[servant_interface::query_interface]
+#[servant_macro::query_interface]
 pub trait Govement {
-    fn export(&self) -> Vec<Oid>;
+    fn export_servants(&self) -> Vec<Oid>;
+    fn export_report_servants(&self) -> Vec<Oid>;
 }
 
-#[servant_interface::report_interface]
+#[servant_macro::report_interface]
 pub trait Pusher {
     fn f1(&self, count: i32);
     fn f2(&self);
     fn f3(&mut self, s: String);
 }
 
-#[servant_interface::notify_interface]
+#[servant_macro::notify_interface]
 pub trait StockNews: Clone {
     fn f1(&self, count: i32);
     fn f2(&self, msg: String);

@@ -39,23 +39,23 @@ struct _Token {
 type Token = Arc<_Token>;
 type TokenMap = HashMap<usize, Token>;
 type TokenPool = Vec<Token>;
-#[derive(Debug, Clone)]
+type NotifyServantEntry = Box<dyn NotifyServant + Send>;
+
+// #[derive(Debug)]
 struct _Terminal {
-    max_req_id: usize,
     req_id: usize,
     report_id: usize,
     sender: Option<Tx>,
     pool: TokenPool,
     map: TokenMap,
-    receiver: Box<dyn NotifyServant + Send>
+    receiver: NotifyServantEntry
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Terminal(Arc<Mutex<_Terminal>>);
 impl Terminal {
-    pub fn new(max_req_id: usize, receiver: Box<dyn NotifyServant + Send>) -> Self {
+    pub fn new(max_req_id: usize, receiver: NotifyServantEntry) -> Self {
         let mut t = _Terminal {
-            max_req_id,
             req_id: 0,
             report_id: 0,
             sender: None,
@@ -63,7 +63,7 @@ impl Terminal {
             map: TokenMap::new(),
             receiver
         };
-        for _ in 0..t.max_req_id {
+        for _ in 0..max_req_id {
             let r = _Token {
                 m: StdMutex::new(None),
                 cv: Condvar::default(),
@@ -101,17 +101,19 @@ impl Terminal {
                 g.req_id += 1;
                 let id = g.req_id;
                 g.map.insert(id, tok.clone());
-                let tx = g.sender.as_ref().unwrap().clone();
-                (tx, g.req_id, tok)
+                let tx = if let Some(tx) = g.sender.as_ref() {
+                    tx.clone()
+                } else {
+                    return Err("sender is none.".into());
+                };
+                (tx, id, tok)
             } else {
                 return Err("token pool is empty.".into());
             }
         };
-
         let ret = match token.m.lock() {
             Ok(m) => {
-                assert_eq!(*m, None);
-                let record = Record::Invoke {
+                let record = Record::Request {
                     id: index,
                     oid,
                     req,
@@ -121,10 +123,10 @@ impl Terminal {
                 } else {
                     match token.cv.wait_timeout(m, Duration::from_secs(5)) {
                         Ok(mut r) => {
-                            if !r.1.timed_out() {
-                                Ok(r.0.take().unwrap())
-                            } else {
+                            if r.1.timed_out() {
                                 Err("timed_out.".into())
+                            } else {
+                                Ok(r.0.take().unwrap())
                             }
                         }
                         Err(e) => Err(e.to_string().into()),
@@ -135,41 +137,34 @@ impl Terminal {
         };
         {
             let mut g = self.0.lock().await;
-            if let Some(req) = g.map.remove(&index) {
-                g.pool.push(req);
-            }
+            g.map.remove(&index);
+            g.pool.push(token);
         }
         ret
     }
     async fn received(&mut self, record: Record) -> ServantResult<()> {
         match record {
             Record::Notice {id, msg} => {
+                let _id = id;
                 let mut g = self.0.lock().await;
-                if let Err(e) = g.receiver.serve(msg) {
-                    warn!("id = {}, error: {}", id, e.to_string());
-                }
+                g.receiver.serve(msg);
             }
-            Record::Return { id, oid, ret } => {
+            Record::Response { id, oid, ret } => {
                 let _oid = oid;
                 let token = {
                     let mut g = self.0.lock().await;
                     g.map.remove(&id)
                 };
                 if let Some(token) = token {
-                    {
-                        let mut g = token.m.lock().unwrap();
-                        assert_eq!(*g, None);
-                        g.replace(ret);
-                        token.cv.notify_one();
-                    }
-                    let mut g = self.0.lock().await;
-                    g.pool.push(token);
+                    let mut g = token.m.lock().unwrap();
+                    g.replace(ret);
+                    token.cv.notify_one();
                 } else {
                     return Err(format!("can't find id: {} in token map.", id).into());
                 }
             }
             Record::Report { .. } => unreachable!(),
-            Record::Invoke { .. } => unreachable!(),
+            Record::Request { .. } => unreachable!(),
         }
         Ok(())
     }

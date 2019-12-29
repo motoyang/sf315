@@ -1,5 +1,5 @@
 [package]
-name = "servant_interface"
+name = "servant-macro"
 version = "0.1.0"
 authors = ["xt <motoyang@163.com>"]
 edition = "2018"

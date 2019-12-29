@@ -7,7 +7,7 @@ use {
         stream,
         task,
     },
-    bank::{Dog, DogServant, Govement, GovementServant, Pusher, PusherServant, StockNewsSender},
+    bank::{Dog, DogServant, Govement, GovementServant, Pusher, PusherReportServant, StockNewsSender},
     log::info,
     servant::{Adapter, Notifier, Oid, ServantRegister, ServantResult},
     std::{time::Duration, sync::{Arc, Mutex}},
@@ -36,8 +36,11 @@ struct GovementEntry {
 }
 
 impl Govement for GovementEntry {
-    fn export(&self) -> Vec<Oid> {
-        ServantRegister::instance().export()
+    fn export_servants(&self) -> Vec<Oid> {
+        ServantRegister::instance().export_servants()
+    }
+    fn export_report_servants(&self) -> Vec<Oid> {
+        ServantRegister::instance().export_report_servants()
     }
 }
 
@@ -81,7 +84,7 @@ pub fn run(remote_addr: impl ToSocketAddrs) -> ServantResult<()> {
     )));
     register.set_query_servant(query);
 
-    register.add(Arc::new(Mutex::new(DogServant::new(
+    register.add_servant(Arc::new(Mutex::new(DogServant::new(
         "dog1".to_string(),
         Somedog {
             age: 1,
@@ -89,7 +92,7 @@ pub fn run(remote_addr: impl ToSocketAddrs) -> ServantResult<()> {
             wawa: "woo...".to_string(),
         },
     ))));
-    register.add(Arc::new(Mutex::new(PusherServant::new(
+    register.add_report_servant(Arc::new(Mutex::new(PusherReportServant::new(
         "receiver".to_string(),
         Receiver,
     ))));
@@ -110,7 +113,7 @@ pub fn run(remote_addr: impl ToSocketAddrs) -> ServantResult<()> {
     Ok(())
 }
 
-async fn accept_on<'a>(addr: impl ToSocketAddrs) -> std::io::Result<()> {
+async fn accept_on(addr: impl ToSocketAddrs) -> std::io::Result<()> {
     let listener = TcpListener::bind(addr).await?;
     let mut incoming = listener.incoming();
     while let Some(stream) = incoming.next().await {

@@ -33,8 +33,7 @@ impl Adapter {
         let (reader, writer) = &mut (&stream, &stream);
         let read_framed = FramedRead::new(reader, LengthCodec::<u32>::default());
         let mut write_framed = FramedWrite::new(writer, LengthCodec::<u32>::default());
-        let (tx, mut rx) = unbounded();
-        // self.tx.replace(tx.clone());
+        let (tx, rx) = unbounded();
 
         let notifier = Notifier::instance();
         notifier.insert(addr, tx).await;
@@ -46,7 +45,7 @@ impl Adapter {
             });
         });
 
-        pin_mut!(read_framed);
+        pin_mut!(read_framed, rx);
         loop {
             let value = select! {
                 from_terminal = read_framed.next().fuse() => match from_terminal {
@@ -64,18 +63,15 @@ impl Adapter {
                     Ok(record) => match record {
                         Record::Report { id, oid, msg } => {
                             let _id = id;
-                            if let Some(servant) = sr.find(&oid) {
-                                servant.lock().unwrap().serve(msg).unwrap_or_else(|e| {
-                                    error!("{}", e.to_string());
-                                    Vec::new()
-                                });
+                            if let Some(servant) = sr.find_report_servant(&oid) {
+                                servant.lock().unwrap().serve(msg);
                             } else {
                                 warn!("can't find oid {} in register.", oid);
                             }
                         }
-                        Record::Invoke { id, oid, req } => {
+                        Record::Request { id, oid, req } => {
                             let ret = if let Some(oid) = &oid {
-                                if let Some(servant) = sr.find(oid) {
+                                if let Some(servant) = sr.find_servant(oid) {
                                     servant.lock().unwrap().serve(req)
                                 } else {
                                     Err(format!("can't find oid {} in register.", oid).into())
@@ -87,14 +83,14 @@ impl Adapter {
                             };
                             match ret {
                                 Ok(ret) => {
-                                    let record = Record::Return { id, oid, ret };
+                                    let record = Record::Response { id, oid, ret };
                                     let v = bincode::serialize(&record).unwrap();
                                     write_framed.send(Bytes::copy_from_slice(&v)).await?;
                                 }
                                 Err(e) => warn!("{}", e.to_string()),
                             }
                         }
-                        Record::Return { .. } => unreachable!(),
+                        Record::Response { .. } => unreachable!(),
                         Record::Notice { .. } => unreachable!(),
                     },
                     Err(e) => error!("{}", e.to_string()),
