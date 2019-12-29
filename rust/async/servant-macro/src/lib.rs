@@ -159,7 +159,7 @@ pub fn invoke_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
             fn category(&self) -> &'static str {
                 stringify!(#ident)
             }
-            fn serve(&mut self, req: Vec<u8>) -> ServantResult<Vec<u8>> {
+            fn serve(&mut self, req: Vec<u8>) -> Vec<u8> {
                 let req: #request_ident = bincode::deserialize(&req).unwrap();
                 let reps = match req {
                     #(
@@ -168,7 +168,7 @@ pub fn invoke_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
                     )*
                 }
                 .unwrap();
-                Ok(reps)
+                reps
             }
         }
 
@@ -188,13 +188,12 @@ pub fn invoke_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
                 &mut self,
                 #(#inputs_vec)*
             ) -> ServantResult<#output_vec> {
-
                 let request =  #request_ident_vect::#idents_camel_vec { #(#args_vec)* };
                 let response = self
                     .1
                     .invoke(Some(self.0.clone()), bincode::serialize(&request).unwrap())
-                    .await?;
-                Ok(bincode::deserialize(&response).unwrap())
+                    .await;
+                response.map(|x| bincode::deserialize(&x).unwrap())
             }
             )*
 
@@ -530,7 +529,7 @@ pub fn query_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
             fn category(&self) -> &'static str {
                 stringify!(#ident)
             }
-            fn serve(&mut self, req: Vec<u8>) -> ServantResult<Vec<u8>> {
+            fn serve(&mut self, req: Vec<u8>) -> Vec<u8> {
                 let req: #request_ident = bincode::deserialize(&req).unwrap();
                 let reps = match req {
                     #(
@@ -539,7 +538,7 @@ pub fn query_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
                     )*
                 }
                 .unwrap();
-                Ok(reps)
+                reps
             }
         }
 
@@ -558,13 +557,12 @@ pub fn query_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
                 &mut self,
                 #(#inputs_vec)*
             ) -> ServantResult<#output_vec> {
-
                 let request =  #request_ident_vect::#idents_camel_vec { #(#args_vec)* };
                 let response = self
                     .0
                     .invoke(None, bincode::serialize(&request).unwrap())
-                    .await?;
-                Ok(bincode::deserialize(&response).unwrap())
+                    .await;
+                response.map(|x| bincode::deserialize(&x).unwrap())
             }
             )*
 

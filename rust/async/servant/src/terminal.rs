@@ -3,7 +3,7 @@
 use {
     super::{
         drop_guard::DropGuard,
-        servant::{Oid, Record, ServantResult, NotifyServant},
+        servant::{NotifyServant, Oid, Record, ServantResult},
     },
     async_std::{
         net::{TcpStream, ToSocketAddrs},
@@ -11,8 +11,7 @@ use {
         sync::{Arc, Mutex},
         task,
     },
-    bytes::Bytes,
-    codec::LengthCodec,
+    codec::RecordCodec,
     futures::{
         channel::mpsc::{unbounded, UnboundedSender},
         pin_mut, select,
@@ -20,7 +19,7 @@ use {
         FutureExt as _,
     },
     futures_codec::{FramedRead, FramedWrite},
-    log::{error, info, trace, warn},
+    log::{info, warn},
     std::{
         collections::HashMap,
         sync::{Condvar, Mutex as StdMutex},
@@ -33,7 +32,7 @@ use {
 type Tx = UnboundedSender<Record>;
 #[derive(Debug)]
 struct _Token {
-    m: StdMutex<Option<Vec<u8>>>,
+    m: StdMutex<Option<ServantResult<Vec<u8>>>>,
     cv: Condvar,
 }
 type Token = Arc<_Token>;
@@ -41,14 +40,13 @@ type TokenMap = HashMap<usize, Token>;
 type TokenPool = Vec<Token>;
 type NotifyServantEntry = Box<dyn NotifyServant + Send>;
 
-// #[derive(Debug)]
 struct _Terminal {
     req_id: usize,
     report_id: usize,
     sender: Option<Tx>,
     pool: TokenPool,
     map: TokenMap,
-    receiver: NotifyServantEntry
+    receiver: NotifyServantEntry,
 }
 
 #[derive(Clone)]
@@ -61,7 +59,7 @@ impl Terminal {
             sender: None,
             pool: TokenPool::new(),
             map: TokenMap::new(),
-            receiver
+            receiver,
         };
         for _ in 0..max_req_id {
             let r = _Token {
@@ -84,7 +82,11 @@ impl Terminal {
         let mut g = self.0.lock().await;
         g.report_id += 1;
         if let Some(mut tx) = g.sender.as_ref() {
-            let record = Record::Report { id: g.report_id, oid, msg };
+            let record = Record::Report {
+                id: g.report_id,
+                oid,
+                msg,
+            };
             if let Err(e) = tx.send(record).await {
                 Err(e.to_string().into())
             } else {
@@ -126,7 +128,7 @@ impl Terminal {
                             if r.1.timed_out() {
                                 Err("timed_out.".into())
                             } else {
-                                Ok(r.0.take().unwrap())
+                                r.0.take().unwrap()
                             }
                         }
                         Err(e) => Err(e.to_string().into()),
@@ -142,9 +144,9 @@ impl Terminal {
         }
         ret
     }
-    async fn received(&mut self, record: Record) -> ServantResult<()> {
+    async fn received(&mut self, record: Record) {
         match record {
-            Record::Notice {id, msg} => {
+            Record::Notice { id, msg } => {
                 let _id = id;
                 let mut g = self.0.lock().await;
                 g.receiver.serve(msg);
@@ -156,38 +158,34 @@ impl Terminal {
                     g.map.remove(&id)
                 };
                 if let Some(token) = token {
+                    let ret = match bincode::deserialize(&ret) {
+                        Ok(ret) => ret,
+                        Err(e) => Err(e.to_string().into())
+                    };
                     let mut g = token.m.lock().unwrap();
                     g.replace(ret);
                     token.cv.notify_one();
                 } else {
-                    return Err(format!("can't find id: {} in token map.", id).into());
+                    warn!("can't find id: {} in token map.", id);
                 }
             }
             Record::Report { .. } => unreachable!(),
             Record::Request { .. } => unreachable!(),
         }
-        Ok(())
     }
-    pub async fn run(mut self, addr: impl ToSocketAddrs) -> ServantResult<()> {
+    pub async fn run(mut self, addr: impl ToSocketAddrs) -> std::io::Result<()> {
         #[derive(Debug)]
         enum SelectedValue {
             ReadNone,
-            ReadError(std::io::Error),
-            Read(Bytes),
             WriteNone,
+            Read(Record),
             Write(Record),
         }
 
-        let stream = match TcpStream::connect(addr).await {
-            Ok(s) => s,
-            Err(e) => {
-                warn!("connect err: {:?}", e);
-                return Err(e.to_string().into());
-            }
-        };
+        let stream = TcpStream::connect(addr).await?;
         let (reader, writer) = (&stream, &stream);
-        let read_framed = FramedRead::new(reader, LengthCodec::<u32>::default());
-        let mut write_framed = FramedWrite::new(writer, LengthCodec::<u32>::default());
+        let read_framed = FramedRead::new(reader, RecordCodec::<u32, Record>::default());
+        let mut write_framed = FramedWrite::new(writer, RecordCodec::<u32, Record>::default());
 
         let (tx, rx) = unbounded();
         self.set_tx(Some(tx)).await;
@@ -201,41 +199,21 @@ impl Terminal {
         pin_mut!(read_framed, rx);
         loop {
             let value = select! {
-                read_msg = read_framed.next().fuse() => match read_msg {
-                    Some(msg) => match msg {
-                        Ok(msg) => SelectedValue::Read(msg),
-                        Err(e) => SelectedValue::ReadError(e),
-                    },
+                from_adapter = read_framed.next().fuse() => match from_adapter {
+                    Some(record) => SelectedValue::Read(record?),
                     None => SelectedValue::ReadNone,
                 },
-                send_msg = rx.next().fuse() => match send_msg {
+                to_adapter = rx.next().fuse() => match to_adapter {
                     Some(record) => SelectedValue::Write(record),
                     None => SelectedValue::WriteNone,
                 },
             };
 
             match value {
-                SelectedValue::Read(msg) => match bincode::deserialize(&msg) {
-                    Ok(record) => {
-                        self.received(record)
-                            .await
-                            .unwrap_or_else(|e| error!("{}", e.to_string()));
-                    }
-                    Err(e) => error!("{}", e.to_string()),
-                },
-                SelectedValue::Write(record) => {
-                    let v = bincode::serialize(&record).unwrap();
-                    if let Err(e) = write_framed.send(Bytes::copy_from_slice(&v)).await {
-                        warn!("write to remote error: {:?}", e);
-                        return Err(e.to_string().into());
-                    }
-                }
-                SelectedValue::ReadError(e) => {
-                    warn!("ReadError: {:?}", e);
-                    break;
-                }
+                SelectedValue::Read(record) => self.received(record).await,
+                SelectedValue::Write(record) => write_framed.send(record).await?,
                 _ => {
-                    trace!("selected value: {:?}", value);
+                    info!("loop break due to SelectedValue: {:?}", value);
                     break;
                 }
             }

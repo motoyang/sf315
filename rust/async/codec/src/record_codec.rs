@@ -10,8 +10,14 @@ use {
 // --
 
 #[derive(Default, Clone, Copy)]
-pub struct RecordCodec<H, R>(std::marker::PhantomData<R>, std::marker::PhantomData<H>);
-
+pub struct RecordCodec<H, R>(std::marker::PhantomData<H>, std::marker::PhantomData<R>);
+/*
+impl<H, R> Default for RecordCodec<H, R> {
+    fn default() -> Self {
+        Self(std::marker::PhantomData::<H>default(), default())
+    }
+}
+*/
 impl<H, R> Encoder for RecordCodec<H, R>
 where
     H: Length,
@@ -80,6 +86,12 @@ mod tests {
         age: u8,
         phones: Vec<String>,
     }
+    #[derive(Debug, Clone, Default, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+    struct Person2 {
+        name: String,
+        age: u8,
+        phones: Vec<u8>,
+    }
 
     // --
 
@@ -105,4 +117,28 @@ mod tests {
             assert_eq!(msg, msg2);
         });
     }
+
+    #[test]
+    fn t_record_u64_codec() {
+        executor::block_on(async move {
+            let mut buf = vec![];
+            let cur = Cursor::new(&mut buf);
+            let mut framed = FramedWrite::new(cur, RecordCodec::<u64, Person2>::default());
+
+            let msg = Person2 {
+                name: "moto2".to_string(),
+                age: 188,
+                phones: vec![8; 32000],
+            };
+            framed.send(msg.clone()).await.unwrap();
+            println!("buf: {:?}", buf);
+
+            let mut framed2 = FramedRead::new(&buf[..], RecordCodec::<u64, Person2>::default());
+            let msg2 = framed2.try_next().await.unwrap().unwrap();
+            println!("msg: {:?}", msg2);
+
+            assert_eq!(msg, msg2);
+        });
+    }
+
 }

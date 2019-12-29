@@ -4,7 +4,7 @@
 extern crate lazy_static;
 extern crate async_std;
 extern crate bincode;
-extern crate bytes;
+// extern crate bytes;
 extern crate futures;
 extern crate futures_codec;
 extern crate serde;

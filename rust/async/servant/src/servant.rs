@@ -2,8 +2,8 @@
 
 use {
     serde::{Deserialize, Serialize},
+    std::sync::{Arc, Mutex},
     std::{collections::HashMap, error::Error},
-    std::sync::{Arc, Mutex}
 };
 
 // --
@@ -121,32 +121,7 @@ impl ServantRegister {
 }
 
 // --
-/*
-pub trait ServantClone {
-    fn clone_box(&self) -> Box<dyn NotifyServant + Send>;
-}
 
-impl<T> ServantClone for T
-where
-    T: 'static + NotifyServant + Clone + Send,
-{
-    fn clone_box(&self) -> Box<dyn NotifyServant + Send> {
-        Box::new(self.clone())
-    }
-}
-
-impl Clone for Box<dyn NotifyServant + Send> {
-    fn clone(&self) -> Box<dyn NotifyServant + Send> {
-        self.clone_box()
-    }
-}
-
-impl std::fmt::Debug for Box<dyn NotifyServant + Send> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "(Box<dyn NotifyServant>)")
-    }
-}
-*/
 pub trait NotifyServant {
     fn serve(&mut self, req: Vec<u8>);
 }
@@ -154,7 +129,7 @@ pub trait NotifyServant {
 pub trait Servant {
     fn name(&self) -> &str;
     fn category(&self) -> &'static str;
-    fn serve(&mut self, req: Vec<u8>) -> ServantResult<Vec<u8>>;
+    fn serve(&mut self, req: Vec<u8>) -> Vec<u8>;
 }
 
 pub trait ReportServant {
@@ -169,7 +144,7 @@ pub trait ReportServant {
 pub enum Record {
     Notice {
         id: usize,
-        msg: Vec<u8>
+        msg: Vec<u8>,
     },
     Report {
         id: usize,
@@ -186,4 +161,13 @@ pub enum Record {
         oid: Option<Oid>,
         ret: Vec<u8>,
     },
+}
+
+impl Default for Record {
+    fn default() -> Self {
+        Self::Notice {
+            id: 0,
+            msg: Vec::new(),
+        }
+    }
 }
