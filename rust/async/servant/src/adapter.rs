@@ -3,15 +3,75 @@
 use {
     super::{
         drop_guard::DropGuard,
-        notifier::Notifier,
         servant::{Record, ServantRegister, ServantResult},
     },
-    async_std::{net::TcpStream, prelude::*, task},
+    async_std::{net::TcpStream, prelude::*, sync::Mutex, task},
     codec::RecordCodec,
-    futures::{channel::mpsc::unbounded, pin_mut, select, sink::SinkExt, FutureExt as _},
+    futures::{
+        channel::mpsc::{unbounded, UnboundedSender},
+        pin_mut, select,
+        sink::SinkExt,
+        FutureExt as _,
+    },
     futures_codec::{FramedRead, FramedWrite},
     log::{info, warn},
+    std::{collections::HashMap, net::SocketAddr},
 };
+
+// --
+
+lazy_static! {
+    static ref ADAPTER_REGISTER: AdapterRegister = AdapterRegister(Mutex::new(_Register {
+        passcode: 238,
+        id: 0,
+        accept_tx: None,
+        senders: HashMap::new(),
+    }));
+}
+
+struct _Register {
+    passcode: usize,
+    id: usize,
+    accept_tx: Option<UnboundedSender<()>>,
+    senders: HashMap<SocketAddr, UnboundedSender<Record>>,
+}
+
+pub struct AdapterRegister(Mutex<_Register>);
+impl AdapterRegister {
+    pub fn instance() -> &'static Self {
+        &ADAPTER_REGISTER
+    }
+    pub async fn clean(&self, passcode: usize) {
+        let mut g = self.0.lock().await;
+        if passcode == g.passcode {
+            g.accept_tx.take();
+            g.senders.clear();
+        }
+    }
+    pub async fn set_accept(&self, tx: UnboundedSender<()>) {
+        let mut g = self.0.lock().await;
+        g.accept_tx = Some(tx);
+    }
+    pub async fn insert(&self, addr: SocketAddr, tx: UnboundedSender<Record>) {
+        let mut g = self.0.lock().await;
+        g.senders.insert(addr, tx);
+    }
+    pub async fn remove(&self, addr: &SocketAddr) {
+        let mut g = self.0.lock().await;
+        g.senders.remove(addr);
+    }
+    pub async fn send(&self, msg: Vec<u8>) {
+        let mut g = self.0.lock().await;
+        g.id += 1;
+        let notice = Record::Notice { id: g.id, msg };
+        let mut values = g.senders.values();
+        while let Some(mut s) = values.next() {
+            s.send(notice.clone())
+                .await
+                .unwrap_or_else(|e| warn!("{}", e.to_string()));
+        }
+    }
+}
 
 // --
 
@@ -31,17 +91,18 @@ impl Adapter {
         };
 
         let addr = stream.peer_addr().unwrap();
+        info!("connected from {}", &addr);
         let (reader, writer) = &mut (&stream, &stream);
         let read_framed = FramedRead::new(reader, RecordCodec::<u32, Record>::default());
         let mut write_framed = FramedWrite::new(writer, RecordCodec::<u32, Record>::default());
 
         let (tx, rx) = unbounded();
-        Notifier::instance().insert(addr, tx).await;
+        AdapterRegister::instance().insert(addr, tx).await;
 
         let _adapter_clean = DropGuard::new(addr, |a| {
             task::block_on(async move {
                 info!("adapter from {} quit.", &addr);
-                Notifier::instance().remove(&a).await;
+                AdapterRegister::instance().remove(&a).await;
             });
         });
 
@@ -95,8 +156,11 @@ impl Adapter {
                     write_framed.send(record).await?;
                 }
                 _ => {
-                    info!("loop break due to SelectValue({:?}). peer address: {}", &value, &addr);
-                    break
+                    info!(
+                        "loop break due to SelectValue({:?}). peer address: {}",
+                        &value, &addr
+                    );
+                    break;
                 }
             }
         }

@@ -4,11 +4,9 @@
 extern crate lazy_static;
 extern crate async_std;
 extern crate bincode;
-// extern crate bytes;
 extern crate futures;
 extern crate futures_codec;
 extern crate serde;
-// extern crate crossbeam_channel;
 
 // --
 
@@ -16,11 +14,13 @@ mod adapter;
 mod drop_guard;
 mod servant;
 mod terminal;
-mod notifier;
+mod accept;
+mod export;
 
 // --
 
-pub use adapter::Adapter;
+pub use adapter::{Adapter, AdapterRegister};
 pub use servant::{Oid, Servant, ReportServant, NotifyServant, ServantError, ServantRegister, ServantResult};
 pub use terminal::Terminal;
-pub use notifier::{Notifier};
+pub use accept::accept_on;
+pub use export::{ExportProxy};

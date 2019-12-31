@@ -149,7 +149,7 @@ pub fn invoke_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
                 Self { name, entity }
             }
         }
-        impl<S> Servant for #servant_ident<S>
+        impl<S> servant::Servant for #servant_ident<S>
         where
             S: #ident + 'static,
         {
@@ -174,11 +174,11 @@ pub fn invoke_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
 
         // #[allow(unused)]
         #[derive(Clone)]
-        pub struct #proxy_ident(Oid, Terminal);
+        pub struct #proxy_ident(servant::Oid, servant::Terminal);
 
         impl #proxy_ident {
-            pub fn new(name: String, t: &Terminal) -> Self {
-                let oid = Oid::new(name, stringify!(#ident).to_string());
+            pub fn new(name: String, t: &servant::Terminal) -> Self {
+                let oid = servant::Oid::new(name, stringify!(#ident).to_string());
                 Self(oid, t.clone())
             }
 
@@ -187,7 +187,7 @@ pub fn invoke_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
             pub async fn #ident_vec(
                 &mut self,
                 #(#inputs_vec)*
-            ) -> ServantResult<#output_vec> {
+            ) -> servant::ServantResult<#output_vec> {
                 let request =  #request_ident_vect::#idents_camel_vec { #(#args_vec)* };
                 let response = self
                     .1
@@ -332,7 +332,7 @@ pub fn report_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
                 Self { name, entity }
             }
         }
-        impl<S> ReportServant for #servant_ident<S>
+        impl<S> servant::ReportServant for #servant_ident<S>
         where
             S: #ident + 'static,
         {
@@ -355,11 +355,11 @@ pub fn report_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
 
         // #[allow(unused)]
         #[derive(Clone)]
-        pub struct #proxy_ident(Oid, Terminal);
+        pub struct #proxy_ident(servant::Oid, servant::Terminal);
 
         impl #proxy_ident {
-            pub fn new(name: String, t: &Terminal) -> Self {
-                let oid = Oid::new(name, stringify!(#ident).to_string());
+            pub fn new(name: String, t: &servant::Terminal) -> Self {
+                let oid = servant::Oid::new(name, stringify!(#ident).to_string());
                 Self(oid, t.clone())
             }
 
@@ -368,7 +368,7 @@ pub fn report_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
             pub async fn #ident_vec(
                 &mut self,
                 #(#inputs_vec)*
-            ) -> ServantResult<()> {
+            ) -> servant::ServantResult<()> {
                 let request =  #request_ident_vect::#idents_camel_vec { #(#args_vec)* };
                 let response = self
                     .1
@@ -511,20 +511,19 @@ pub fn query_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
 
         // #[derive(Clone)]
         pub struct #servant_ident<S> {
-            name: String,
             entity: S,
         }
         impl<S> #servant_ident<S> {
-            pub fn new(name: String, entity: S) -> Self {
-                Self { name, entity }
+            pub fn new(entity: S) -> Self {
+                Self { entity }
             }
         }
-        impl<S> Servant for #servant_ident<S>
+        impl<S> servant::Servant for #servant_ident<S>
         where
             S: #ident + 'static,
         {
             fn name(&self) -> &str {
-                &self.name
+                ""
             }
             fn category(&self) -> &'static str {
                 stringify!(#ident)
@@ -544,10 +543,10 @@ pub fn query_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
 
         // #[allow(unused)]
         #[derive(Clone)]
-        pub struct #proxy_ident(Terminal);
+        pub struct #proxy_ident(servant::Terminal);
 
         impl #proxy_ident {
-            pub fn new(t: &Terminal) -> Self {
+            pub fn new(t: &servant::Terminal) -> Self {
                 Self(t.clone())
             }
 
@@ -556,7 +555,7 @@ pub fn query_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
             pub async fn #ident_vec(
                 &mut self,
                 #(#inputs_vec)*
-            ) -> ServantResult<#output_vec> {
+            ) -> servant::ServantResult<#output_vec> {
                 let request =  #request_ident_vect::#idents_camel_vec { #(#args_vec)* };
                 let response = self
                     .0
@@ -678,7 +677,7 @@ pub fn notify_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
             .map(|_| request_ident.clone())
             .collect();
         let receiver_ident = Ident::new(&format!("{}Receiver", ident), ident.span());
-        let sender_ident = Ident::new(&format!("{}Sender", ident), ident.span());
+        let notifier_ident = Ident::new(&format!("{}Notifier", ident), ident.span());
 
         let output = quote! {
         #( #attrs )*
@@ -691,17 +690,15 @@ pub fn notify_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
             #(#idents_camel_vec { #(#inputs_vec)* },)*
         }
 
-        // #[derive(Clone)]
         pub struct #receiver_ident<S> {
-            name: String,
             entity: S,
         }
         impl<S> #receiver_ident<S> {
-            pub fn new(name: String, entity: S) -> Self {
-                Self { name, entity }
+            pub fn new(entity: S) -> Self {
+                Self { entity }
             }
         }
-        impl<S> NotifyServant for #receiver_ident<S>
+        impl<S> servant::NotifyServant for #receiver_ident<S>
         where
             S: #ident + 'static + Send,
         {
@@ -714,29 +711,35 @@ pub fn notify_interface(_attr: TokenStream, input: TokenStream) -> TokenStream {
                     )*
                 }
             }
-
         }
-        // #[allow(unused)]
-        #[derive(Clone)]
-        pub struct #sender_ident(servant::Notifier);
 
-        impl #sender_ident {
-            pub fn new(t: servant::Notifier) -> Self {
-                Self(t)
+        // --
+
+        pub struct #notifier_ident(&'static servant::AdapterRegister);
+
+        impl #notifier_ident {
+            pub fn instance() -> &'static #notifier_ident {
+                static mut NOTIFIER: Option<#notifier_ident> = None;
+                static INIT: std::sync::Once = std::sync::Once::new();
+
+                unsafe {
+                    INIT.call_once(|| {
+                        NOTIFIER = Some(#notifier_ident(servant::AdapterRegister::instance()));
+                    });
+                    NOTIFIER.as_ref().unwrap()
+                }
             }
 
             #(
-            // #[allow(unused)]
             pub async fn #ident_vec(
-                &mut self,
+                &self,
                 #(#inputs_vec)*
-            ) ->  ServantResult<()> {
+            )  {
                 let request =  #request_ident_vect::#idents_camel_vec { #(#args_vec)* };
-                let response = self
+                self
                     .0
                     .send(bincode::serialize(&request).unwrap())
-                    .await;
-                response
+                    .await
             }
             )*
 

@@ -2,20 +2,21 @@
 
 use {
     async_std::{
-        net::{TcpListener, ToSocketAddrs},
+        net::{ ToSocketAddrs},
         prelude::*,
-        stream,
-        task,
+        stream, task,
     },
-    bank::{Dog, DogServant, Govement, GovementServant, Pusher, PusherReportServant, StockNewsSender},
+    bank::{Dog, DogServant, Pusher, PusherReportServant, StockNewsNotifier},
     log::info,
-    servant::{Adapter, Notifier, Oid, ServantRegister, ServantResult},
-    std::{time::Duration, sync::{Arc, Mutex}},
+    servant::{ Oid, ServantRegister, ServantResult, accept_on},
+    std::{
+        sync::{Arc, Mutex},
+        time::Duration,
+    },
 };
 
 // --
 
-// #[derive(Clone)]
 struct Receiver;
 
 impl Pusher for Receiver {
@@ -27,20 +28,6 @@ impl Pusher for Receiver {
     }
     fn f3(&mut self, s: String) {
         dbg!(s);
-    }
-}
-
-// #[derive(Clone)]
-struct GovementEntry {
-    _premier: String,
-}
-
-impl Govement for GovementEntry {
-    fn export_servants(&self) -> Vec<Oid> {
-        ServantRegister::instance().export_servants()
-    }
-    fn export_report_servants(&self) -> Vec<Oid> {
-        ServantRegister::instance().export_report_servants()
     }
 }
 
@@ -76,14 +63,6 @@ impl Dog for Somedog {
 
 pub fn run(remote_addr: impl ToSocketAddrs) -> ServantResult<()> {
     let register = ServantRegister::instance();
-    let query = Arc::new(Mutex::new(GovementServant::new(
-        "Chin@".to_string(),
-        GovementEntry {
-            _premier: "Mr. Lee".to_string(),
-        },
-    )));
-    register.set_query_servant(query);
-
     register.add_servant(Arc::new(Mutex::new(DogServant::new(
         "dog1".to_string(),
         Somedog {
@@ -97,54 +76,45 @@ pub fn run(remote_addr: impl ToSocketAddrs) -> ServantResult<()> {
         Receiver,
     ))));
 
-    let notifier = Notifier::instance();
-    let n2 = notifier.clone();
-    task::spawn(n2.run());
-    std::thread::sleep(Duration::from_millis(1000));
-
-    let notifier_handle = task::spawn(notifier_run());
+    let _notifier_handle = task::spawn(notifier_run());
 
     let r = task::block_on(accept_on(remote_addr));
     info!("run result: {:?}", r);
 
-    let r = task::block_on(notifier_handle);
-    info!("notifier run result: {:?}", r);
+    // let r = task::block_on(notifier_handle);
+    // info!("notifier run result: {:?}", r);
 
     Ok(())
 }
 
-async fn accept_on(addr: impl ToSocketAddrs) -> std::io::Result<()> {
-    let listener = TcpListener::bind(addr).await?;
-    let mut incoming = listener.incoming();
-    while let Some(stream) = incoming.next().await {
-        let stream = stream?;
-        info!("Accepting from: {}", stream.peer_addr()?);
-
-        let adapter = Adapter::new();
-        let _handle = task::spawn(adapter.run(stream));
-    }
-
-    Notifier::instance().clean().await;
-    Ok(())
-}
-
+#[allow(unused)]
 async fn notifier_run() -> std::io::Result<()> {
-    let n = Notifier::instance();
-    let mut sender1 = StockNewsSender::new(n.clone());
-    let mut sender2 = StockNewsSender::new(n.clone());
-
+    let sender1 = StockNewsNotifier::instance();
+    let mut b = false;
     let mut i = 0_usize;
-    let mut interval = stream::interval(Duration::from_secs(1)).take(100);
+    let mut interval = stream::interval(Duration::from_millis(100)).take(10000000);
     while let Some(_) = interval.next().await {
         i += 1;
         let msg = format!("notice, #{}", i);
 
-        sender1.f1(i as i32).await.unwrap();
-        dbg!(i);
-
-        std::thread::sleep(Duration::from_millis(300));
-        sender2.f2(msg.clone()).await.unwrap();
-        dbg!(msg);
+        match i % 3 {
+            0 => sender1.f1(i as i32).await,
+            1 => sender1.f2(msg.clone()).await,
+            2 => {
+                b = !b;
+                let s = vec!["hello".to_string(); i % 37];
+                sender1
+                    .f3(
+                        i,
+                        i as f64 * 2.0,
+                        if i % 2 == 0 { Some(b) } else { None },
+                        s,
+                    )
+                    .await
+                    ;
+            }
+            _ => unreachable!(),
+        }
     }
     Ok(())
 }

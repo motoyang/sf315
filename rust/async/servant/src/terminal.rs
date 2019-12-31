@@ -99,15 +99,15 @@ impl Terminal {
     pub async fn invoke(&mut self, oid: Option<Oid>, req: Vec<u8>) -> ServantResult<Vec<u8>> {
         let (mut tx, index, token) = {
             let mut g = self.0.lock().await;
+            let tx = if let Some(tx) = g.sender.as_ref() {
+                tx.clone()
+            } else {
+                return Err("sender is none.".into());
+            };
             if let Some(tok) = g.pool.pop() {
                 g.req_id += 1;
                 let id = g.req_id;
                 g.map.insert(id, tok.clone());
-                let tx = if let Some(tx) = g.sender.as_ref() {
-                    tx.clone()
-                } else {
-                    return Err("sender is none.".into());
-                };
                 (tx, id, tok)
             } else {
                 return Err("token pool is empty.".into());
@@ -183,6 +183,7 @@ impl Terminal {
         }
 
         let stream = TcpStream::connect(addr).await?;
+        info!("connected to {}", stream.peer_addr()?);
         let (reader, writer) = (&stream, &stream);
         let read_framed = FramedRead::new(reader, RecordCodec::<u32, Record>::default());
         let mut write_framed = FramedWrite::new(writer, RecordCodec::<u32, Record>::default());

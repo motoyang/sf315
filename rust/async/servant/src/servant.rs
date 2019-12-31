@@ -1,6 +1,7 @@
 // -- servant.rs --
 
 use {
+    super::export::{ExportEntry, ExportServant},
     serde::{Deserialize, Serialize},
     std::sync::{Arc, Mutex},
     std::{collections::HashMap, error::Error},
@@ -58,11 +59,16 @@ impl std::fmt::Display for Oid {
 // --
 
 lazy_static! {
-    static ref REGISTER: ServantRegister = ServantRegister(Mutex::new(_ServantRegister {
-        servants: HashMap::new(),
-        report_servants: HashMap::new(),
-        query: None
-    }));
+    static ref REGISTER: ServantRegister = ServantRegister({
+        let q = Arc::new(Mutex::new(ExportServant::new(
+            ExportEntry,
+        )));
+        Mutex::new(_ServantRegister {
+            servants: HashMap::new(),
+            report_servants: HashMap::new(),
+            query: Some(q),
+        })
+    });
 }
 
 pub type ServantEntry = Arc<Mutex<dyn Servant + Send>>;

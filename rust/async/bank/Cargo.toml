@@ -27,6 +27,7 @@ serde = { version = "^1.0",features = ["derive"]}
 bincode = { version = "^1.2.1" }
 servant = {path = "../servant"}
 servant-macro = {path = "../servant-macro"}
+lazy_static = "^1.4.0"
 
 [dependencies.async-std]
 version = "^1.3"

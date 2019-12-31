@@ -11,13 +11,7 @@ use {
 
 #[derive(Default, Clone, Copy)]
 pub struct RecordCodec<H, R>(std::marker::PhantomData<H>, std::marker::PhantomData<R>);
-/*
-impl<H, R> Default for RecordCodec<H, R> {
-    fn default() -> Self {
-        Self(std::marker::PhantomData::<H>default(), default())
-    }
-}
-*/
+
 impl<H, R> Encoder for RecordCodec<H, R>
 where
     H: Length,
@@ -110,7 +104,7 @@ mod tests {
             framed.send(msg.clone()).await.unwrap();
             println!("buf: {:?}", buf);
 
-            let mut framed2 = FramedRead::new(&buf[..], RecordCodec::<u32, Person>::default());
+            let mut framed2 = FramedRead::new(buf.as_slice(), RecordCodec::<u32, Person>::default());
             let msg2 = framed2.try_next().await.unwrap().unwrap();
             println!("msg: {:?}", msg2);
 
@@ -133,7 +127,7 @@ mod tests {
             framed.send(msg.clone()).await.unwrap();
             println!("buf: {:?}", buf);
 
-            let mut framed2 = FramedRead::new(&buf[..], RecordCodec::<u64, Person2>::default());
+            let mut framed2 = FramedRead::new(buf.as_slice(), RecordCodec::<u64, Person2>::default());
             let msg2 = framed2.try_next().await.unwrap().unwrap();
             println!("msg: {:?}", msg2);
 

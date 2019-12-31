@@ -2,10 +2,10 @@
 
 use {
     async_std::{prelude::*, stream, task},
-    bank::{DogProxy, GovementProxy, PusherReportProxy, StockNews, StockNewsReceiver},
+    bank::{DogProxy, PusherReportProxy, StockNews, StockNewsReceiver},
     futures::future::join_all,
     log::info,
-    servant::Terminal,
+    servant::{Terminal, ExportProxy},
     std::time::Duration,
 };
 
@@ -28,17 +28,18 @@ impl StockNews for News {
 // --
 
 pub fn run(addr: String) {
-    let receiver = Box::new(StockNewsReceiver::new("stock receiver".to_string(), News));
+    let receiver = Box::new(StockNewsReceiver::new(News));
     let mut terminal = Terminal::new(2, receiver);
     let t2 = terminal.clone();
     let terminal_handle = task::spawn(async {
         let r = t2.run(addr).await;
         info!("terminal run result: {:?}", r);
     });
+    std::thread::sleep(Duration::from_secs(1));
 
     task::block_on(async {
         let mut i = 0_usize;
-        let mut interval = stream::interval(Duration::from_secs(5)).take(3);
+        let mut interval = stream::interval(Duration::from_millis(110)).take(90000000);
         while let Some(_) = interval.next().await {
             i += 1;
             let msg = format!("hello, #{}", i);
@@ -49,7 +50,8 @@ pub fn run(addr: String) {
             let r = pusher.f3(msg).await;
             assert!(dbg!(r).is_ok());
 
-            let mut gov = GovementProxy::new(&terminal);
+            // let mut gov = GovementProxy::new(&terminal);
+            let mut gov = ExportProxy::new(&terminal);
             let r = gov.export_servants().await;
             assert!(dbg!(r).is_ok());
             let r = gov.export_report_servants().await;
@@ -69,6 +71,10 @@ pub fn run(addr: String) {
             let r = dog.age(3).await;
             assert!(dbg!(r).is_ok());
         }
+        let mut gov = ExportProxy::new(&terminal);
+        let r = gov.shutdown(238).await;
+        assert!(dbg!(r).is_ok());
+
         task::sleep(Duration::from_secs(1)).await;
         terminal.clean().await;
     });
