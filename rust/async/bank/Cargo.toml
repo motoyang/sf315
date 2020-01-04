@@ -19,14 +19,11 @@ path = "src/bin/client/main.rs"
 [dependencies]
 log = "^0.4.8"
 elog = { path = "../../level_1/elog"}
-# bytes = "^0.5.3"
-# futures_codec = "^0.3.4"
-# codec = { path = "../codec" }
 futures = "^0.3.1"
-serde = { version = "^1.0",features = ["derive"]}
+serde = { version = "^1.0", features = ["derive"]}
 bincode = { version = "^1.2.1" }
-servant = {path = "../servant"}
-servant-macro = {path = "../servant-macro"}
+servant = {path = "../servant", features = ["full"]}
+# servant-macro = {path = "../servant-macro", features = ["full"]}
 lazy_static = "^1.4.0"
 
 [dependencies.async-std]

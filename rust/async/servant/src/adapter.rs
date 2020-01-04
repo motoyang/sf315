@@ -137,9 +137,12 @@ impl Adapter {
                                 Err(format!("{} dosen't exist.", &oid).into())
                             }
                         } else {
-                            let query = sr.query_servant();
-                            let mut q = query.lock().unwrap();
-                            Ok(q.serve(req))
+                            if let Some(query) = sr.query_servant() {
+                                let mut q = query.lock().unwrap();
+                                Ok(q.serve(req))
+                            } else {
+                                Err("query servant dosen't exist.".into())
+                            }
                         };
                         match bincode::serialize(&ret) {
                             Ok(ret) => {

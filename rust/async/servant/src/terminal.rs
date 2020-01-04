@@ -46,13 +46,13 @@ struct _Terminal {
     sender: Option<Tx>,
     pool: TokenPool,
     map: TokenMap,
-    receiver: NotifyServantEntry,
+    receiver: Option<NotifyServantEntry>,
 }
 
 #[derive(Clone)]
 pub struct Terminal(Arc<Mutex<_Terminal>>);
 impl Terminal {
-    pub fn new(max_req_id: usize, receiver: NotifyServantEntry) -> Self {
+    pub fn new(max_req_id: usize, receiver: Option<NotifyServantEntry>) -> Self {
         let mut t = _Terminal {
             req_id: 0,
             report_id: 0,
@@ -70,15 +70,15 @@ impl Terminal {
         }
         Self(Arc::new(Mutex::new(t)))
     }
-    pub async fn clean(&mut self) {
+    pub async fn clean(&self) {
         let mut g = self.0.lock().await;
         g.sender.take();
     }
-    async fn set_tx(&mut self, tx: Option<Tx>) {
+    async fn set_tx(&self, tx: Option<Tx>) {
         let mut g = self.0.lock().await;
         g.sender = tx;
     }
-    pub async fn report(&mut self, oid: Oid, msg: Vec<u8>) -> ServantResult<()> {
+    pub async fn report(&self, oid: Oid, msg: Vec<u8>) -> ServantResult<()> {
         let mut g = self.0.lock().await;
         g.report_id += 1;
         if let Some(mut tx) = g.sender.as_ref() {
@@ -96,7 +96,7 @@ impl Terminal {
             Err("sender is none.".into())
         }
     }
-    pub async fn invoke(&mut self, oid: Option<Oid>, req: Vec<u8>) -> ServantResult<Vec<u8>> {
+    pub async fn invoke(&self, oid: Option<Oid>, req: Vec<u8>) -> ServantResult<Vec<u8>> {
         let (mut tx, index, token) = {
             let mut g = self.0.lock().await;
             let tx = if let Some(tx) = g.sender.as_ref() {
@@ -144,12 +144,14 @@ impl Terminal {
         }
         ret
     }
-    async fn received(&mut self, record: Record) {
+    async fn received(&self, record: Record) {
         match record {
             Record::Notice { id, msg } => {
                 let _id = id;
                 let mut g = self.0.lock().await;
-                g.receiver.serve(msg);
+                if let Some(receiver) = g.receiver.as_mut() {
+                    receiver.serve(msg);
+                }
             }
             Record::Response { id, oid, ret } => {
                 let _oid = oid;
@@ -173,7 +175,7 @@ impl Terminal {
             Record::Request { .. } => unreachable!(),
         }
     }
-    pub async fn run(mut self, addr: impl ToSocketAddrs) -> std::io::Result<()> {
+    pub async fn run(self, addr: impl ToSocketAddrs) -> std::io::Result<()> {
         #[derive(Debug)]
         enum SelectedValue {
             ReadNone,
@@ -190,7 +192,7 @@ impl Terminal {
 
         let (tx, rx) = unbounded();
         self.set_tx(Some(tx)).await;
-        let _terminal_clean = DropGuard::new(self.clone(), |mut t| {
+        let _terminal_clean = DropGuard::new(self.clone(), |t| {
             task::block_on(async move {
                 info!("terminal quit.");
                 t.clean().await;
@@ -221,9 +223,9 @@ impl Terminal {
         }
         Ok(())
     }
-    pub fn proxy<T, F>(&self, name: String, f: F) -> T
+    pub fn proxy<T, F>(&self, name: &str, f: F) -> T
     where
-        F: Fn(String, &Terminal) -> T,
+        F: Fn(&str, &Terminal) -> T,
     {
         f(name, self)
     }

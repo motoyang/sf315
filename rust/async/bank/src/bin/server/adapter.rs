@@ -50,7 +50,7 @@ impl Dog for Somedog {
 
     fn owner(&self) -> Oid {
         // std::thread::sleep(std::time::Duration::from_secs(8));
-        Oid::new("Tom".to_string(), "Person".to_string())
+        Oid::new("Tom", "Person")
     }
 
     fn age(&mut self, i: u32) -> u32 {
@@ -64,7 +64,7 @@ impl Dog for Somedog {
 pub fn run(remote_addr: impl ToSocketAddrs) -> ServantResult<()> {
     let register = ServantRegister::instance();
     register.add_servant(Arc::new(Mutex::new(DogServant::new(
-        "dog1".to_string(),
+        "dog1",
         Somedog {
             age: 1,
             name: "lg1".to_string(),
@@ -72,7 +72,7 @@ pub fn run(remote_addr: impl ToSocketAddrs) -> ServantResult<()> {
         },
     ))));
     register.add_report_servant(Arc::new(Mutex::new(PusherReportServant::new(
-        "receiver".to_string(),
+        "receiver",
         Receiver,
     ))));
 

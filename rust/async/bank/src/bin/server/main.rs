@@ -1,6 +1,8 @@
 // --
 
 extern crate async_std;
+extern crate servant;
+extern crate bank;
 #[macro_use]
 extern crate elog;
 

@@ -5,13 +5,12 @@ use {
     bank::{DogProxy, PusherReportProxy, StockNews, StockNewsReceiver},
     futures::future::join_all,
     log::info,
-    servant::{Terminal, ExportProxy},
+    servant::Terminal,
     std::time::Duration,
 };
 
 // --
 
-#[derive(Clone)]
 struct News;
 impl StockNews for News {
     fn f1(&self, count: i32) {
@@ -29,7 +28,8 @@ impl StockNews for News {
 
 pub fn run(addr: String) {
     let receiver = Box::new(StockNewsReceiver::new(News));
-    let mut terminal = Terminal::new(2, receiver);
+    let terminal = Terminal::new(2, Some(receiver));
+    // let mut terminal = Terminal::new(2, None);
     let t2 = terminal.clone();
     let terminal_handle = task::spawn(async {
         let r = t2.run(addr).await;
@@ -39,29 +39,28 @@ pub fn run(addr: String) {
 
     task::block_on(async {
         let mut i = 0_usize;
-        let mut interval = stream::interval(Duration::from_millis(110)).take(90000000);
+        let mut interval = stream::interval(Duration::from_millis(110)).take(90);
         while let Some(_) = interval.next().await {
             i += 1;
             let msg = format!("hello, #{}", i);
 
-            let mut pusher = terminal.proxy("receiver".to_string(), PusherReportProxy::new);
+            let mut pusher = terminal.proxy("receiver", PusherReportProxy::new);
             let r = pusher.f1(i as i32).await;
             assert!(dbg!(r).is_ok());
             let r = pusher.f3(msg).await;
             assert!(dbg!(r).is_ok());
 
-            // let mut gov = GovementProxy::new(&terminal);
-            let mut gov = ExportProxy::new(&terminal);
+            let mut gov = servant::ExportProxy::new(&terminal);
             let r = gov.export_servants().await;
             assert!(dbg!(r).is_ok());
             let r = gov.export_report_servants().await;
             assert!(dbg!(r).is_ok());
 
-            let mut dog = terminal.proxy("dog0".to_string(), DogProxy::new);
+            let mut dog = terminal.proxy("dog0", DogProxy::new);
             let r = dog.speak(2).await;
             assert!(dbg!(r).is_err());
 
-            let mut dog = terminal.proxy("dog1".to_string(), DogProxy::new);
+            let mut dog = terminal.proxy("dog1", DogProxy::new);
             let r = dog.speak(2_i32).await;
             assert!(dbg!(r).is_ok());
             let r = dog.owner().await;
@@ -71,7 +70,7 @@ pub fn run(addr: String) {
             let r = dog.age(3).await;
             assert!(dbg!(r).is_ok());
         }
-        let mut gov = ExportProxy::new(&terminal);
+        let mut gov = servant::ExportProxy::new(&terminal);
         let r = gov.shutdown(238).await;
         assert!(dbg!(r).is_ok());
 

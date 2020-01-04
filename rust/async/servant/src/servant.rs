@@ -1,7 +1,6 @@
 // -- servant.rs --
 
 use {
-    super::export::{ExportEntry, ExportServant},
     serde::{Deserialize, Serialize},
     std::sync::{Arc, Mutex},
     std::{collections::HashMap, error::Error},
@@ -39,8 +38,11 @@ pub struct Oid {
 }
 
 impl Oid {
-    pub fn new(name: String, category: String) -> Self {
-        Self { name, category }
+    pub fn new(name: &str, category: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            category: category.to_string(),
+        }
     }
     pub fn name(&self) -> &str {
         &self.name
@@ -60,20 +62,22 @@ impl std::fmt::Display for Oid {
 
 lazy_static! {
     static ref REGISTER: ServantRegister = ServantRegister({
-        let q = Arc::new(Mutex::new(ExportServant::new(
-            ExportEntry,
-        )));
         Mutex::new(_ServantRegister {
             servants: HashMap::new(),
             report_servants: HashMap::new(),
-            query: Some(q),
+            #[cfg(feature = "default_query")]
+            query: Some(Arc::new(Mutex::new(super::export::ExportServant::new(
+                super::export::ExportEntry,
+            )))),
+            #[cfg(not(feature = "default_query"))]
+            query: None,
         })
     });
 }
 
-pub type ServantEntry = Arc<Mutex<dyn Servant + Send>>;
-pub type ReportServantEntry = Arc<Mutex<dyn ReportServant + Send>>;
-pub struct _ServantRegister {
+type ServantEntry = Arc<Mutex<dyn Servant + Send>>;
+type ReportServantEntry = Arc<Mutex<dyn ReportServant + Send>>;
+struct _ServantRegister {
     servants: HashMap<Oid, ServantEntry>,
     report_servants: HashMap<Oid, ReportServantEntry>,
     query: Option<ServantEntry>,
@@ -88,9 +92,9 @@ impl ServantRegister {
         let mut g = self.0.lock().unwrap();
         g.query.replace(query);
     }
-    pub fn query_servant(&self) -> ServantEntry {
+    pub fn query_servant(&self) -> Option<ServantEntry> {
         let g = self.0.lock().unwrap();
-        g.query.as_ref().unwrap().clone()
+        g.query.as_ref().map(Clone::clone)
     }
     pub fn find_servant(&self, oid: &Oid) -> Option<ServantEntry> {
         let g = self.0.lock().unwrap();
@@ -103,7 +107,7 @@ impl ServantRegister {
     pub fn add_servant(&self, obj: ServantEntry) {
         let oid = {
             let g = obj.lock().unwrap();
-            Oid::new(String::from(g.name()), String::from(g.category()))
+            Oid::new(g.name(), g.category())
         };
         let mut g = self.0.lock().unwrap();
         g.servants.insert(oid, obj);
@@ -111,7 +115,7 @@ impl ServantRegister {
     pub fn add_report_servant(&self, entry: ReportServantEntry) {
         let oid = {
             let g = entry.lock().unwrap();
-            Oid::new(String::from(g.name()), String::from(g.category()))
+            Oid::new(g.name(), g.category())
         };
         let mut g = self.0.lock().unwrap();
         g.report_servants.insert(oid, entry);

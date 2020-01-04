@@ -7,14 +7,26 @@ edition = "2018"
 [lib]
 path = "src/lib.rs"
 
+[features]
+adapter = ["servant-macro/adapter"]
+terminal = ["servant-macro/terminal"]
+invoke = ["servant-macro/invoke"]
+query = ["servant-macro/query"]
+notify = ["servant-macro/notify"]
+report = ["servant-macro/report"]
+
+default_query = ["query", "adapter", "terminal"]
+default = ["default_query", "invoke"]
+full = ["default", "report", "notify"]
+
 [dependencies]
 log = "^0.4.8"
 elog = { path = "../../level_1/elog"}
 codec = { path = "../codec" }
-servant-macro = { path = "../servant-macro" }
+servant-macro = { path = "../servant-macro", optional = true }
 futures_codec = "^0.3.4"
 futures = "^0.3.1"
-serde = { version = "^1.0",features = ["derive"]}
+serde = { version = "^1.0", features = ["derive"]}
 bincode = { version = "^1.2.1" }
 lazy_static = "^1.4.0"
 

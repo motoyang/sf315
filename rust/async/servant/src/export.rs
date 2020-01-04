@@ -1,11 +1,9 @@
 // -- export.rs --
 
-use async_std::task;
-use super::{
-    adapter::AdapterRegister,
-    servant::{Oid, ServantRegister},
+use {
+    crate::{self as servant, AdapterRegister, Oid, ServantRegister},
+    async_std::task,
 };
-use crate as servant;
 
 // --
 
